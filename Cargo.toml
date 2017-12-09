@@ -1,0 +1,15 @@
+[package]
+name = "slime_seed_finder"
+version = "0.1.0"
+authors = ["Badel2 <2badel2@gmail.com>"]
+
+[lib]
+name = "slime_seed_finder"
+
+[dependencies]
+clap = { version = "2", optional = true }
+
+[[bin]]
+name = "slime_seed_finder"
+required-features = ["clap"]
+
