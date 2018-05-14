@@ -56,6 +56,13 @@ fn main() {
              .takes_value(true)
              .required(false)
         )
+        .arg(Arg::with_name("generate_seed_no")
+             .help("Output a list of non slime chunks from this seed, for testing purposes")
+             .long("seed-no")
+             .takes_value(true)
+             .required(false)
+             .conflicts_with("generate_seed")
+        )
         .arg(Arg::with_name("generate_chunks")
              .help("Control how many chunks to generate")
              .short("g")
@@ -74,6 +81,26 @@ fn main() {
         let c = generate_slime_chunks(s, n);
         let mut buf = String::new();
         println!("{} slime chunks for seed {}:", n, s);
+
+        for x in &c {
+            buf.push_str(&format!("{},{}\n", x.x, x.z));
+        }
+
+        println!("{}", buf);
+        if let Some(of) = of {
+            // TODO: proper error handling
+            let mut w = File::create(of).unwrap();
+            write!(w, "{}", buf).unwrap();
+        }
+        return;
+    }
+
+    if let Some(generate_seed) = matches.value_of("generate_seed_no") {
+        let s = generate_seed.parse().unwrap();
+        let n = matches.value_of("generate_chunks").unwrap().parse().unwrap_or(40);
+        let c = generate_no_slime_chunks(s, n);
+        let mut buf = String::new();
+        println!("{} no slime chunks for seed {}:", n, s);
 
         for x in &c {
             buf.push_str(&format!("{},{}\n", x.x, x.z));

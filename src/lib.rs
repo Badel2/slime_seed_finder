@@ -91,11 +91,19 @@ pub fn find_seed(chunks: &str, no_chunks: &str) -> Vec<u64> {
 }
 
 pub fn generate_slime_chunks(seed: i64, limit: usize) -> Vec<Chunk> {
+    generate_slime_chunks_or_not(true, seed, limit)
+}
+
+pub fn generate_no_slime_chunks(seed: i64, limit: usize) -> Vec<Chunk> {
+    generate_slime_chunks_or_not(false, seed, limit)
+}
+
+pub fn generate_slime_chunks_or_not(slime: bool, seed: i64, limit: usize) -> Vec<Chunk> {
     let mut v = Vec::with_capacity(limit);
     for x in 0.. { // yeah just go on forever
         for z in -99..100 {
             let c = Chunk::new(x, z);
-            if is_slime_chunk(seed as u64, &c) {
+            if is_slime_chunk(seed as u64, &c) ^ (!slime) {
                 v.push(c);
                 if v.len() >= limit {
                     return v;
