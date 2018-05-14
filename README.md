@@ -26,3 +26,10 @@ slime_seed_finder -c 1234.txt 1234_and_some_more.txt
 ```
 
 Ideally the program should only output one seed, but we can see this is not the case. To improve it, we can also specify non slime chunks: chunks that can't spawn slimes, with the -n flag. Since it is easy to miss one chunk, there are also options to leave an error margin: -f for slime chunks and -m for non slime chunks. There is also a --help option, which explains the command line usage.
+
+
+### Building wasm gui
+```
+cargo-web build --target=wasm32-unknown-unknown --bin wasm_gui --features="stdweb serde1"
+cp target/release/wasm32-unknown-unknown/wasm_gui.* static/
+```
