@@ -58,7 +58,7 @@ impl SlimeChunks {
         for &l in &self.low_18_candidates {
             let l = l as u64;
             'nextseed: for seed in lo..hi {
-                let seed = (seed << 18) | l;
+                let seed = ((seed as u64) << 18) | l;
 
                 if self.try_seed_skip_18(seed) {
                     println!("Found seed: {:012X}", seed);
