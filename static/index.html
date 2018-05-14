@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>stdweb • slime_seed_finder</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            #chunks, #no_chunks, #output_textarea {
+                width: 30%;
+            }
+            #chunks {
+                background-color: #ded;
+            }
+            #no_chunks {
+                background-color: #edd;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+          <button id="comphdl_start" onClick="runGui()">RUN!</button>
+        </div>
+        List all the slime chunks in the green text area, and all the non slime chunks
+        in the red text area.
+        <div>
+          <textarea id="chunks" class="code" rows="20"></textarea>
+          <textarea id="no_chunks" class="code" rows="20"></textarea>
+          <textarea id="output_textarea" class="code" rows="20" readonly>Found seeds will appear here.</textarea>
+        </div>
+          
+        <script type="text/javascript" src="wasm_gui.js"></script>
+        <script>
+            function runGui() {
+                Rust.wasm_gui.then( function( wasmgui ) {
+                    var chunks = document.getElementById('chunks').value;
+                    var no_chunks = document.getElementById('no_chunks').value;
+                    var outta = document.getElementById('output_textarea');
+                    outta.value = "Calculating...";
+                    // TODO: check if a thread is already running and kill it
+                    outta.value = wasmgui.slime_seed_finder(chunks, no_chunks);
+                });
+            }
+        </script>
+    </body>
+</html>
