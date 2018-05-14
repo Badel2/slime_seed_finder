@@ -46,25 +46,19 @@ impl SlimeChunks {
     }
 
     pub fn find_seed(&self) -> Vec<u64> {
-        self.find_seed_range(0, 1 << 48)
+        self.find_seed_range(0, 1 << (48 - 18))
     }
 
     // Use this to implement multithreading later
-    pub fn find_seed_range(&self, lo: u64, hi: u64) -> Vec<u64> {
+    // Range units are multiples of 2^18: lo=0, hi=1 will search 2^18 seeds
+    pub fn find_seed_range(&self, lo: u32, hi: u32) -> Vec<u64> {
         assert!(lo < hi);
         let mut v = vec![];
 
         for &l in &self.low_18_candidates {
             let l = l as u64;
-            'nextseed: for seed in (lo >> 18)..(hi >> 18) {
+            'nextseed: for seed in lo..hi {
                 let seed = (seed << 18) | l;
-                // TODO: rewrite the loops to skip this 2 checks:
-                if seed < lo {
-                    continue 'nextseed;
-                }
-                if seed >= hi {
-                    break;
-                }
 
                 if self.try_seed_skip_18(seed) {
                     println!("Found seed: {:012X}", seed);
