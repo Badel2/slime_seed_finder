@@ -50,7 +50,8 @@ impl SlimeChunks {
     }
 
     // Use this to implement multithreading later
-    // Range units are multiples of 2^18: lo=0, hi=1 will search 2^18 seeds
+    // Range units are multiples of 2^18: lo=0, hi=1 will search a 2^18 seed
+    // range (runtime depends on number of candidates)
     pub fn find_seed_range(&self, lo: u32, hi: u32) -> Vec<u64> {
         assert!(lo < hi);
         let mut v = vec![];
@@ -109,6 +110,10 @@ impl SlimeChunks {
         }
 
         self.try_seed_skip_18(seed)
+    }
+
+    pub fn num_low_18_candidates(&self) -> usize {
+        self.low_18_candidates.len()
     }
 }
 
@@ -193,6 +198,8 @@ pub fn seed_from_slime_chunks(
     max_noerrors: usize,
 ) -> Vec<u64> {
     let sc = SlimeChunks::new(slimechunks, max_errors, noslimechunks, max_noerrors);
+
+    println!("Found {} 18-bit candidates", sc.low_18_candidates.len());
 
     sc.find_seed()
 }

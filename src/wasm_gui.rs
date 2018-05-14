@@ -12,6 +12,7 @@ extern crate serde_json;
 use stdweb::js_export;
 
 use slime_seed_finder::*;
+use slime_seed_finder::slime::SlimeChunks;
 
 #[cfg(target_arch = "wasm32")]
 fn main(){
@@ -34,7 +35,13 @@ js_deserializable!( Options );
 //    let r = find_seed(chunks_str, no_chunks_str);
 pub fn slime_seed_finder(o: Options) -> String {
     console!(log, "Hello from Rust");
-    let r = find_seed(&o.chunks, &o.no_chunks);
+    let oc = read_chunks(&o.chunks).unwrap();
+    let onc = read_chunks(&o.no_chunks).unwrap();
+    let sc = SlimeChunks::new(&oc, 0, &onc, 0);
+    let num_cand = sc.num_low_18_candidates() as u32;
+    console!(log, format!("Found {} 18-bit candidates", num_cand));
+    let r = sc.find_seed();
+
     format!("Found {} seeds!\n{:#?}", r.len(), r)
 }
 
