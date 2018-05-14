@@ -3,6 +3,10 @@
 extern crate slime_seed_finder;
 #[macro_use]
 extern crate stdweb;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde;
+extern crate serde_json;
 
 #[cfg(target_arch = "wasm32")]
 use stdweb::js_export;
@@ -14,11 +18,23 @@ fn main(){
     // Don't start, wait for user to press button
 }
 
+#[derive(Deserialize, Debug)]
+pub struct Options {
+    #[serde(default)]
+    chunks: String,
+    #[serde(default)]
+    no_chunks: String,
+}
+
+js_deserializable!( Options );
+
 #[cfg(target_arch = "wasm32")]
 #[js_export]
-pub fn slime_seed_finder(chunks_str: &str, no_chunks_str: &str) -> String {
-    let r = find_seed(chunks_str, no_chunks_str);
-
+//pub fn slime_seed_finder(chunks_str: &str, no_chunks_str: &str) -> String {
+//    let r = find_seed(chunks_str, no_chunks_str);
+pub fn slime_seed_finder(o: Options) -> String {
+    console!(log, "Hello from Rust");
+    let r = find_seed(&o.chunks, &o.no_chunks);
     format!("Found {} seeds!\n{:#?}", r.len(), r)
 }
 
