@@ -57,6 +57,8 @@
                         Rust.wasm_gui.then( function( wasmgui ) {
                             // TODO: check if a thread is already running and kill it
                             outta.value = wasmgui.slime_seed_finder(chunks, no_chunks);
+                        }, function( err ) {
+                            console.err(err);
                         });
                     }
             }

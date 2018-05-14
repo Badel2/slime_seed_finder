@@ -6,5 +6,7 @@ onmessage = function(e) {
       var workerResult = wasmgui.slime_seed_finder( {chunks: e.data.chunks, no_chunks: e.data.no_chunks} );
       console.log('Posting message back to main script');
       postMessage(workerResult);
+  }, function( err ) {
+      console.err(err);
   });
 }
