@@ -1,14 +1,16 @@
 use std::num::Wrapping;
 
 // The constants used by the Linear Congruential Generator
-mod lcg_const {
+pub mod lcg_const {
     pub const A: u64 = 0x5DEECE66D;
     pub const C: u64 = 0xB;
 }
 
 // Constants used to reverse operations
-mod lcg_const_extra {
+pub mod lcg_const_extra {
     pub const INV_A: u64 = 0xdfe05bcb1365;
+    pub const INV_A_1: u64 = 18698324575379;
+    pub const INV__INV_A__1: u64 = 192407907957609;
 }
 
 const MASK48: u64 = (1 << 48) - 1;
@@ -93,9 +95,10 @@ impl Rng {
         let c = lcg_const::C;
         let a = lcg_const::A;
         // Modular multiplicative inverse of a-1
-        let a_1_inv = 18698324575379;
+        let a_1_inv = lcg_const_extra::INV_A_1;
         let an = pow_wrapping(a, n as u64);
         //let aes = (an - 1) / (a - 1);
+        // a % 4 == 1, so (a^n - 1) % 4 == 0
         let aes = (an.wrapping_sub(1) >> 2).wrapping_mul(a_1_inv);
         let caa = c.wrapping_mul(aes);
         self.seed = self.seed.wrapping_mul(an).wrapping_add(caa);
@@ -136,8 +139,8 @@ impl Rng {
         loop {
             bits = self.next(31);
             // Check for modulo bias
-            let limit = 2147483640; // last multiple of 10 < 2^31
-            if bits < limit {
+            let limit = (1u32 << 31) / 10 * 10; // last multiple of 10 < 2^31
+            if bits < limit as i32 {
                 break;
             }
         }
@@ -205,7 +208,7 @@ impl Rng {
         let c = lcg_const::C;
         let d: u64 = lcg_const_extra::INV_A;
         // Modular multiplicative inverse of d-1
-        let d_1_inv = 192407907957609;
+        let d_1_inv = lcg_const_extra::INV__INV_A__1;
         let dn = pow_wrapping(d, n as u64);
         //let des = (dn - 1) / (d - 1);
         let des = (dn.wrapping_sub(1) >> 2).wrapping_mul(d_1_inv);
@@ -474,8 +477,9 @@ mod tests {
     #[test]
     fn know_your_constants() {
         assert_eq!(mod_inv(lcg_const::A, 1 << 48), lcg_const_extra::INV_A);
-        assert_eq!(mod_inv((lcg_const_extra::INV_A - 1) >> 2, 1 << 48), 192407907957609);
-        assert_eq!(mod_inv((lcg_const::A - 1) >> 2, 1 << 48), 18698324575379);
+        assert_eq!(mod_inv((lcg_const_extra::INV_A - 1) >> 2, 1 << 48), lcg_const_extra::INV__INV_A__1);
+        assert_eq!(mod_inv((lcg_const::A - 1) >> 2, 1 << 48), lcg_const_extra::INV_A_1);
+        assert_eq!(2147483640, (1u32 << 31) / 10 * 10);
     }
 
     #[test]
