@@ -40,6 +40,54 @@ pub fn slime_seed_finder(o: Options) -> String {
     format!("Found {} seeds!\n{:#?}", r.len(), r)
 }
 
+#[cfg(target_arch = "wasm32")]
+#[js_export]
+pub fn extend48(s: &str) -> String {
+    let x = match s.parse() {
+        Ok(x) => {
+            if x < (1u64 << 48) {
+                x
+            } else {
+                let error_string = format!("Input must be lower than 2^48");
+                console!(error, &error_string);
+                return error_string;
+            }
+        }
+        Err(e) => {
+            let error_string = format!("{}", e);
+            console!(error, &error_string);
+            return error_string;
+        }
+    };
+
+    let r = Rng::extend_long_48(x);
+    let mut s = format!("Found {} seeds!\n", r.len());
+    for seed in r {
+        let seed = seed as i64;
+        s.push_str(&format!("{}\n", seed));
+    }
+
+    s
+}
+
+#[cfg(target_arch = "wasm32")]
+#[js_export]
+pub fn count_candidates(o: Options) -> String {
+    let c = read_chunks(&o.chunks);
+    let nc = read_chunks(&o.no_chunks);
+
+    if let (Ok(c), Ok(nc)) = (c, nc) {
+        if (c.len() == 0) && (nc.len() == 0) {
+            return format!("{} * 2^30 candidates", 1 << 18);
+        }
+        let sc = SlimeChunks::new(&c, 0, &nc, 0);
+        let num_cand = sc.num_low_18_candidates() as u32;
+        return format!("{} * 2^30 candidates", num_cand);
+    }
+
+    format!("")
+}
+
 pub fn find_seed(chunks: &str, no_chunks: &str) -> Vec<u64> {
     let c = read_chunks(chunks);
     let nc = read_chunks(no_chunks);
