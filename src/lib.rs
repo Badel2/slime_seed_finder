@@ -1,8 +1,8 @@
 #![allow(dead_code)]
-pub mod java_rand;
+pub mod java_rng;
 pub mod chunk;
 pub mod slime;
-pub use java_rand::Rng;
+pub use java_rng::Rng;
 pub use chunk::Chunk;
 pub use slime::is_slime_chunk;
 pub use slime::seed_from_slime_chunks;

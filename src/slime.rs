@@ -1,4 +1,4 @@
-use java_rand::Rng;
+use java_rng::Rng;
 use chunk::Chunk;
 use std::num::Wrapping;
 
