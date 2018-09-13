@@ -1,4 +1,5 @@
 language: rust
+cache: cargo
 rust:
 - stable
 - beta
@@ -6,10 +7,11 @@ rust:
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
+  echo $TRAVIS_RUST_VERSION &&
   cargo doc --all-features &&
   cargo install cargo-web &&
   cargo +nightly web build --target=wasm32-unknown-unknown --bin wasm_gui --features="stdweb serde1" &&
-  cp target/release/wasm32-unknown-unknown/wasm_gui.* static/ &&
+  cp target/wasm32-unknown-unknown/release/wasm_gui.* static/ &&
   cp -rf static target/deploy
   cp -rf target/doc target/deploy/doc
   #echo "<meta http-equiv=refresh content=0;url=deploy/index.html>" > target/index.html &&
