@@ -4,8 +4,6 @@ rust:
 - stable
 - beta
 - nightly
-before_script:
-- nc --help
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
@@ -22,4 +20,5 @@ after_success: |
   git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
 env:
   global:
-    secure: C02vWasjMAZWBh24DxzirJq22iwFyDNT/8iOOp2IJt0wMythQJ/+El7WYCh8Ybo9OppsfEq8O3GR5aUXmf+UIjc05hQChoHFNx7Qpj1c8d8si5yXzHroc6jS5jWoHZtNY44G1D5xoahfJjVOK9gxZMn6mxjF9nGYI4KR5pdGR4j+TY3rMijFc9DUM9mLZgPWUDY/HSar5kDgypV8mEbKsiNcSliLdkNP4bRLijYFVBnJkOucGJV/8aLrAuOcT44j5ynpOaFfjT+JbUNhU/M8dnriQ4BNBGol2iOovFpe6MQsgdyr/uiHiuOsP2FVnmvaLFAyRvI/VXsweAv1KAMI6aANXhcXKKMjfaJUjeYHRTNpO2AcH23A2lZ76TuLs+X//D2oL6zIUwm0lLGuGN2Kk0I13cUGNJ0PsPSw33sLLx8OEqrJ9yA5Woo/n30XjCcwT6SBKUSO8crbUBAatZ1+wCehpfwS1qgsvMlxWIumDL7B/kye5spkzM4iaRLhsQne8F4D4N06q6ZGuysmquezf2aSoyqdM2IO9G9CzETO6hLcMeHaTvlbnbz5fBUTseliXltTQEG64BB4XnrSDcQBWWLUHNEbFGjkTxQUzTnSbQQ7BqLOeNyq09rqN0imNHY8zFsKyHArXF9iGZTZN1CTzVsJqRw7p56f1e5hlN0i9e8=
+    secure: "OafeYeAiUHncNGz4xnmMUXhkHynQeoTp93gBb3U6t/D6SeDuRp7b/UivQYG6Wo636zGX37ZKzBnF4QxoA6Dx9QnetpPRNjs9CmxUIL+LL1k0wKCi1TUfSdCGcp4zgabVc/BKafHgdWwl8hDCl/nat7vaWK9WwwfsT6qowHvWw6vPSqoCi4SvXoAn5HzFTwNgEH8fVPlcYsZ2pI5qqSeSkw1CPj5TBLnj8I+n6dyD9235dCnqGD2Zl+w5PnDtWB3ywnranbCtnqBycQPD86YbhOjH/Cmr4mmdWL5gZmYT45utVUXRrJARBMshhEwy3blMA2mcNADdNuu5zygT+qQvPu8/vqtM9xOrEZ3tqBHLsLNSl2WmHulc7hSko5Y9z3j7ZB06NiUreXnJ0P3W0dPqG/OzGJgdNaDXWGAyRyyew4Kp3SwrkDZ09AIT12Gw6b0Vov1Lz+P41gs2BGsLgTLsGWUrrSoHW7ItGf+Za83kJkN2zrGjWQPooIdRA1dLQG0rIyC9vfLoo/W92507HNNeK+RF2ZjnvMjo2QgCBKiHlICxuRkwz1UB0ZALXt7ivEHh0FohxzSpzJENiMSLpfVw74en6h0CyZ2LEIoB0z4uLb/FzN6HTXZd04sYS0DGnpJjzbdRqife0BlVdRusetf0A13ntsS/FeZfmh6AFNgjxlA="
+
