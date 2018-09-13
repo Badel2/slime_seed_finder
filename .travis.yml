@@ -4,6 +4,8 @@ rust:
 - stable
 - beta
 - nightly
+before_script:
+- nc --help
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
