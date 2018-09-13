@@ -3,3 +3,19 @@ rust:
 - stable
 - beta
 - nightly
+after_success: |
+  [ $TRAVIS_BRANCH = master ] &&
+  [ $TRAVIS_PULL_REQUEST = false ] &&
+  cargo doc --all-features &&
+  cargo install cargo-web &&
+  cargo +nightly web build --target=wasm32-unknown-unknown --bin wasm_gui --features="stdweb serde1" &&
+  cp target/release/wasm32-unknown-unknown/wasm_gui.* static/ &&
+  cp -rf static target/deploy
+  cp -rf target/doc target/deploy/doc
+  #echo "<meta http-equiv=refresh content=0;url=deploy/index.html>" > target/index.html &&
+  sudo pip install ghp-import &&
+  ghp-import -n target/deploy &&
+  git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+env:
+  global:
+secure: C02vWasjMAZWBh24DxzirJq22iwFyDNT/8iOOp2IJt0wMythQJ/+El7WYCh8Ybo9OppsfEq8O3GR5aUXmf+UIjc05hQChoHFNx7Qpj1c8d8si5yXzHroc6jS5jWoHZtNY44G1D5xoahfJjVOK9gxZMn6mxjF9nGYI4KR5pdGR4j+TY3rMijFc9DUM9mLZgPWUDY/HSar5kDgypV8mEbKsiNcSliLdkNP4bRLijYFVBnJkOucGJV/8aLrAuOcT44j5ynpOaFfjT+JbUNhU/M8dnriQ4BNBGol2iOovFpe6MQsgdyr/uiHiuOsP2FVnmvaLFAyRvI/VXsweAv1KAMI6aANXhcXKKMjfaJUjeYHRTNpO2AcH23A2lZ76TuLs+X//D2oL6zIUwm0lLGuGN2Kk0I13cUGNJ0PsPSw33sLLx8OEqrJ9yA5Woo/n30XjCcwT6SBKUSO8crbUBAatZ1+wCehpfwS1qgsvMlxWIumDL7B/kye5spkzM4iaRLhsQne8F4D4N06q6ZGuysmquezf2aSoyqdM2IO9G9CzETO6hLcMeHaTvlbnbz5fBUTseliXltTQEG64BB4XnrSDcQBWWLUHNEbFGjkTxQUzTnSbQQ7BqLOeNyq09rqN0imNHY8zFsKyHArXF9iGZTZN1CTzVsJqRw7p56f1e5hlN0i9e8=
