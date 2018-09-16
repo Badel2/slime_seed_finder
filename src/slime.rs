@@ -1,6 +1,7 @@
 use java_rand::Rng;
 use chunk::Chunk;
 use std::num::Wrapping;
+use std::cmp::min;
 
 pub struct SlimeChunks {
     slime_chunks: Vec<Chunk>,
@@ -50,10 +51,11 @@ impl SlimeChunks {
     }
 
     // Use this to implement multithreading later
-    // Range units are multiples of 2^18: lo=0, hi=1 will search a 2^18 seed
-    // range (runtime depends on number of candidates)
-    pub fn find_seed_range(&self, lo: u32, hi: u32) -> Vec<u64> {
-        assert!(lo < hi);
+    // Range units are multiples of 2^18: lo=0, count=1 will search a 2^18 seed
+    // range (runtime depends on number of candidates).
+    // The maximum value for `lo = 0` is 2^30, or `count = 1 << 30`.
+    pub fn find_seed_range(&self, lo: u32, count: u32) -> Vec<u64> {
+        let hi = min(lo + count, 1 << 30);
         let mut v = vec![];
 
         for &l in &self.low_18_candidates {
@@ -127,11 +129,9 @@ mod slime_const {
 }
 
 
-// Wtf, the z is the only variable that affects
-// the high bits [64, 32] of the seed
-// Of course, only 48 bits are used
-//
 // This is the slime chunk algorithm
+// See discussion about optimizations in the test section:
+// constant_z()
 fn calculate_slime_data(c: &Chunk) -> u64 {
     let x = Wrapping(c.x as i32);
     let z = Wrapping(c.z as i32);
@@ -261,6 +261,46 @@ mod tests {
             if !is_slime_chunk(s, c) {
                 panic!("{:?} is not a slime chunk", c);
             }
+        }
+    }
+
+    // Wtf, the z is the only variable that affects
+    // the high bits [64, 32] of the slimedata
+    // ^ Incorrect, if the result of (a+b+d) is negative, instead of
+    // (c >> 32) we have ((c >> 32) - 1): 0x0001LLLLLLLL into 0x0000LLLLLLLL
+    // Of course, only 48 bits are used
+    // BUT if z is small, z * z * C only uses 32 bits anyway, up to
+    // z = 22 (uses 31 bits)
+    // z = 31 (uses 32 bits)
+    // z = 44 (uses 33 bits)
+    // z = 8004 (uses 48 bits)
+    // z = floor(sqrt(2^nbits / slime_const::C));
+    // Anyway, we can just check if the higher n bits are equal, then what?
+    // The higher n bits of the rng_with_slime_data will be the same, but the
+    // call to next() will set them to different values.
+    #[test]
+    fn constant_z() {
+        // Is there any possible optimization if the slime chunks are 
+        // on the z axis?
+        let bits_47_33 = 0xFFFE00000000;
+        let seed = 1;
+        let z = 0;
+        let mut the_same = None;
+        for x in 0..10 {
+            let c = Chunk::new(x, z);
+            let a = calculate_slime_data(&c);
+            let mut r = rng_with_slime_data(seed, a);
+            let hbits = r.get_seed() & bits_47_33;
+            // For z=0, the high bits can be 0x0000 or 0xFFFE, we want
+            // to consider both cases valid so we set 0xFFFE to 0
+            let hbits = if hbits == bits_47_33 { 0 } else { hbits };
+
+            if the_same.is_none() {
+                the_same = Some(hbits);
+            }
+            assert_eq!(hbits, the_same.unwrap());
+            //r.next(31);
+            //println!("{:012X}", r.get_raw_seed());
         }
     }
 }
