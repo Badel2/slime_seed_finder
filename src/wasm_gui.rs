@@ -1,5 +1,3 @@
-#![feature(proc_macro)]
-
 extern crate slime_seed_finder;
 #[macro_use]
 extern crate stdweb;

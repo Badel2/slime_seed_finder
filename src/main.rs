@@ -144,12 +144,12 @@ fn main() {
                 println!("Java seeds: {}\n{:#?}", java_seeds.len(), java_seeds);
                 if let Some(of) = of {
                     // TODO: proper error handling
-                    write_seeds_to_file(&java_seeds, of);
+                    write_seeds_to_file(&java_seeds, of).unwrap();
                 }
             } else {
                 if let Some(of) = of {
                     // TODO: proper error handling
-                    write_seeds_to_file(&seeds, of);
+                    write_seeds_to_file(&seeds, of).unwrap();
                 }
             }
         }
