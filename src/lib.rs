@@ -1,8 +1,21 @@
 #![allow(dead_code)]
-pub mod java_rand;
+#![cfg_attr(feature = "cubiomes_rs", feature(libc))]
+#![cfg_attr(feature = "cubiomes_rs", feature(extern_types))]
+#[macro_use]
+extern crate ndarray;
+#[cfg(feature = "cubiomes_rs")]
+extern crate libc;
+
+pub mod java_rng;
 pub mod chunk;
 pub mod slime;
-pub use java_rand::Rng;
+pub mod biome_layers;
+pub mod mc_rng;
+#[cfg(feature = "cubiomes_rs")]
+pub mod cubiomes_test;
+#[cfg(feature = "cubiomes_rs")]
+pub mod cubiomes_rs;
+pub use java_rng::Rng;
 pub use chunk::Chunk;
 pub use slime::is_slime_chunk;
 pub use slime::seed_from_slime_chunks;
