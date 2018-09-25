@@ -4,6 +4,7 @@ use mc_rng::McRng;
 // are defined as (z * w + x).
 use ndarray::Array2;
 use std::rc::Rc;
+use std::cmp;
 
 // The different Map* layers are copied from
 // https://github.com/Cubitect/cubiomes
@@ -32,6 +33,27 @@ impl Map {
         let (w, h) = self.a.dim();
         Area { x: self.x, z: self.z, w: w as u64, h: h as u64 }
     }
+}
+
+pub fn biome_to_color(id: i32) -> [u8; 4] {
+    let mut id = id as usize;
+    if id > 255 {
+        // Invalid biome but proceed anyway
+        id &= 0xFF;
+    }
+
+    let (r, g, b);
+    if id < 128 {
+        r = BIOME_COLORS[id][0];
+        g = BIOME_COLORS[id][1];
+        b = BIOME_COLORS[id][2];
+    } else {
+        r = cmp::max(0xFF, BIOME_COLORS[id][0] + 40);
+        g = cmp::max(0xFF, BIOME_COLORS[id][1] + 40);
+        b = cmp::max(0xFF, BIOME_COLORS[id][2] + 40);
+    }
+
+    [r, g, b, 255]
 }
 
 /*
@@ -1039,6 +1061,24 @@ fn draw_map(map: &Map) -> String {
     }
 
     s
+}
+
+pub fn generate_image(area: Area, seed: i64) -> Vec<u8> {
+    let map = generate(area, seed);
+    let (w, h) = map.a.dim();
+    let mut v = vec![0; w*h*4];
+    for x in 0..w {
+        for z in 0..h {
+            let color = biome_to_color(map.a[(x, z)]);
+            let i = z * h + x;
+            v[i*4+0] = color[0];
+            v[i*4+1] = color[1];
+            v[i*4+2] = color[2];
+            v[i*4+3] = color[3];
+        }
+    }
+
+    v
 }
 
 pub fn generate(a: Area, world_seed: i64) -> Map {
