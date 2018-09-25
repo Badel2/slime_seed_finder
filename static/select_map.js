@@ -4,6 +4,8 @@
 
 // Original file from:
 // https://github.com/mozdevs/gamedev-js-tiles
+// Modified version can be found at:
+// https://github.com/Badel2/inf-proc-gen-tilemap
 
 var map = {
     tsize: 32,

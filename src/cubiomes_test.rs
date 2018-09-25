@@ -2,8 +2,7 @@ use biome_layers::*;
 // TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
 // are defined as (z * w + x).
-use cubiomes_rs::layers;
-use cubiomes_rs::generator;
+use cubiomes_rs::{biome_util, layers, generator};
 use cubiomes_rs::generator::{allocCache, applySeed, freeGenerator, genArea, setupGeneratorMC17};
 //use cubiomes_rs::rendermaplayers::getMapForLayerIdx;
 use libc;
@@ -29,6 +28,12 @@ pub unsafe extern "C" fn getMapForLayerIdx(
     genArea(l, cache, areaX, areaZ, areaWidth, areaHeight);
     freeGenerator(g);
     return cache;
+}
+
+pub unsafe fn biome_colors() -> [[u8; 3]; 256] {
+    let mut biome: [[u8; 3]; 256] = [[0; 3]; 256];
+    biome_util::initBiomeColours(biome.as_mut_ptr());
+    biome
 }
 
 pub fn call_layer(idx: usize, world_seed: i64, a: Area) -> Map {
@@ -269,5 +274,13 @@ mod tests {
                 assert_eq!((i, r1.next_int_n(10)), (i, generator::mcNextInt(&mut l, 10)));
             }
         }
+    }
+
+    #[test]
+    fn biome_colors_t() {
+        use biome_layers::BIOME_COLORS;
+        let biome_colors = unsafe { biome_colors() };
+        println!("{:?}", &biome_colors[..]);
+        assert_eq!(&biome_colors[..], &BIOME_COLORS[..]);
     }
 }
