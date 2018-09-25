@@ -23,6 +23,7 @@
         <strong>Under construction.</strong><br>
         <div style="width: 100%;">
         <div style="float: left; width: 50%;">
+            <input type="text" id="worldSeed" placeholder="Enter world seed">
             <canvas id="demo" width="512" height="512"></canvas>
             <div id="position_info"></div>
             <div>
@@ -89,7 +90,11 @@
             // a HTML canvas
             function generateFragmentB(fx, fy) {
                 return Rust.wasm_gui.then( function( wasmgui ) {
-                    var seed = 1234; // TODO
+                    var ws = document.getElementById('worldSeed');
+                    // Since js doesnt support 64 bit ints, we just pass
+                    // the string to the Rust code, it will be parsed there
+                    var seed = ws.value;
+                    console.log("Seed: " + seed);
                     console.log("Generating fragment: " + fx + ", " + fy);
                     var rvec = wasmgui.generate_fragment(fx, fy, seed);
                     console.log("Copying to canvas: " + fx + ", " + fy);
@@ -131,6 +136,12 @@
             }
 
             map.generateFragment = generateFragmentB;
+
+            var ws = document.getElementById('worldSeed');
+            ws.oninput = function() {
+                // Regenerate map when seed changes
+                Game.clear();
+            };
         </script>
     </body>
 </html>

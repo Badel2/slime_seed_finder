@@ -113,7 +113,13 @@ pub fn find_seed(o: Options) -> Vec<u64> {
 
 #[cfg(target_arch = "wasm32")]
 #[js_export]
-pub fn generate_fragment(fx: i32, fy: i32, seed: i64) -> Vec<u8> {
+pub fn generate_fragment(fx: i32, fy: i32, seed: String) -> Vec<u8> {
+    let seed = if let Ok(s) = seed.parse() {
+        s
+    } else {
+        console!(error, format!("{} is not a valid seed", seed));
+        return vec![0; 128*128*4];
+    };
     // Fragment size: 128x128
 
     let last_layer = 43;

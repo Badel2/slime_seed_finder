@@ -284,7 +284,11 @@ Game.clickTile = function(x, y) {
 Game.getSelection = function(layer, value) {
 };
 
-Game.clearSelection = function(layer) {
+Game.clear = function(layer) {
+    map.layers.forEach(l => {
+        l.clear();
+    });
+    this.dirty = true;
 };
 
 Game.setSelection = function(layer, value, keys) {
