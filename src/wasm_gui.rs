@@ -5,15 +5,17 @@ extern crate stdweb;
 extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
+extern crate palette;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 use stdweb::js_export;
+use palette::{Gradient, LinSrgb};
 
 use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 fn main(){
     // Don't start, wait for user to press button
 }
@@ -28,7 +30,7 @@ pub struct Options {
 
 js_deserializable!( Options );
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 //pub fn slime_seed_finder(chunks_str: &str, no_chunks_str: &str) -> String {
 //    let r = find_seed(chunks_str, no_chunks_str);
@@ -39,7 +41,7 @@ pub fn slime_seed_finder(o: Options) -> String {
     format!("Found {} seeds!\n{:#?}", r.len(), r)
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn extend48(s: &str) -> String {
     let x = match s.parse() {
@@ -69,7 +71,7 @@ pub fn extend48(s: &str) -> String {
     s
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn count_candidates(o: Options) -> String {
     let c: Vec<_> = o.chunks.into_iter().map(|c| Chunk::new(c[0], c[1])).collect();
@@ -110,7 +112,7 @@ pub fn find_seed(o: Options) -> Vec<u64> {
     seeds
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: i32) -> Vec<u8> {
     let frag_size = frag_size as usize;
@@ -130,7 +132,7 @@ pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: i32) -> Vec<
     v
 }
 
-pub fn slime_to_color(id: u32, total: u32) -> [u8; 4] {
+pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4] {
     assert!(id <= total);
     // Gradient from red to green
     // http://blogs.perl.org/users/ovid/2010/12/perl101-red-to-green-gradient.html
@@ -142,21 +144,16 @@ pub fn slime_to_color(id: u32, total: u32) -> [u8; 4] {
     if id == 0 {
         // red
         [0xFF, 0x00, 0x00, 0xFF]
-    } else if num < middle {
-        // black - yellow
-        let g = num;
-        [g, g, 0x00, 0xFF]
-    } else if id != total {
-        // yellow - green
-        let r = 255 - (num - middle);
-        [r, 0xFF, 0x00, 0xFF]
-    } else {
+    } else if id == total {
         // white
         [0xFF, 0xFF, 0xFF, 0xFF]
+    } else {
+        let color = grad1.get(id as f32 / total as f32);
+        [(color.red * 255.0) as u8, (color.green * 255.0) as u8, (color.blue * 255.0) as u8, 0xFF]
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_size: usize) -> Vec<u8> {
     let seeds: Vec<u64> = seeds.into_iter().map(|s| s.parse().unwrap_or_else(|s| {
@@ -185,9 +182,15 @@ pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_si
             }
         }
     }
+
+    let grad1 = Gradient::new(vec![
+        LinSrgb::new(0.0, 0.0, 0.0),
+        LinSrgb::new(1.0, 1.0, 0.0),
+        LinSrgb::new(0.0, 1.0, 0.0),
+    ]);
     let mut v = vec![0; w*h*4];
     for i in 0..w*h {
-        let color = slime_to_color(map_sum[i], num_seeds as u32);
+        let color = slime_to_color(map_sum[i], num_seeds as u32, &grad1);
         v[i*4+0] = color[0];
         v[i*4+1] = color[1];
         v[i*4+2] = color[2];
@@ -197,7 +200,7 @@ pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_si
     v
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn add_2_48(seed: String) -> String {
     if let Ok(s) = seed.parse::<i64>() {
@@ -207,7 +210,7 @@ pub fn add_2_48(seed: String) -> String {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn sub_2_48(seed: String) -> String {
     if let Ok(s) = seed.parse::<i64>() {
@@ -217,7 +220,7 @@ pub fn sub_2_48(seed: String) -> String {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 #[js_export]
 pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> String {
     let base: i64 = base.parse().unwrap();
