@@ -1730,6 +1730,150 @@ impl GetMap for MapSmooth {
     }
 }
 
+fn reduce_id(id: i32) -> i32 {
+    if id >= 2 {
+        2 + (id & 1)
+    } else {
+        id
+    }
+}
+
+pub struct MapRiver {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<GetMap>>,
+}
+
+impl MapRiver {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapRiver {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x - 1,
+                z: area.z - 1,
+                w: area.w + 2,
+                h: area.h + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let mut map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use self::biome_id::*;
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x + 1,
+            z: pmap.z + 1,
+            w: p_w as u64 - 2,
+            h: p_h as u64 - 2
+        };
+        let mut m = Map::new(area);
+        for z in 0..area.h as usize {
+            for x in 0..area.w as usize {
+                let v11 = reduce_id(pmap.a[(x+1, z+1)]);
+                let v10 = reduce_id(pmap.a[(x+1, z+0)]);
+                let v21 = reduce_id(pmap.a[(x+2, z+1)]);
+                let v01 = reduce_id(pmap.a[(x+0, z+1)]);
+                let v12 = reduce_id(pmap.a[(x+1, z+2)]);
+
+                m.a[(x, z)] = if v11 == v01 && v11 == v10 && v11 == v21 && v11 == v12 {
+                    -1
+                } else {
+                    river
+                };
+            }
+        }
+
+        m
+    }
+}
+
+pub struct MapRiverMix {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent1: Option<Rc<GetMap>>,
+    pub parent2: Option<Rc<GetMap>>,
+}
+
+impl MapRiverMix {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent1: None, parent2: None }
+    }
+    pub fn get_map_from_pmap12(&self, pmap1: &Map, pmap2: &Map) -> Map {
+        use self::biome_id::*;
+        let (p_w, p_h) = pmap1.a.dim();
+        {
+            // Check that both maps are of same size and coords
+            assert_eq!(pmap1.area(), pmap2.area());
+        }
+        let mut m = pmap1.clone();
+        for z in 0..p_h as usize {
+            for x in 0..p_w as usize {
+                let buf = pmap1.a[(x, z)];
+                let out = pmap2.a[(x, z)];
+                m.a[(x, z)] = if is_oceanic(buf) {
+                    buf
+                } else {
+                    if out == river {
+                        if buf == icePlains {
+                            frozenRiver
+                        } else if buf == mushroomIsland || buf == mushroomIslandShore {
+                            mushroomIslandShore
+                        } else {
+                            out & 0xFF
+                        }
+                    } else {
+                        buf
+                    }
+                };
+            }
+        }
+
+        m
+    }
+}
+
+impl GetMap for MapRiverMix {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let (Some(ref parent1), Some(ref parent2)) = (&self.parent1, &self.parent2) {
+            let parea = Area {
+                x: area.x,
+                z: area.z,
+                w: area.w,
+                h: area.h
+            };
+            let pmap1 = parent1.get_map(parea);
+            let pmap2 = parent2.get_map(parea);
+
+            let mut map = self.get_map_from_pmap12(&pmap1, &pmap2);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parents not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        panic!("MapRiverMix requires 2 pmaps!")
+    }
+}
+
 // Works 99.9 % of the time*
 // p = 0.9992 for each tile
 // The probability of having at least one error in a 30x30 area is 50%
@@ -1835,8 +1979,9 @@ pub fn generate(a: Area, world_seed: i64) -> Map {
     g21.parent = Some(Rc::new(g20));
     let mut g22 = MapRiverInit::new(100, world_seed);
     g22.parent = Some(g17.clone());
+    let g22 = Rc::new(g22);
     let mut g23 = MapZoom::new(1000, world_seed);
-    g23.parent = Some(Rc::new(g22));
+    g23.parent = Some(g22.clone());
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
     let mut g25 = MapHills::new(1000, world_seed);
@@ -1858,8 +2003,29 @@ pub fn generate(a: Area, world_seed: i64) -> Map {
     g32.parent = Some(Rc::new(g31));
     let mut g33 = MapSmooth::new(1000, world_seed);
     g33.parent = Some(Rc::new(g32));
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(g22.clone());
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    let mut g40 = MapRiver::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+    let mut g42 = MapRiverMix::new(100, world_seed);
+    g42.parent1 = Some(Rc::new(g33));
+    g42.parent2 = Some(Rc::new(g41));
+    let mut g43 = MapVoronoiZoom::new(10, world_seed);
+    g43.parent = Some(Rc::new(g42));
 
-    let m1 = g33.get_map(a);
+    let m1 = g43.get_map(a);
     m1
 }
 
@@ -2010,6 +2176,12 @@ mod tests {
                 assert_eq!(map.z, a.z);
             }
         }
+    }
+
+    #[test]
+    fn generate_t() {
+        let a = Area { x: 0, z: 0, w: 100, h: 100 };
+        generate(a, 1234);
     }
 }
 
