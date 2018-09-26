@@ -43,13 +43,13 @@ Loader.getImage = function (key) {
 
 var Game = {};
 
-Game.run = function (context) {
+Game.run = function (context, tsize, canvasW, canvasH) {
     this.ctx = context;
     this._previousElapsed = 0;
 
     var p = this.load();
     Promise.all(p).then(function (loaded) {
-        this.init();
+        this.init(tsize, canvasW, canvasH);
         window.requestAnimationFrame(this.tick);
     }.bind(this));
 };
@@ -209,7 +209,10 @@ window.onload = function () {
         }, { maxLength: 20 });
     }
 
-    Game.run(context);
+    var tsize = 256;
+    var canvasW = elem.style.width;
+    var canvasH = elem.style.height;
+    Game.run(context, tsize, canvasW, canvasH);
 };
 
 function load_selection() {

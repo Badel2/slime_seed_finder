@@ -8,7 +8,7 @@
 // https://github.com/Badel2/inf-proc-gen-tilemap
 
 var map = {
-    tsize: 32,
+    tsize: 1,
     // 2 layers
     layers: Array(2).fill(new Map()),
     getTile: function (layer, col, row) {
@@ -34,7 +34,7 @@ function Camera(map, width, height) {
     this.y = 0;
     this.width = width;
     this.height = height;
-    this.scale = 1.0;
+    this.scale = 32.0;
     this.tsize = map.tsize * this.scale;
 }
 
@@ -73,7 +73,9 @@ Game.load = function () {
     ];
 };
 
-Game.init = function () {
+// args are currently ignored
+Game.init = function (tsize, canvasW, canvasH) {
+    map.tsize = 1;
     this.tileAtlas = Loader.getImage('tiles');
     this.camera = new Camera(map, 512, 512);
     this.showGrid = true;

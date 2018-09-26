@@ -17,62 +17,12 @@ function mod(x, m) {
     return a;
 }
 
-var FRAG_SIZE = 256;
+//var FRAG_SIZE = 256;
 var CANVAS_W = 720;
 var CANVAS_H = 480;
 
-function generateTile(x, y) {
-    //return [mod((x * 123 + y * y * 37), 255), 0, 0, 255];
-    var fx = Math.floor(x / FRAG_SIZE);
-    var fy = Math.floor(y / FRAG_SIZE);
-    // Just some testing pattern where each fragment is easy to distinguish
-    var mx = mod(x, 256);
-    var my = mod(y, 256);
-    var mxy = mod(x+y, 2) * 255;
-    var mm = mod(fy, 2) == 0 ? mx : my;
-    switch (mod(fx+fy*3, 9)) {
-        case 0: case 2: case 6: case 8: return [0, mxy, mm, 255];
-        case 1: case 3: case 5: case 7: return [mm, mxy, 0, 255];
-        case 4: return [mxy, mm, 0, 255];
-    }
-}
-
-function generateFragment(fx, fy) {
-    return new Promise(
-        function(resolve, reject) {
-            console.log("Generating fragment: " + fx + ", " + fy);
-            // Create off-screen canvas
-            var c = document.createElement('canvas');
-            c.width = FRAG_SIZE;
-            c.height = FRAG_SIZE;
-            var ctx = c.getContext('2d');
-            // Generate fragment
-            var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
-            for(var x=0; x<FRAG_SIZE; x++) {
-                for(var y=0; y<FRAG_SIZE; y++) {
-                    var pixel = generateTile(fx * FRAG_SIZE + x, fy * FRAG_SIZE + y);
-                    var i = ((y * FRAG_SIZE) + x) * 4;
-                    var colorIndices = [i, i+1, i+2, i+3];
-
-                    var redIndex = colorIndices[0];
-                    var greenIndex = colorIndices[1];
-                    var blueIndex = colorIndices[2];
-                    var alphaIndex = colorIndices[3];
-
-                    imageData.data[redIndex] = pixel[0];
-                    imageData.data[greenIndex] = pixel[1];
-                    imageData.data[blueIndex] = pixel[2];
-                    imageData.data[alphaIndex] = pixel[3];
-                }
-            }
-            ctx.putImageData(imageData, 0, 0);
-            resolve(c);
-        }
-    );
-}
-
 var map = {
-    tsize: FRAG_SIZE,
+    tsize: null,
     // 2 layers
     layers: Array(2).fill(new Map()),
     generating: Array(2).fill(new Set()),
@@ -96,7 +46,7 @@ var map = {
         }
         return frag;
     },
-    generateFragment: generateFragment,
+    generateFragment: null,
 };
 
 function Camera(map, width, height) {
@@ -149,7 +99,8 @@ Game.load = function () {
     ];
 };
 
-Game.init = function () {
+Game.init = function (tsize, canvasH, canvasW) {
+    map.tsize = tsize;
     this.tileAtlas = Loader.getImage('tiles');
     this.camera = new Camera(map, CANVAS_W, CANVAS_H);
     this.showGrid = true;
