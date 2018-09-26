@@ -1111,7 +1111,7 @@ impl GetMap for MapBiome {
         for z in 0..p_h as usize {
             for x in 0..p_w as usize {
                 let mut id = pmap.a[(x, z)];
-                let has_high_bit = (id & 0xf00 >> 8) != 0;
+                let has_high_bit = ((id & 0xf00) >> 8) != 0;
                 id &= -0xf01;
                 if get_biome_type(id) == Ocean || id == mushroomIsland {
                     m.a[(x, z)] = id;
@@ -1608,7 +1608,7 @@ impl GetMap for MapShore {
                    } else {
                        mushroomIslandShore
                    }
-                } else if biome < 128 && get_biome_type(biome) == Jungle {
+                } else if /* biome < 128 && */ get_biome_type(biome) == Jungle {
                     if is_biome_JFTO(v10) && is_biome_JFTO(v21) && is_biome_JFTO(v01) && is_biome_JFTO(v12) {
                         if !is_oceanic(v10) && !is_oceanic(v21) && !is_oceanic(v01) && !is_oceanic(v12) {
                             v11
