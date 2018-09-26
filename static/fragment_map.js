@@ -221,19 +221,20 @@ Game._drawLayer = function (layer) {
     // Draw grid lines
     if (this.showGrid) {
         // Returns fragment coords
+        var mtsize = Math.max(this.gridSize, map.tsize);
         var xy = this.mouse_coords_to_game_coords_float(0, 0);
-        var startCol = Math.floor(xy[0]) * map.tsize;
-        var startRow = Math.floor(xy[1]) * map.tsize;
+        var startCol = Math.floor(xy[0]) * mtsize;
+        var startRow = Math.floor(xy[1]) * mtsize;
         var xy = this.mouse_coords_to_game_coords_float(CANVAS_W, CANVAS_H);
-        var endCol= Math.floor(xy[0] + 1) * map.tsize;
-        var endRow = Math.floor(xy[1] + 1) * map.tsize;
+        var endCol= Math.floor(xy[0] + 1) * mtsize;
+        var endRow = Math.floor(xy[1] + 1) * mtsize
 
         this.ctx.strokeStyle = "#AAA";
         this.ctx.lineWidth = 1;
         // c and r are world-coordinates
         for (var c = startCol; c <= endCol; c += this.gridSize) {
             // Convert c to fragment-coordinates, and then to mouse/canvas coordinates
-            var x = this.game_coords_to_mouse_coords_float(c / map.tsize, 0)[0];
+            var x = this.game_coords_to_mouse_coords_float(c / mtsize, 0)[0];
             x = Math.round(x);
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
@@ -241,7 +242,7 @@ Game._drawLayer = function (layer) {
             this.ctx.stroke();
         }
         for (var r = startRow; r <= endRow; r += this.gridSize) {
-            var y = this.game_coords_to_mouse_coords_float(0, r / map.tsize)[1];
+            var y = this.game_coords_to_mouse_coords_float(0, r / mtsize)[1];
             y = Math.round(y);
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
