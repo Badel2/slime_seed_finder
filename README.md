@@ -13,6 +13,9 @@ There is a work in progress WebAssembly demo available at:
 Also, a biome viewer (like AMIDST but without structures):
 <https://badel2.github.io/slime_seed_finder/biomes.html>
 
+And a slime map which can be used to compare multiple seeds:
+<https://badel2.github.io/slime_seed_finder/slime_map.html>
+
 ### Local instalation
 To build this project you need to install the Rust programming language. Follow the instructions on https://rustup.rs
 Then, run the following commands
