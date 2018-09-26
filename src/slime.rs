@@ -1,5 +1,6 @@
 use java_rng::Rng;
 use chunk::Chunk;
+use biome_layers::{Area, Map};
 use std::num::Wrapping;
 use std::cmp::min;
 
@@ -202,6 +203,17 @@ pub fn seed_from_slime_chunks(
     println!("Found {} 18-bit candidates", sc.low_18_candidates.len());
 
     sc.find_seed()
+}
+
+pub fn gen_map_from_seed(area: Area, seed: u64) -> Map {
+    let mut m = Map::new(area);
+    for i in 0..area.w as usize {
+        for j in 0..area.h as usize {
+            m.a[(i, j)] = is_slime_chunk(seed, &Chunk::new(area.x as i32 + i as i32, area.z as i32 + j as i32)) as i32;
+        }
+    }
+
+    m
 }
 
 #[cfg(test)]

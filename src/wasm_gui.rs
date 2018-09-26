@@ -130,6 +130,73 @@ pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: i32) -> Vec<
     v
 }
 
+pub fn slime_to_color(id: u32, total: u32) -> [u8; 4] {
+    assert!(id <= total);
+    // Gradient from red to green
+    // http://blogs.perl.org/users/ovid/2010/12/perl101-red-to-green-gradient.html
+
+    let num = id * 255 / total;
+    let num = num as u8;
+    let middle = 255 / 2;
+
+    if id == 0 {
+        // red
+        [0xFF, 0x00, 0x00, 0xFF]
+    } else if num < middle {
+        // black - yellow
+        let g = num;
+        [g, g, 0x00, 0xFF]
+    } else if id != total {
+        // yellow - green
+        let r = 255 - (num - middle);
+        [r, 0xFF, 0x00, 0xFF]
+    } else {
+        // white
+        [0xFF, 0xFF, 0xFF, 0xFF]
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[js_export]
+pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_size: usize) -> Vec<u8> {
+    let seeds: Vec<u64> = seeds.into_iter().map(|s| s.parse().unwrap_or_else(|s| {
+        console!(error, format!("{} is not a valid seed", s));
+        panic!("{} is not a valid seed", s);
+    })).collect();
+
+    let frag_size = frag_size as u64;
+    let area = Area { x: fx as i64 * frag_size as i64, z: fy as i64 * frag_size as i64, w: frag_size, h: frag_size};
+    //let last_layer = 43;
+    let num_seeds = seeds.len();
+    if num_seeds > (0x10000) { // 65k seeds
+        console!(log, "This may take a while");
+    }
+    let (w, h) = (area.w as usize, area.h as usize);
+    let mut map_sum = vec![0; w*h];
+    for seed in seeds {
+        let map = slime::gen_map_from_seed(area, seed);
+        for x in 0..w {
+            for z in 0..h {
+                let is_slime_chunk = map.a[(x, z)] != 0;
+                if is_slime_chunk {
+                    let i = z * h + x;
+                    map_sum[i] += 1;
+                }
+            }
+        }
+    }
+    let mut v = vec![0; w*h*4];
+    for i in 0..w*h {
+        let color = slime_to_color(map_sum[i], num_seeds as u32);
+        v[i*4+0] = color[0];
+        v[i*4+1] = color[1];
+        v[i*4+2] = color[2];
+        v[i*4+3] = color[3];
+    }
+
+    v
+}
+
 #[cfg(target_arch = "wasm32")]
 #[js_export]
 pub fn add_2_48(seed: String) -> String {
@@ -148,4 +215,23 @@ pub fn sub_2_48(seed: String) -> String {
     } else {
         seed
     }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[js_export]
+pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> String {
+    let base: i64 = base.parse().unwrap();
+    let n: i64 = n.parse().unwrap();
+    let bits: usize = bits.parse().unwrap();
+
+    let sign = if n > 0 { 1 } else { -1 };
+    let n = n * sign; //abs(n)
+
+    let mut s = String::new();
+    for i in 0..n {
+        let x = base + i * sign * (1 << bits);
+        s.push_str(&format!("{},\n", x));
+    }
+
+    s
 }
