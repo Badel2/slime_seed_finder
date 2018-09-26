@@ -1465,7 +1465,7 @@ impl GetMap for MapHills {
     }
 
     // pmap has 1 wide margin on each size: pmap.w == map.w + 2
-    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+    fn get_map_from_pmap(&self, _pmap: &Map) -> Map {
         panic!("MapHills requires 2 pmaps!");
     }
 }
@@ -1590,7 +1590,6 @@ impl GetMap for MapShore {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        let mut r = McRng::new(self.base_seed, self.world_seed);
         for z in 0..area.h as usize {
             for x in 0..area.w as usize {
                 let mut v11 = pmap.a[(x+1, z+1)];
@@ -1869,7 +1868,7 @@ impl GetMap for MapRiverMix {
     }
 
     // pmap has no margin: pmap.w == map.w
-    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+    fn get_map_from_pmap(&self, _pmap: &Map) -> Map {
         panic!("MapRiverMix requires 2 pmaps!")
     }
 }
