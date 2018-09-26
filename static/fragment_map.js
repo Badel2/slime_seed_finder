@@ -17,7 +17,9 @@ function mod(x, m) {
     return a;
 }
 
-var FRAG_SIZE = 512;
+var FRAG_SIZE = 1024;
+var CANVAS_W = 720;
+var CANVAS_H = 480;
 
 function generateTile(x, y) {
     //return [mod((x * 123 + y * y * 37), 255), 0, 0, 255];
@@ -102,7 +104,7 @@ function Camera(map, width, height) {
     this.y = 0;
     this.width = width;
     this.height = height;
-    this.scale = 8.0;
+    this.scale = 1.0;
     // If tsize is not integer, white lines appear between fragments
     this.tsize = Math.round(map.tsize * this.scale);
 }
@@ -149,7 +151,7 @@ Game.load = function () {
 
 Game.init = function () {
     this.tileAtlas = Loader.getImage('tiles');
-    this.camera = new Camera(map, 512, 512);
+    this.camera = new Camera(map, CANVAS_W, CANVAS_H);
     this.showGrid = true;
     var gs = document.getElementById('gridSize');
     if (gs) {
@@ -161,11 +163,11 @@ Game.init = function () {
     } else {
         this.gridSize = map.tsize;
     }
-    this.centerAt(0, 0);
+    this.centerAtBlock(0, 0);
     this.layerCanvas = map.layers.map(function() {
         var c = document.createElement('canvas');
-        c.width = 512;
-        c.height = 512;
+        c.width = CANVAS_W;
+        c.height = CANVAS_H;
         return c;
     });
     // Disable smoothing, we want a sharp pixelated image
@@ -222,7 +224,7 @@ Game._drawLayer = function (layer) {
         var xy = this.mouse_coords_to_game_coords_float(0, 0);
         var startCol = Math.floor(xy[0]) * map.tsize;
         var startRow = Math.floor(xy[1]) * map.tsize;
-        var xy = this.mouse_coords_to_game_coords_float(512, 512);
+        var xy = this.mouse_coords_to_game_coords_float(CANVAS_W, CANVAS_H);
         var endCol= Math.floor(xy[0] + 1) * map.tsize;
         var endRow = Math.floor(xy[1] + 1) * map.tsize;
 
@@ -235,7 +237,7 @@ Game._drawLayer = function (layer) {
             x = Math.round(x);
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, 512);
+            this.ctx.lineTo(x, CANVAS_H);
             this.ctx.stroke();
         }
         for (var r = startRow; r <= endRow; r += this.gridSize) {
@@ -243,7 +245,7 @@ Game._drawLayer = function (layer) {
             y = Math.round(y);
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
-            this.ctx.lineTo(512, y);
+            this.ctx.lineTo(CANVAS_W, y);
             this.ctx.stroke();
         }
     }
@@ -254,7 +256,7 @@ Game.render = function () {
     this.dirty = false;
     // clear previous frame
     this.ctx.fillStyle = "white";
-    this.ctx.fillRect(0, 0, 512, 512);
+    this.ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     // draw map background layer
     this._drawLayer(0);
     // draw map top layer

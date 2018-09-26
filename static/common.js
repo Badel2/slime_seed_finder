@@ -202,7 +202,7 @@ window.onload = function () {
 
     // Update selection textarea
     var seltextarea = document.getElementById('selection_output');
-    if (seltextarea.value == "") {
+    if (seltextarea && seltextarea.value == "") {
         seltextarea.value = stringify({
             slime_chunks: Game.getSelection(0, 1),
             slime_chunks_not: Game.getSelection(0, 2)
