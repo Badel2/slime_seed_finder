@@ -109,11 +109,22 @@
 
             // Wrapper class
             function Wrapper() {
-                this.worker = new Worker('./worker_b.js')
-                this.worker.onmessage = handleMsg
+                this.maxWorkers = navigator.hardwareConcurrency || 4;
+                console.log("Creating " + this.maxWorkers + " workers");
+                this.workers = Array(this.maxWorkers).fill(new Worker('./worker_b.js'));
+                for (var i=0; i<this.maxWorkers; i++) {
+                    this.workers[i].onmessage = handleMsg;
+                }
+                this.incr = 0;
             }
             Wrapper.prototype.sendMsg = function(payload) {
-                return sendMsg(payload, this.worker);
+                // Pooling strategy: send one message to each worker
+                this.incr++;
+                if(this.incr >= this.maxWorkers) {
+                    this.incr = 0;
+                }
+                payload.threadId = this.incr;
+                return sendMsg(payload, this.workers[this.incr]);
             }
 
             const work1 = new Wrapper();
@@ -128,7 +139,9 @@
                     // the string to the Rust code, it will be parsed there
                     var seed = ws.value;
                     return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE }).then(function(e) {
+                        /*
                         console.log("Copying to canvas: " + fx + ", " + fy);
+                        */
                         // Create off-screen canvas
                         var c = document.createElement('canvas');
                         c.width = FRAG_SIZE;
