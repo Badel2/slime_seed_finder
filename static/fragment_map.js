@@ -17,7 +17,7 @@ function mod(x, m) {
     return a;
 }
 
-var FRAG_SIZE = 1024;
+var FRAG_SIZE = 256;
 var CANVAS_W = 720;
 var CANVAS_H = 480;
 
