@@ -8,12 +8,8 @@ after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
   [ $TRAVIS_RUST_VERSION = nightly ] &&
-  cargo doc --all-features &&
-  cargo install cargo-web &&
-  cargo +nightly web build --target=wasm32-unknown-unknown --bin wasm_gui --features="stdweb serde1" &&
-  cp target/wasm32-unknown-unknown/release/wasm_gui.* static/ &&
-  cp -rf static target/deploy
-  cp -rf target/doc target/deploy/doc
+  ./ci/install_cargo_web.sh &&
+  ./ci/build_demo.sh &&
   #echo "<meta http-equiv=refresh content=0;url=deploy/index.html>" > target/index.html &&
   sudo pip install ghp-import &&
   ghp-import -n target/deploy &&
