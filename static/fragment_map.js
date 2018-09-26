@@ -73,19 +73,24 @@ var map = {
     tsize: FRAG_SIZE,
     // 2 layers
     layers: Array(2).fill(new Map()),
+    generating: Array(2).fill(new Set()),
     getFragment: function (layer, fx, fy) {
         var k = fx + "," + fy;
         var frag = this.layers[layer].get(k);
-        var this_layer = this.layers[layer];
         if (frag == undefined) {
-            this.generateFragment(fx, fy).then(function(value) {
-                //console.log(value); // Success!
-                console.log("Finished generating fragment: " + fx + ", " + fy);
-                this_layer.set(k, value);
-                Game.dirty = true;
-            }, function(reason) {
-                console.error(reason); // Error!
-            });
+            // Check if we are already generating this fragment...
+            if (!this.generating[layer].has(k)) {
+                this.generating[layer].add(k);
+                var this_layer = this.layers[layer];
+                this.generateFragment(fx, fy).then(function(value) {
+                    //console.log(value); // Success!
+                    console.log("Finished generating fragment: " + fx + ", " + fy);
+                    this_layer.set(k, value);
+                    Game.dirty = true;
+                }, function(reason) {
+                    console.error(reason); // Error!
+                });
+            }
         }
         return frag;
     },
@@ -285,9 +290,8 @@ Game.getSelection = function(layer, value) {
 };
 
 Game.clear = function(layer) {
-    map.layers.forEach(l => {
-        l.clear();
-    });
+    map.layers = Array(2).fill(new Map());
+    map.generating = Array(2).fill(new Set());
     this.dirty = true;
 };
 

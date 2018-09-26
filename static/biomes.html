@@ -58,81 +58,118 @@
           
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
-            if (window.Worker) {
-                var myWorker = new Worker("worker.js");
+            // Hacks to make workers return promises
+            // https://codeburst.io/promises-for-the-web-worker-9311b7831733
+            const resolves = {}
+            const rejects = {}
+            let globalMsgId = 0
+
+            // Activate calculation in the worker, returning a promise
+            function sendMsg(payload, worker){
+              const msgId = globalMsgId++
+              const msg = {
+                id: msgId,
+                payload
+              }
+
+              return new Promise(function (resolve, reject) {
+                // save callbacks for later
+                resolves[msgId] = resolve
+                rejects[msgId] = reject
+
+                worker.postMessage(msg)
+              })
             }
-            function runGui() {
-                    var seltextarea = document.getElementById('selection_output');
-                    var s = JSON.parse(seltextarea.value);
-                    var chunks = s.slime_chunks;
-                    var no_chunks = s.slime_chunks_not;
-                    var outta = document.getElementById('output_textarea');
-                    outta.value = "Calculating...";
-                    if (window.Worker) {
-                        myWorker.postMessage({ chunks: chunks, no_chunks: no_chunks });
-                        console.log('Message posted to worker');
-                        myWorker.onmessage = function(e) {
-                            outta.value = e.data;
-                            console.log('Got message from worker');
-                        };
+
+            // Handle incoming calculation result
+            function handleMsg(msg) {
+              const {id, err, payload} = msg.data
+
+              if (payload) {
+                const resolve = resolves[id]
+                if (resolve) {
+                  resolve(payload)
+                }
+              } else {
+                // error condition
+                const reject = rejects[id]
+                if (reject) {
+                    if (err) {
+                      reject(err)
                     } else {
-                        Rust.wasm_gui.then( function( wasmgui ) {
-                            // TODO: check if a thread is already running and kill it
-                            outta.value = wasmgui.slime_seed_finder(chunks, no_chunks);
-                        }, function( err ) {
-                            console.err(err);
-                        });
+                      reject('Got nothing')
                     }
+                }
+              }
+
+              // purge used callbacks
+              delete resolves[id]
+              delete rejects[id]
             }
+
+            // Wrapper class
+            function Wrapper() {
+                this.worker = new Worker('./worker_b.js')
+                this.worker.onmessage = handleMsg
+            }
+            Wrapper.prototype.sendMsg = function(payload) {
+                return sendMsg(payload, this.worker);
+            }
+
+            const work1 = new Wrapper();
 
             // Generate fragment
             // This function should return a promise, which is interpreted as
             // a HTML canvas
             function generateFragmentB(fx, fy) {
-                return Rust.wasm_gui.then( function( wasmgui ) {
+                if (window.Worker) {
                     var ws = document.getElementById('worldSeed');
                     // Since js doesnt support 64 bit ints, we just pass
                     // the string to the Rust code, it will be parsed there
                     var seed = ws.value;
-                    console.log("Seed: " + seed);
-                    console.log("Generating fragment: " + fx + ", " + fy);
-                    var rvec = wasmgui.generate_fragment(fx, fy, seed, FRAG_SIZE);
-                    console.log("Copying to canvas: " + fx + ", " + fy);
-                    // Create off-screen canvas
-                    var c = document.createElement('canvas');
-                    c.width = FRAG_SIZE;
-                    c.height = FRAG_SIZE;
-                    var ctx = c.getContext('2d');
-                    // Generate fragment
-                    var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
-                    //imageData.data = rvec; // please
-                    for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
-                        imageData.data[i] = rvec[i];
-                    }
-                    /*
-                    for(var x=0; x<FRAG_SIZE; x++) {
-                        for(var y=0; y<FRAG_SIZE; y++) {
-                            var pixel = rvec[i];
-                            var i = ((y * FRAG_SIZE) + x) * 4;
-                            var colorIndices = [i, i+1, i+2, i+3];
-
-                            var redIndex = colorIndices[0];
-                            var greenIndex = colorIndices[1];
-                            var blueIndex = colorIndices[2];
-                            var alphaIndex = colorIndices[3];
-
-                            imageData.data[redIndex] = pixel[0];
-                            imageData.data[greenIndex] = pixel[1];
-                            imageData.data[blueIndex] = pixel[2];
-                            imageData.data[alphaIndex] = pixel[3];
+                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE }).then(function(e) {
+                        console.log("Copying to canvas: " + fx + ", " + fy);
+                        // Create off-screen canvas
+                        var c = document.createElement('canvas');
+                        c.width = FRAG_SIZE;
+                        c.height = FRAG_SIZE;
+                        var ctx = c.getContext('2d');
+                        // Generate fragment
+                        var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                        //imageData.data = rvec; // please
+                        for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
+                            imageData.data[i] = e.rvec[i];
                         }
-                    }
-                    */
-                    ctx.putImageData(imageData, 0, 0);
-                    return c;
-                }, function( err ) {
-                    console.err(err);
-                });
+                        ctx.putImageData(imageData, 0, 0);
+                        return c;
+                    });
+                } else {
+                    return Rust.wasm_gui.then( function( wasmgui ) {
+                        var ws = document.getElementById('worldSeed');
+                        // Since js doesnt support 64 bit ints, we just pass
+                        // the string to the Rust code, it will be parsed there
+                        var seed = ws.value;
+                        console.log("Seed: " + seed);
+                        console.log("Generating fragment: " + fx + ", " + fy);
+                        var rvec = wasmgui.generate_fragment(fx, fy, seed, FRAG_SIZE);
+                        console.log("Copying to canvas: " + fx + ", " + fy);
+                        // Create off-screen canvas
+                        var c = document.createElement('canvas');
+                        c.width = FRAG_SIZE;
+                        c.height = FRAG_SIZE;
+                        var ctx = c.getContext('2d');
+                        // Generate fragment
+                        var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                        //imageData.data = rvec; // please
+                        for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
+                            imageData.data[i] = rvec[i];
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+                        return c;
+                    }, function( err ) {
+                        console.err(err);
+                    });
+                }
             }
 
             map.generateFragment = generateFragmentB;
