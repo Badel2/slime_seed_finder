@@ -17,7 +17,7 @@ function mod(x, m) {
     return a;
 }
 
-var FRAG_SIZE = 128;
+var FRAG_SIZE = 512;
 
 function generateTile(x, y) {
     //return [mod((x * 123 + y * y * 37), 255), 0, 0, 255];

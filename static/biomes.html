@@ -32,7 +32,7 @@
                 <input id="center_x" size=2>
                 <input id="center_z" size=2>
                 <button id="center_button">CENTER</button>
-                <input type="range" min="0" max="7" value="7" class="slider" id="gridSize">
+                <input type="range" min="0" max="9" value="9" class="slider" id="gridSize">
             </div>
         </div>
         <div style="float: right; width: 50%">
@@ -96,7 +96,7 @@
                     var seed = ws.value;
                     console.log("Seed: " + seed);
                     console.log("Generating fragment: " + fx + ", " + fy);
-                    var rvec = wasmgui.generate_fragment(fx, fy, seed);
+                    var rvec = wasmgui.generate_fragment(fx, fy, seed, FRAG_SIZE);
                     console.log("Copying to canvas: " + fx + ", " + fy);
                     // Create off-screen canvas
                     var c = document.createElement('canvas');
