@@ -36,6 +36,19 @@ pub unsafe fn biome_colors() -> [[u8; 3]; 256] {
     biome
 }
 
+pub unsafe fn biome_info() -> Vec<Biome> {
+    layers::initBiomes();
+    layers::biomes.iter().map(|x| {
+        Biome {
+            id: x.id,
+            type_0: x.type_0,
+            height: x.height,
+            temp: x.temp,
+            tempCat: x.tempCat,
+        }
+    }).collect()
+}
+
 pub fn call_layer(idx: usize, world_seed: i64, a: Area) -> Map {
     unsafe {
         let out = getMapForLayerIdx(idx as i32, world_seed, a.x as i32, a.z as i32, a.w as i32, a.h as i32);
@@ -282,5 +295,13 @@ mod tests {
         let biome_colors = unsafe { biome_colors() };
         println!("{:?}", &biome_colors[..]);
         assert_eq!(&biome_colors[..], &BIOME_COLORS[..]);
+    }
+
+    #[test]
+    fn biome_info_t() {
+        use biome_layers::BIOME_INFO;
+        let biome_info = unsafe { biome_info() };
+        println!("{:?}", &biome_info[..]);
+        assert_eq!(&biome_info[..], &BIOME_INFO[..]);
     }
 }

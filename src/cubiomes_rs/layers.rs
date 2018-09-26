@@ -11,7 +11,7 @@ extern "C" {
     // Essentials
     //==============================================================================
     #[no_mangle]
-    static mut biomes: [Biome_0; 256];
+    pub static mut biomes: [Biome_0; 256];
     #[no_mangle]
     fn memset(_: *mut libc::c_void, _: libc::c_int, _: libc::c_ulong) -> *mut libc::c_void;
     #[no_mangle]
@@ -171,7 +171,7 @@ pub const Cold: BiomeTempCategory = 3;
 pub const Lush: BiomeTempCategory = 2;
 pub const Warm: BiomeTempCategory = 1;
 pub const Oceanic: BiomeTempCategory = 0;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct Biome {
     pub id: libc::c_int,

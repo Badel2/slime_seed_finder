@@ -12,7 +12,6 @@ use stdweb::js_export;
 use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
-use slime_seed_finder::biome_layers::BIOME_COLORS;
 
 #[cfg(target_arch = "wasm32")]
 fn main(){
