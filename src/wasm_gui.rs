@@ -129,3 +129,23 @@ pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: i32) -> Vec<
 
     v
 }
+
+#[cfg(target_arch = "wasm32")]
+#[js_export]
+pub fn add_2_48(seed: String) -> String {
+    if let Ok(s) = seed.parse::<i64>() {
+        format!("{}", s.wrapping_add(1 << 48))
+    } else {
+        seed
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+#[js_export]
+pub fn sub_2_48(seed: String) -> String {
+    if let Ok(s) = seed.parse::<i64>() {
+        format!("{}", s.wrapping_sub(1 << 48))
+    } else {
+        seed
+    }
+}

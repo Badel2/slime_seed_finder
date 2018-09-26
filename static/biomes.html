@@ -23,6 +23,8 @@
         <strong>Under construction.</strong>
         ENTER SEED:
         <input type="text" id="worldSeed" placeholder="Enter world seed" value="12246546">
+        <button onClick="seedPlus2ToThe48(true)">+2^48</button>
+        <button onClick="seedPlus2ToThe48(false)">-2^48</button>
         <div style="width: 100%;">
             <canvas id="demo" width="720" height="480"></canvas>
             <div id="position_info"></div>
@@ -40,6 +42,32 @@
           
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
+            function seedPlus2ToThe48(add_not_sub) {
+                var ws = document.getElementById('worldSeed');
+                if(ws) {
+                    /*
+                    var seed = ctypes.Int64(ws.value);
+                    seed += ctypes.Int64("0x100000000");
+                    ws.value = seed.toString();
+                    */
+                    // Ok, I'll just implement it in Rust
+                    return Rust.wasm_gui.then( function( wasmgui ) {
+                        var new_value = ws.value;
+                        if (add_not_sub) {
+                            new_value = wasmgui.add_2_48(ws.value);
+                        } else {
+                            new_value = wasmgui.sub_2_48(ws.value);
+                        }
+                        if (new_value != ws.value) {
+                            ws.value = new_value;
+                            Game.clear();
+                        }
+                    }, function( err ) {
+                        console.err(err);
+                    });
+                }
+            }
+
             // Hacks to make workers return promises
             // https://codeburst.io/promises-for-the-web-worker-9311b7831733
             const resolves = {}
