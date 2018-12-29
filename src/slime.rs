@@ -205,6 +205,22 @@ pub fn seed_from_slime_chunks(
     sc.find_seed()
 }
 
+/// Given a list of seed candidates, try all of these
+pub fn seed_from_slime_chunks_and_candidates(
+    slimechunks: &[Chunk],
+    max_errors: usize,
+    noslimechunks: &[Chunk],
+    max_noerrors: usize,
+    candidates: Vec<u64>,
+) -> Vec<u64> {
+    let sc = SlimeChunks::new(slimechunks, max_errors, noslimechunks, max_noerrors);
+
+    candidates
+        .into_iter()
+        .filter(|&seed| sc.try_seed(seed))
+        .collect()
+}
+
 pub fn gen_map_from_seed(area: Area, seed: u64) -> Map {
     let mut m = Map::new(area);
     for i in 0..area.w as usize {

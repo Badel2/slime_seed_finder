@@ -41,6 +41,19 @@ slime_seed_finder -c 1234.txt -o 1234_and_some_more.txt
 
 Ideally the program should only output one seed, but we can see this is not the case. To improve it, we can also specify non slime chunks: chunks that can't spawn slimes, with the -n flag. Since it is easy to miss one chunk, there are also options to leave an error margin: -f for slime chunks and -m for non slime chunks.
 
+If you already have a list of possible 48-bit seeds, put them in a file one seed per line:
+
+```
+slime_seed_finder --candidate-seeds candidates.txt -c chunks.txt
+```
+
+To convert 48-bit seeds into 64-bit seeds (-j flag), put the 48-bit seeds in candidates.txt
+and run the program with an empty chunks.txt file:
+
+```
+slime_seed_finder --candidate-seeds candidates.txt -c empty_chunks.txt -j
+```
+
 Run `slime_seed_finder --help` for full details about the usage.
 
 ### Building WebAssemblyy demo
