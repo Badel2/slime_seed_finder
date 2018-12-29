@@ -44,29 +44,31 @@ pub fn slime_seed_finder(o: Options) -> String {
 #[cfg(feature = "wasm")]
 #[js_export]
 pub fn extend48(s: &str) -> String {
-    let x = match s.parse() {
-        Ok(x) => {
-            if x < (1u64 << 48) {
-                x
-            } else {
-                let error_string = format!("Input must be lower than 2^48");
+    let mut r = vec![];
+    for s in s.lines() {
+        let x = match s.parse() {
+            Ok(x) => {
+                if x < (1u64 << 48) {
+                    x
+                } else {
+                    let error_string = format!("Input must be lower than 2^48");
+                    console!(error, &error_string);
+                    return error_string;
+                }
+            }
+            Err(e) => {
+                let error_string = format!("{}", e);
                 console!(error, &error_string);
                 return error_string;
             }
-        }
-        Err(e) => {
-            let error_string = format!("{}", e);
-            console!(error, &error_string);
-            return error_string;
-        }
-    };
+        };
 
-    let r = Rng::extend_long_48(x);
-    let mut s = format!("Found {} seeds!\n", r.len());
-    for seed in r {
-        let seed = seed as i64;
-        s.push_str(&format!("{}\n", seed));
+        let rr = Rng::extend_long_48(x);
+        r.extend(rr.into_iter().map(|seed| seed as i64));
     }
+
+    let mut s = format!("Found {} seeds!\n", r.len());
+    s.push_str(&format!("{:#?}\n", r));
 
     s
 }
