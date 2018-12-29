@@ -68,6 +68,7 @@ pub fn extend48(s: &str) -> String {
     }
 
     let mut s = format!("Found {} seeds!\n", r.len());
+    r.sort();
     s.push_str(&format!("{:#?}\n", r));
 
     s
