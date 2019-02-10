@@ -14,6 +14,7 @@ after_success: |
   sudo pip install ghp-import &&
   ghp-import -n target/deploy &&
   git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+  - cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 env:
   global:
     secure: "OafeYeAiUHncNGz4xnmMUXhkHynQeoTp93gBb3U6t/D6SeDuRp7b/UivQYG6Wo636zGX37ZKzBnF4QxoA6Dx9QnetpPRNjs9CmxUIL+LL1k0wKCi1TUfSdCGcp4zgabVc/BKafHgdWwl8hDCl/nat7vaWK9WwwfsT6qowHvWw6vPSqoCi4SvXoAn5HzFTwNgEH8fVPlcYsZ2pI5qqSeSkw1CPj5TBLnj8I+n6dyD9235dCnqGD2Zl+w5PnDtWB3ywnranbCtnqBycQPD86YbhOjH/Cmr4mmdWL5gZmYT45utVUXRrJARBMshhEwy3blMA2mcNADdNuu5zygT+qQvPu8/vqtM9xOrEZ3tqBHLsLNSl2WmHulc7hSko5Y9z3j7ZB06NiUreXnJ0P3W0dPqG/OzGJgdNaDXWGAyRyyew4Kp3SwrkDZ09AIT12Gw6b0Vov1Lz+P41gs2BGsLgTLsGWUrrSoHW7ItGf+Za83kJkN2zrGjWQPooIdRA1dLQG0rIyC9vfLoo/W92507HNNeK+RF2ZjnvMjo2QgCBKiHlICxuRkwz1UB0ZALXt7ivEHh0FohxzSpzJENiMSLpfVw74en6h0CyZ2LEIoB0z4uLb/FzN6HTXZd04sYS0DGnpJjzbdRqife0BlVdRusetf0A13ntsS/FeZfmh6AFNgjxlA="
@@ -22,8 +23,4 @@ before_cache: |
   if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
     RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin -f
   fi
-after_success: |
-  if [[ "$TRAVIS_RUST_VERSION" == nightly ]]; then
-    # Uncomment the following line for coveralls.io
-    cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
-  fi
+
