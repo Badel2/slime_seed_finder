@@ -4,7 +4,6 @@ use mc_rng::McRng;
 // are defined as (z * w + x).
 use ndarray::Array2;
 use std::rc::Rc;
-use std::cmp;
 
 // The different Map* layers are copied from
 // https://github.com/Cubitect/cubiomes
@@ -88,9 +87,9 @@ pub fn biome_to_color(id: i32) -> [u8; 4] {
         g = BIOME_COLORS[id][1];
         b = BIOME_COLORS[id][2];
     } else {
-        r = cmp::max(0xFF, BIOME_COLORS[id][0] as i32 + 40) as u8;
-        g = cmp::max(0xFF, BIOME_COLORS[id][1] as i32 + 40) as u8;
-        b = cmp::max(0xFF, BIOME_COLORS[id][2] as i32 + 40) as u8;
+        r = BIOME_COLORS[id][0].saturating_add(40);
+        g = BIOME_COLORS[id][1].saturating_add(40);
+        b = BIOME_COLORS[id][2].saturating_add(40);
     }
 
     [r, g, b, 255]
