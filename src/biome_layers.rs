@@ -88,9 +88,9 @@ pub fn biome_to_color(id: i32) -> [u8; 4] {
         g = BIOME_COLORS[id][1];
         b = BIOME_COLORS[id][2];
     } else {
-        r = cmp::max(0xFF, BIOME_COLORS[id][0] + 40);
-        g = cmp::max(0xFF, BIOME_COLORS[id][1] + 40);
-        b = cmp::max(0xFF, BIOME_COLORS[id][2] + 40);
+        r = cmp::max(0xFF, BIOME_COLORS[id][0] as i32 + 40) as u8;
+        g = cmp::max(0xFF, BIOME_COLORS[id][1] as i32 + 40) as u8;
+        b = cmp::max(0xFF, BIOME_COLORS[id][2] as i32 + 40) as u8;
     }
 
     [r, g, b, 255]
