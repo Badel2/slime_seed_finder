@@ -15,6 +15,7 @@ pub mod mc_rng;
 pub mod cubiomes_test;
 #[cfg(feature = "cubiomes_rs")]
 pub mod cubiomes_rs;
+pub mod voronoi;
 pub use java_rng::Rng;
 pub use chunk::Chunk;
 pub use slime::is_slime_chunk;
