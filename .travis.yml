@@ -4,16 +4,17 @@ rust:
 - stable
 - beta
 - nightly
-after_success: |
-  [ $TRAVIS_BRANCH = master ] &&
-  [ $TRAVIS_PULL_REQUEST = false ] &&
-  [ $TRAVIS_RUST_VERSION = nightly ] &&
-  ./ci/install_cargo_web.sh &&
-  ./ci/build_demo.sh &&
-  #echo "<meta http-equiv=refresh content=0;url=deploy/index.html>" > target/index.html &&
-  sudo pip install ghp-import &&
-  ghp-import -n target/deploy &&
-  git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
+after_success:
+  - |
+    [ $TRAVIS_BRANCH = master ] &&
+    [ $TRAVIS_PULL_REQUEST = false ] &&
+    [ $TRAVIS_RUST_VERSION = nightly ] &&
+    ./ci/install_cargo_web.sh &&
+    ./ci/build_demo.sh &&
+    #echo "<meta http-equiv=refresh content=0;url=deploy/index.html>" > target/index.html &&
+    sudo pip install ghp-import &&
+    ghp-import -n target/deploy &&
+    git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
   - cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 env:
   global:
