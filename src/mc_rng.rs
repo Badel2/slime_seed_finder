@@ -444,6 +444,99 @@ mod tests {
     }
 
     #[test]
+    //#[ignore] // Takes a few minutes to run if compiled without optimization
+    fn seed_from_next_int_ffas() {
+        let seed = 0xABCD;
+        let mut r = McRng::new(10, seed);
+        let chunk_x = 6;
+        let chunk_z = 8;
+        r.set_chunk_seed(chunk_x, chunk_z);
+
+        let x = r.next_int_n(1024);
+        let z = r.next_int_n(1024);
+
+        let mask = !mask_up_to_bit(6) as i32; // we only know 3 bits of each
+
+        let all_ws = McRng::world_seed_from_2_next_int_1024_uncertain(x & mask, x | !mask, z & mask, z | !mask, chunk_x, chunk_z);
+        println!("Expected to find 2^14 * 2^14: {}", 1 << 28);
+        println!("Found:  {}", all_ws.len());
+
+        let chunk_x = 5;
+        let chunk_z = 8;
+        r.set_chunk_seed(chunk_x, chunk_z);
+
+        let x = r.next_int_n(1024);
+        let z = r.next_int_n(1024);
+        let mut candidates2 = all_ws.clone();
+        McRng::filter_candidates_world_seed_from_2_next_int_1024_uncertain(&mut candidates2, x & mask, x | !mask, z & mask, z | !mask, chunk_x, chunk_z);
+        println!("Expected to find 2^14 * 2^14 / 2^6: {}", 1 << 22);
+        println!("Found:  {}", candidates2.len());
+        //println!("{:08X?}", candidates2);
+
+        let chunk_x = 5;
+        let chunk_z = 9;
+        r.set_chunk_seed(chunk_x, chunk_z);
+
+        let x = r.next_int_n(1024);
+        let z = r.next_int_n(1024);
+        McRng::filter_candidates_world_seed_from_2_next_int_1024_uncertain(&mut candidates2, x & mask, x | !mask, z & mask, z | !mask, chunk_x, chunk_z);
+        println!("Expected to find 2^14 * 2^14 / 2^12: {}", 1 << 16);
+        println!("Found:  {}", candidates2.len());
+        //println!("{:08X?}", candidates2);
+
+        let chunk_x = 6;
+        let chunk_z = 9;
+        r.set_chunk_seed(chunk_x, chunk_z);
+
+        let x = r.next_int_n(1024);
+        let z = r.next_int_n(1024);
+        McRng::filter_candidates_world_seed_from_2_next_int_1024_uncertain(&mut candidates2, x & mask, x | !mask, z & mask, z | !mask, chunk_x, chunk_z);
+        println!("Expected to find 2^14 * 2^14 / 2^18: {}", 1 << 10);
+        println!("Found:  {}", candidates2.len());
+        //println!("{:08X?}", candidates2);
+
+        let chunk_x = 7;
+        let chunk_z = 9;
+        r.set_chunk_seed(chunk_x, chunk_z);
+
+        let x = r.next_int_n(1024);
+        let z = r.next_int_n(1024);
+        McRng::filter_candidates_world_seed_from_2_next_int_1024_uncertain(&mut candidates2, x & mask, x | !mask, z & mask, z | !mask, chunk_x, chunk_z);
+        println!("Expected to find 2^14 * 2^14 / 2^24: {}", 1 << 4);
+        println!("Found:  {}", candidates2.len());
+        //println!("{:08X?}", candidates2);
+
+        let chunk_x = 8;
+        let chunk_z = 9;
+        r.set_chunk_seed(chunk_x, chunk_z);
+
+        let x = r.next_int_n(1024);
+        let z = r.next_int_n(1024);
+        McRng::filter_candidates_world_seed_from_2_next_int_1024_uncertain(&mut candidates2, x & mask, x | !mask, z & mask, z | !mask, chunk_x, chunk_z);
+        println!("Expected to find 2^14 * 2^14 / 2^30: {}", 1 << 0);
+        println!("Found:  {}", candidates2.len());
+        println!("{:08X?}", candidates2);
+        panic!("success");
+        /*
+---- mc_rng::tests::seed_from_next_int_ffas stdout ----
+Expected to find 2^14 * 2^14: 268435456
+Found:  268418219
+Expected to find 2^14 * 2^14 / 2^6: 4194304
+Found:  4192626
+Expected to find 2^14 * 2^14 / 2^12: 65536
+Found:  65813
+Expected to find 2^14 * 2^14 / 2^18: 1024
+Found:  1038
+Expected to find 2^14 * 2^14 / 2^24: 14
+Found:  18
+Expected to find 2^14 * 2^14 / 2^30: 1
+Found:  1
+[1B737D10]
+thread 'mc_rng::tests::seed_from_next_int_ffas' panicked at 'success', src/mc_rng.rs:519:9
+        */
+    }
+
+    #[test]
     fn mask_64() {
         assert_eq!(mask_up_to_bit(63), !0i64);
         assert_eq!(mask_up_to_bit(0), 1i64);
