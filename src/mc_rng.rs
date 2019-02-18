@@ -444,7 +444,7 @@ mod tests {
     }
 
     #[test]
-    //#[ignore] // Takes a few minutes to run if compiled without optimization
+    #[ignore] // Takes many minutes to run if compiled without optimization
     fn seed_from_next_int_ffas() {
         let seed = 0xABCD;
         let mut r = McRng::new(10, seed);
