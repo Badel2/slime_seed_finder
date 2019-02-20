@@ -205,9 +205,13 @@ pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_si
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn add_2_48(seed: String) -> String {
+pub fn add_2_n(seed: String, n: u8) -> String {
+    if n >= 64 {
+        return seed;
+    }
+
     if let Ok(s) = seed.parse::<i64>() {
-        format!("{}", s.wrapping_add(1 << 48))
+        format!("{}", s.wrapping_add(1 << n))
     } else {
         seed
     }
@@ -215,9 +219,13 @@ pub fn add_2_48(seed: String) -> String {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn sub_2_48(seed: String) -> String {
+pub fn sub_2_n(seed: String, n: u8) -> String {
+    if n >= 64 {
+        return seed;
+    }
+
     if let Ok(s) = seed.parse::<i64>() {
-        format!("{}", s.wrapping_sub(1 << 48))
+        format!("{}", s.wrapping_sub(1 << n))
     } else {
         seed
     }

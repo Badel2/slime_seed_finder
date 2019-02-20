@@ -23,8 +23,9 @@
         <strong>Under construction.</strong>
         ENTER SEED:
         <input type="text" id="worldSeed" placeholder="Enter world seed" value="12246546">
-        <button onClick="seedPlus2ToThe48(true)">+2^48</button>
-        <button onClick="seedPlus2ToThe48(false)">-2^48</button>
+        <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">-2^48</button>
+        <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">+2^48</button>
+        <input type="text" id="add2ToTheN" size=2 value="48">
         <div style="width: 100%;">
             <canvas id="demo" width="720" height="480"></canvas>
             <div id="position_info"></div>
@@ -43,9 +44,16 @@
           
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
+            document.getElementById("add2ToTheN").addEventListener("input", function(event) {
+                var value = document.getElementById("add2ToTheN").value|0;
+                if(value >= 0 && value <= 64) {} else { value = 0; }
+                document.getElementById("buttonSub2ToThe").innerHTML = "-2^" + value;
+                document.getElementById("buttonAdd2ToThe").innerHTML = "+2^" + value;
+            });
             function seedPlus2ToThe48(add_not_sub) {
                 var ws = document.getElementById('worldSeed');
-                if(ws) {
+                var n = document.getElementById('add2ToTheN');
+                if(ws && n) {
                     /*
                     var seed = ctypes.Int64(ws.value);
                     seed += ctypes.Int64("0x100000000");
@@ -55,9 +63,9 @@
                     return Rust.wasm_gui.then( function( wasmgui ) {
                         var new_value = ws.value;
                         if (add_not_sub) {
-                            new_value = wasmgui.add_2_48(ws.value);
+                            new_value = wasmgui.add_2_n(ws.value, n.value|0);
                         } else {
-                            new_value = wasmgui.sub_2_48(ws.value);
+                            new_value = wasmgui.sub_2_n(ws.value, n.value|0);
                         }
                         if (new_value != ws.value) {
                             ws.value = new_value;
