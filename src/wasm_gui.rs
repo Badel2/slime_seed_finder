@@ -140,10 +140,6 @@ pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4]
     // Gradient from red to green
     // http://blogs.perl.org/users/ovid/2010/12/perl101-red-to-green-gradient.html
 
-    let num = id * 255 / total;
-    let num = num as u8;
-    let middle = 255 / 2;
-
     if id == 0 {
         // red
         [0xFF, 0x00, 0x00, 0xFF]
