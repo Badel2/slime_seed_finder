@@ -7,6 +7,6 @@ onmessage = function(e) {
       console.log('Posting message back to main script');
       postMessage(workerResult);
   }, function( err ) {
-      console.err(err);
+      console.error(err);
   });
 }

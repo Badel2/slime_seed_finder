@@ -79,7 +79,7 @@
                             // TODO: check if a thread is already running and kill it
                             outta.value = wasmgui.slime_seed_finder(chunks, no_chunks);
                         }, function( err ) {
-                            console.err(err);
+                            console.error(err);
                         });
                     }
             }
@@ -94,7 +94,7 @@
                     var no_chunks = s.slime_chunks_not;
                     outta.value = wasmgui.count_candidates({ chunks: chunks, no_chunks: no_chunks});
                 }, function( err ) {
-                    console.err(err);
+                    console.error(err);
                 });
             }
 
@@ -106,7 +106,7 @@
                     outta.value = wasmgui.extend48(seed48.value);
                 });
             }, function( err ) {
-                console.err(err);
+                console.error(err);
             });
         </script>
     </body>
