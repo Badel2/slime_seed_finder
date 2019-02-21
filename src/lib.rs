@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![cfg_attr(feature = "cubiomes_rs", feature(libc))]
 #![cfg_attr(feature = "cubiomes_rs", feature(extern_types))]
+#![cfg_attr(feature = "cubiomes_rs", feature(rustc_private))]
 #[macro_use]
 extern crate ndarray;
 #[cfg(feature = "cubiomes_rs")]
