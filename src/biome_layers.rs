@@ -1402,8 +1402,10 @@ impl MapHills {
                         savanna => savannaPlateau,
                         _ => if equal_or_plateau(a11, mesaPlateau_F) {
                             mesa
-                        } else {
+                        } else if a11 == deepOcean && r.next_int_n(3) == 0 {
                             if r.next_int_n(2) == 0 { plains } else { forest }
+                        } else {
+                            a11
                         }
                     };
 
