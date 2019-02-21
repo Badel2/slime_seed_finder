@@ -26,6 +26,7 @@
         <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">-2^48</button>
         <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">+2^48</button>
         <input type="text" id="add2ToTheN" size=2 value="48">
+        <input type="text" id="lastLayer" size=2 value="43">
         <div style="width: 100%;">
             <canvas id="demo" width="720" height="480"></canvas>
             <div id="position_info"></div>
@@ -49,6 +50,9 @@
                 if(value >= 0 && value <= 64) {} else { value = 0; }
                 document.getElementById("buttonSub2ToThe").innerHTML = "-2^" + value;
                 document.getElementById("buttonAdd2ToThe").innerHTML = "+2^" + value;
+            });
+            document.getElementById("lastLayer").addEventListener("input", function(event) {
+                Game.clear();
             });
             function seedPlus2ToThe48(add_not_sub) {
                 var ws = document.getElementById('worldSeed');
@@ -158,7 +162,8 @@
                     // Since js doesnt support 64 bit ints, we just pass
                     // the string to the Rust code, it will be parsed there
                     var seed = ws.value;
-                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE }).then(function(e) {
+                    var lastLayer = document.getElementById('lastLayer').value|0;
+                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: lastLayer }).then(function(e) {
                         /*
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         */

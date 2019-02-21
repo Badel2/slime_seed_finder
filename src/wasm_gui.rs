@@ -117,7 +117,7 @@ pub fn find_seed(o: Options) -> Vec<u64> {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: i32) -> Vec<u8> {
+pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: usize) -> Vec<u8> {
     let frag_size = frag_size as usize;
     let seed = if let Ok(s) = seed.parse() {
         s
@@ -131,6 +131,26 @@ pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: i32) -> Vec<
     //let last_layer = 43;
     //let map = cubiomes_test::call_layer(last_layer, seed, area);
     let v = biome_layers::generate_image(area, seed);
+
+    v
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn generate_fragment_up_to_layer(fx: i32, fy: i32, seed: String, frag_size: usize, layer: u32) -> Vec<u8> {
+    let frag_size = frag_size as usize;
+    let seed = if let Ok(s) = seed.parse() {
+        s
+    } else {
+        console!(error, format!("{} is not a valid seed", seed));
+        return vec![0; frag_size*frag_size*4];
+    };
+
+    let frag_size = frag_size as u64;
+    let area = Area { x: fx as i64 * frag_size as i64, z: fy as i64 * frag_size as i64, w: frag_size, h: frag_size};
+    //let last_layer = 43;
+    //let map = cubiomes_test::call_layer(last_layer, seed, area);
+    let v = biome_layers::generate_image_up_to_layer(area, seed, layer);
 
     v
 }

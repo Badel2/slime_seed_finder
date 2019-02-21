@@ -11,7 +11,8 @@ function doCalculation(wasmgui, data, cb) {
     var fy = data.fy;
     var seed = data.seed;
     var FRAG_SIZE = data.FRAG_SIZE;
-    var rvec = wasmgui.generate_fragment(fx, fy, seed, FRAG_SIZE);
+    var lastLayer = data.lastLayer;
+    var rvec = wasmgui.generate_fragment_up_to_layer(fx, fy, seed, FRAG_SIZE, lastLayer);
     var result = { rvec: rvec };
     cb(err, result);
 }
