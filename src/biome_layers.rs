@@ -95,6 +95,8 @@ pub fn biome_to_color(id: i32) -> [u8; 4] {
     [r, g, b, 255]
 }
 
+const NUM_LAYERS: u32 = 43;
+
 /*
 type LayerFn = fn(l: &Layer) -> Vec<i32>;
 
@@ -372,11 +374,12 @@ pub struct MapZoom {
     world_seed: i64,
     pub parent: Option<Rc<GetMap>>,
     pub fuzzy: bool, // true when parent is MapIsland
+    pub bug_world_seed_not_set: bool, // true if this layer is parent2 of MapHills
 }
 
 impl MapZoom {
     pub fn new(base_seed: i64, world_seed: i64) -> Self {
-        Self { base_seed, world_seed, parent: None, fuzzy: false }
+        Self { base_seed, world_seed, parent: None, fuzzy: false, bug_world_seed_not_set: false }
     }
 }
 
@@ -408,7 +411,11 @@ impl GetMap for MapZoom {
         }
     }
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
-        let mut r = McRng::new(self.base_seed, self.world_seed);
+        let mut r = McRng::default();
+        r.set_base_seed(self.base_seed);
+        if !self.bug_world_seed_not_set {
+            r.set_world_seed(self.world_seed);
+        }
         let (p_w, p_h) = pmap.a.dim();
         let area = Area {
             x: pmap.x << 1,
@@ -2009,21 +2016,7 @@ fn draw_map(map: &Map) -> String {
 }
 
 pub fn generate_image(area: Area, seed: i64) -> Vec<u8> {
-    let map = generate(area, seed);
-    let (w, h) = map.a.dim();
-    let mut v = vec![0; w*h*4];
-    for x in 0..w {
-        for z in 0..h {
-            let color = biome_to_color(map.a[(x, z)]);
-            let i = z * h + x;
-            v[i*4+0] = color[0];
-            v[i*4+1] = color[1];
-            v[i*4+2] = color[2];
-            v[i*4+3] = color[3];
-        }
-    }
-
-    v
+    generate_image_up_to_layer(area, seed, NUM_LAYERS)
 }
 
 pub fn generate_image_up_to_layer(area: Area, seed: i64, layer: u32) -> Vec<u8> {
@@ -2045,237 +2038,145 @@ pub fn generate_image_up_to_layer(area: Area, seed: i64, layer: u32) -> Vec<u8> 
 }
 
 pub fn generate(a: Area, world_seed: i64) -> Map {
-    let g0 = MapIsland::new(1, world_seed);
-    let mut g1 = MapZoom::new(2000, world_seed);
-    g1.parent = Some(Rc::new(g0));
-    g1.fuzzy = true;
-    let mut g2 = MapAddIsland::new(1, world_seed);
-    g2.parent = Some(Rc::new(g1));
-    let mut g3 = MapZoom::new(2001, world_seed);
-    g3.parent = Some(Rc::new(g2));
-    let mut g4 = MapAddIsland::new(2, world_seed);
-    g4.parent = Some(Rc::new(g3));
-    let mut g5 = MapAddIsland::new(50, world_seed);
-    g5.parent = Some(Rc::new(g4));
-    let mut g6 = MapAddIsland::new(70, world_seed);
-    g6.parent = Some(Rc::new(g5));
-    let mut g7 = MapRemoveTooMuchOcean::new(2, world_seed);
-    g7.parent = Some(Rc::new(g6));
-    let mut g8 = MapAddSnow::new(2, world_seed);
-    g8.parent = Some(Rc::new(g7));
-    let mut g9 = MapAddIsland::new(3, world_seed);
-    g9.parent = Some(Rc::new(g8));
-    let mut g10 = MapCoolWarm::new(2, world_seed);
-    g10.parent = Some(Rc::new(g9));
-    let mut g11 = MapHeatIce::new(2, world_seed);
-    g11.parent = Some(Rc::new(g10));
-    let mut g12 = MapSpecial::new(3, world_seed);
-    g12.parent = Some(Rc::new(g11));
-    let mut g13 = MapZoom::new(2002, world_seed);
-    g13.parent = Some(Rc::new(g12));
-    let mut g14 = MapZoom::new(2003, world_seed);
-    g14.parent = Some(Rc::new(g13));
-    let mut g15 = MapAddIsland::new(4, world_seed);
-    g15.parent = Some(Rc::new(g14));
-    let mut g16 = MapAddMushroomIsland::new(5, world_seed);
-    g16.parent = Some(Rc::new(g15));
-    let mut g17 = MapDeepOcean::new(4, world_seed);
-    g17.parent = Some(Rc::new(g16));
-    let g17 = Rc::new(g17);
-    let mut g18 = MapBiome::new(200, world_seed);
-    g18.parent = Some(g17.clone());
-    let mut g19 = MapZoom::new(1000, world_seed);
-    g19.parent = Some(Rc::new(g18));
-    let mut g20 = MapZoom::new(1001, world_seed);
-    g20.parent = Some(Rc::new(g19));
-    let mut g21 = MapBiomeEdge::new(1000, world_seed);
-    g21.parent = Some(Rc::new(g20));
-    let mut g22 = MapRiverInit::new(100, world_seed);
-    g22.parent = Some(g17.clone());
-    let g22 = Rc::new(g22);
-    let mut g23 = MapZoom::new(1000, world_seed);
-    g23.parent = Some(g22.clone());
-    let mut g24 = MapZoom::new(1001, world_seed);
-    g24.parent = Some(Rc::new(g23));
-    let mut g25 = MapHills::new(1000, world_seed);
-    g25.parent1 = Some(Rc::new(g21));
-    g25.parent2 = Some(Rc::new(g24));
-    let mut g26 = MapRareBiome::new(1001, world_seed);
-    g26.parent = Some(Rc::new(g25));
-    let mut g27 = MapZoom::new(1000, world_seed);
-    g27.parent = Some(Rc::new(g26));
-    let mut g28 = MapAddIsland::new(3, world_seed);
-    g28.parent = Some(Rc::new(g27));
-    let mut g29 = MapZoom::new(1001, world_seed);
-    g29.parent = Some(Rc::new(g28));
-    let mut g30 = MapShore::new(1000, world_seed);
-    g30.parent = Some(Rc::new(g29));
-    let mut g31 = MapZoom::new(1002, world_seed);
-    g31.parent = Some(Rc::new(g30));
-    let mut g32 = MapZoom::new(1003, world_seed);
-    g32.parent = Some(Rc::new(g31));
-    let mut g33 = MapSmooth::new(1000, world_seed);
-    g33.parent = Some(Rc::new(g32));
-    let mut g34 = MapZoom::new(1000, world_seed);
-    g34.parent = Some(g22.clone());
-    let mut g35 = MapZoom::new(1001, world_seed);
-    g35.parent = Some(Rc::new(g34));
-    let mut g36 = MapZoom::new(1000, world_seed);
-    g36.parent = Some(Rc::new(g35));
-    let mut g37 = MapZoom::new(1001, world_seed);
-    g37.parent = Some(Rc::new(g36));
-    let mut g38 = MapZoom::new(1002, world_seed);
-    g38.parent = Some(Rc::new(g37));
-    let mut g39 = MapZoom::new(1003, world_seed);
-    g39.parent = Some(Rc::new(g38));
-    let mut g40 = MapRiver::new(1, world_seed);
-    g40.parent = Some(Rc::new(g39));
-    let mut g41 = MapSmooth::new(1000, world_seed);
-    g41.parent = Some(Rc::new(g40));
-    let mut g42 = MapRiverMix::new(100, world_seed);
-    g42.parent1 = Some(Rc::new(g33));
-    g42.parent2 = Some(Rc::new(g41));
-    let mut g43 = MapVoronoiZoom::new(10, world_seed);
-    g43.parent = Some(Rc::new(g42));
-
-    let m1 = g43.get_map(a);
-    m1
+    generate_up_to_layer(a, world_seed, NUM_LAYERS)
 }
 
 pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
     let g0 = MapIsland::new(1, world_seed);
-    if layer == 0 { return MapSkip::new(Rc::new(g0), 0).get_map(a); }
+    if layer == 0 { return g0.get_map(a); }
     let mut g1 = MapZoom::new(2000, world_seed);
     g1.parent = Some(Rc::new(g0));
     g1.fuzzy = true;
-    if layer == 1 { return MapSkip::new(Rc::new(g1), 0).get_map(a); }
+    if layer == 1 { return g1.get_map(a); }
     let mut g2 = MapAddIsland::new(1, world_seed);
     g2.parent = Some(Rc::new(g1));
-    if layer == 2 { return MapSkip::new(Rc::new(g2), 0).get_map(a); }
+    if layer == 2 { return g2.get_map(a); }
     let mut g3 = MapZoom::new(2001, world_seed);
     g3.parent = Some(Rc::new(g2));
-    if layer == 3 { return MapSkip::new(Rc::new(g3), 0).get_map(a); }
+    if layer == 3 { return g3.get_map(a); }
     let mut g4 = MapAddIsland::new(2, world_seed);
     g4.parent = Some(Rc::new(g3));
-    if layer == 4 { return MapSkip::new(Rc::new(g4), 0).get_map(a); }
+    if layer == 4 { return g4.get_map(a); }
     let mut g5 = MapAddIsland::new(50, world_seed);
     g5.parent = Some(Rc::new(g4));
-    if layer == 5 { return MapSkip::new(Rc::new(g5), 0).get_map(a); }
+    if layer == 5 { return g5.get_map(a); }
     let mut g6 = MapAddIsland::new(70, world_seed);
     g6.parent = Some(Rc::new(g5));
-    if layer == 6 { return MapSkip::new(Rc::new(g6), 0).get_map(a); }
+    if layer == 6 { return g6.get_map(a); }
     let mut g7 = MapRemoveTooMuchOcean::new(2, world_seed);
     g7.parent = Some(Rc::new(g6));
-    if layer == 7 { return MapSkip::new(Rc::new(g7), 0).get_map(a); }
+    if layer == 7 { return g7.get_map(a); }
     let mut g8 = MapAddSnow::new(2, world_seed);
     g8.parent = Some(Rc::new(g7));
-    if layer == 8 { return MapSkip::new(Rc::new(g8), 0).get_map(a); }
+    if layer == 8 { return g8.get_map(a); }
     let mut g9 = MapAddIsland::new(3, world_seed);
     g9.parent = Some(Rc::new(g8));
-    if layer == 9 { return MapSkip::new(Rc::new(g9), 0).get_map(a); }
+    if layer == 9 { return g9.get_map(a); }
     let mut g10 = MapCoolWarm::new(2, world_seed);
     g10.parent = Some(Rc::new(g9));
-    if layer == 10 { return MapSkip::new(Rc::new(g10), 0).get_map(a); }
+    if layer == 10 { return g10.get_map(a); }
     let mut g11 = MapHeatIce::new(2, world_seed);
     g11.parent = Some(Rc::new(g10));
-    if layer == 11 { return MapSkip::new(Rc::new(g11), 0).get_map(a); }
+    if layer == 11 { return g11.get_map(a); }
     let mut g12 = MapSpecial::new(3, world_seed);
     g12.parent = Some(Rc::new(g11));
-    if layer == 12 { return MapSkip::new(Rc::new(g12), 0).get_map(a); }
+    if layer == 12 { return g12.get_map(a); }
     let mut g13 = MapZoom::new(2002, world_seed);
     g13.parent = Some(Rc::new(g12));
-    if layer == 13 { return MapSkip::new(Rc::new(g13), 0).get_map(a); }
+    if layer == 13 { return g13.get_map(a); }
     let mut g14 = MapZoom::new(2003, world_seed);
     g14.parent = Some(Rc::new(g13));
-    if layer == 14 { return MapSkip::new(Rc::new(g14), 8).get_map(a); }
+    if layer == 14 { return g14.get_map(a); }
     let mut g15 = MapAddIsland::new(4, world_seed);
     g15.parent = Some(Rc::new(g14));
-    if layer == 15 { return MapSkip::new(Rc::new(g15), 8).get_map(a); }
+    if layer == 15 { return g15.get_map(a); }
     let mut g16 = MapAddMushroomIsland::new(5, world_seed);
     g16.parent = Some(Rc::new(g15));
-    if layer == 16 { return MapSkip::new(Rc::new(g16), 8).get_map(a); }
+    if layer == 16 { return g16.get_map(a); }
     let mut g17 = MapDeepOcean::new(4, world_seed);
     g17.parent = Some(Rc::new(g16));
     let g17 = Rc::new(g17);
-    //if layer == 17 { return MapSkip::new(Rc::clone(&g17), 0).get_map(a); }
+    if layer == 17 { return g17.get_map(a); }
     let mut g18 = MapBiome::new(200, world_seed);
     g18.parent = Some(g17.clone());
-    if layer == 18 { return MapSkip::new(Rc::new(g18), 8).get_map(a); }
+    if layer == 18 { return g18.get_map(a); }
     let mut g19 = MapZoom::new(1000, world_seed);
     g19.parent = Some(Rc::new(g18));
-    if layer == 19 { return MapSkip::new(Rc::new(g19), 8).get_map(a); }
+    if layer == 19 { return g19.get_map(a); }
     let mut g20 = MapZoom::new(1001, world_seed);
     g20.parent = Some(Rc::new(g19));
-    if layer == 20 { return MapSkip::new(Rc::new(g20), 7).get_map(a); }
+    if layer == 20 { return g20.get_map(a); }
     let mut g21 = MapBiomeEdge::new(1000, world_seed);
     g21.parent = Some(Rc::new(g20));
-    if layer == 21 { return MapSkip::new(Rc::new(g21), 7).get_map(a); }
+    if layer == 21 { return g21.get_map(a); }
     let mut g22 = MapRiverInit::new(100, world_seed);
     g22.parent = Some(g17.clone());
     let g22 = Rc::new(g22);
-    //if layer == 22 { return MapSkip::new(Rc::clone(&g22), 0).get_map(a); }
+    if layer == 22 { return g22.get_map(a); }
     let mut g23 = MapZoom::new(1000, world_seed);
     g23.parent = Some(g22.clone());
-    if layer == 23 { return MapSkip::new(Rc::new(g23), 8).get_map(a); }
+    g23.bug_world_seed_not_set = true;
+    if layer == 23 { return g23.get_map(a); }
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
-    if layer == 24 { return MapSkip::new(Rc::new(g24), 7).get_map(a); }
+    g24.bug_world_seed_not_set = true;
+    if layer == 24 { return g24.get_map(a); }
     let mut g25 = MapHills::new(1000, world_seed);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
-    if layer == 25 { return MapSkip::new(Rc::new(g25), 6).get_map(a); }
+    if layer == 25 { return g25.get_map(a); }
     let mut g26 = MapRareBiome::new(1001, world_seed);
     g26.parent = Some(Rc::new(g25));
-    if layer == 26 { return MapSkip::new(Rc::new(g26), 6).get_map(a); }
+    if layer == 26 { return g26.get_map(a); }
     let mut g27 = MapZoom::new(1000, world_seed);
     g27.parent = Some(Rc::new(g26));
-    if layer == 27 { return MapSkip::new(Rc::new(g27), 5).get_map(a); }
+    if layer == 27 { return g27.get_map(a); }
     let mut g28 = MapAddIsland::new(3, world_seed);
     g28.parent = Some(Rc::new(g27));
-    if layer == 28 { return MapSkip::new(Rc::new(g28), 5).get_map(a); }
+    if layer == 28 { return g28.get_map(a); }
     let mut g29 = MapZoom::new(1001, world_seed);
     g29.parent = Some(Rc::new(g28));
-    if layer == 29 { return MapSkip::new(Rc::new(g29), 4).get_map(a); }
+    if layer == 29 { return g29.get_map(a); }
     let mut g30 = MapShore::new(1000, world_seed);
     g30.parent = Some(Rc::new(g29));
-    if layer == 30 { return MapSkip::new(Rc::new(g30), 4).get_map(a); }
+    if layer == 30 { return g30.get_map(a); }
     let mut g31 = MapZoom::new(1002, world_seed);
     g31.parent = Some(Rc::new(g30));
-    if layer == 31 { return MapSkip::new(Rc::new(g31), 3).get_map(a); }
+    if layer == 31 { return g31.get_map(a); }
     let mut g32 = MapZoom::new(1003, world_seed);
     g32.parent = Some(Rc::new(g31));
-    if layer == 32 { return MapSkip::new(Rc::new(g32), 2).get_map(a); }
+    if layer == 32 { return g32.get_map(a); }
     let mut g33 = MapSmooth::new(1000, world_seed);
     g33.parent = Some(Rc::new(g32));
-    if layer == 33 { return MapSkip::new(Rc::new(g33), 2).get_map(a); }
+    if layer == 33 { return g33.get_map(a); }
     let mut g34 = MapZoom::new(1000, world_seed);
     g34.parent = Some(g22.clone());
-    if layer == 34 { return MapSkip::new(Rc::new(g34), 7).get_map(a); }
+    if layer == 34 { return g34.get_map(a); }
     let mut g35 = MapZoom::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    if layer == 35 { return MapSkip::new(Rc::new(g35), 6).get_map(a); }
+    if layer == 35 { return g35.get_map(a); }
     let mut g36 = MapZoom::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    if layer == 36 { return MapSkip::new(Rc::new(g36), 5).get_map(a); }
+    if layer == 36 { return g36.get_map(a); }
     let mut g37 = MapZoom::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    if layer == 37 { return MapSkip::new(Rc::new(g37), 4).get_map(a); }
+    if layer == 37 { return g37.get_map(a); }
     let mut g38 = MapZoom::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    if layer == 38 { return MapSkip::new(Rc::new(g38), 3).get_map(a); }
+    if layer == 38 { return g38.get_map(a); }
     let mut g39 = MapZoom::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
-    if layer == 39 { return MapSkip::new(Rc::new(g39), 2).get_map(a); }
+    if layer == 39 { return g39.get_map(a); }
     let mut g40 = MapRiver::new(1, world_seed);
     g40.parent = Some(Rc::new(g39));
-    if layer == 40 { return MapSkip::new(Rc::new(g40), 2).get_map(a); }
+    if layer == 40 { return g40.get_map(a); }
     let mut g41 = MapSmooth::new(1000, world_seed);
     g41.parent = Some(Rc::new(g40));
-    if layer == 41 { return MapSkip::new(Rc::new(g41), 2).get_map(a); }
+    if layer == 41 { return g41.get_map(a); }
     let mut g42 = MapRiverMix::new(100, world_seed);
     g42.parent1 = Some(Rc::new(g33));
     g42.parent2 = Some(Rc::new(g41));
-    if layer == 42 { return MapSkip::new(Rc::new(g42), 2).get_map(a); }
+    if layer == 42 { return g42.get_map(a); }
     let mut g43 = MapVoronoiZoom::new(10, world_seed);
     g43.parent = Some(Rc::new(g42));
 

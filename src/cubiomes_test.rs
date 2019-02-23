@@ -308,40 +308,33 @@ mod tests {
         let g22 = Rc::new(g22);
         let mut g23 = MapZoom::new(1000, world_seed);
         g23.parent = Some(g22.clone());
+        g23.bug_world_seed_not_set = true;
 
         let a = Area { x: -20, z: -10, w: 1000, h: 1000 };
         let m1 = g23.get_map(a);
         let m2 = call_layer(23, world_seed, a);
-        // TODO: This fails for some unknown reason, so instead of trying to fix it,
-        // we just continue the test by adding a "virtual" parent to g24
         assert_eq!(m1, m2);
 
         let mut g24 = MapZoom::new(1001, world_seed);
-        g24.parent = Some(Rc::new(g23));
-        //g24.parent = Some(Rc::new(CubiomesLayer::new(23, world_seed)));
+        g24.parent = Some(Rc::new(CubiomesLayer::new(23, world_seed)));
+        g24.bug_world_seed_not_set = true;
 
         let a = Area { x: -20, z: -10, w: 1000, h: 1000 };
         let m1 = g24.get_map(a);
         let m2 = call_layer(24, world_seed, a);
-        // TODO: This fails for some unknown reason, so instead of trying to fix it,
-        // we just continue the test by adding a "virtual" parent to g25
         assert_eq!(m1, m2);
 
         let mut g25 = MapHills::new(1000, world_seed);
         g25.parent1 = Some(Rc::new(g21));
         g25.parent2 = Some(Rc::new(g24));
-        //g25.parent2 = Some(Rc::new(CubiomesLayer::new(24, world_seed)));
 
         let a = Area { x: -20, z: -10, w: 1000, h: 1000 };
         let m1 = g25.get_map(a);
         let m2 = call_layer(25, world_seed, a);
-        // TODO: This fails for some unknown reason, so instead of trying to fix it,
-        // we just continue the test by adding a "virtual" parent to g26
         assert_eq!(m1, m2);
 
         let mut g26 = MapRareBiome::new(1001, world_seed);
         g26.parent = Some(Rc::new(g25));
-        //g26.parent = Some(Rc::new(CubiomesLayer::new(25, world_seed)));
 
         let a = Area { x: -20, z: -10, w: 1000, h: 1000 };
         let m1 = g26.get_map(a);
