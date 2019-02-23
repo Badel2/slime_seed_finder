@@ -6,6 +6,9 @@ authors = ["Badel2 <2badel2@gmail.com>"]
 [lib]
 name = "slime_seed_finder"
 
+[profile.release]
+lto = true
+
 [features]
 serde1 = ["serde", "serde_derive", "serde_json"]
 cubiomes_rs = []
