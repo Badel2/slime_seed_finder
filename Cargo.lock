@@ -385,6 +385,7 @@ name = "slime_seed_finder"
 version = "0.1.0"
 dependencies = [
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)",
  "ndarray 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "palette 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.88 (registry+https://github.com/rust-lang/crates.io-index)",
