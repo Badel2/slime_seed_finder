@@ -18,8 +18,8 @@ function mod(x, m) {
 }
 
 //var FRAG_SIZE = 256;
-var CANVAS_W = 720;
-var CANVAS_H = 480;
+var CANVAS_W = document.getElementById("demo").width|0;
+var CANVAS_H = document.getElementById("demo").height|0;
 
 var map = {
     tsize: null,

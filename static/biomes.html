@@ -15,8 +15,6 @@
             }
         </style>
         <script src="json-stringify-pretty-compact.js"></script>
-        <script src="common.js"></script>
-        <script src="fragment_map.js"></script>
     </head>
     <body>
         <a href="https://github.com/Badel2/slime_seed_finder">SLIME SEED FINDER</a>
@@ -28,7 +26,7 @@
         <input type="text" id="add2ToTheN" size=2 value="48">
         <input type="text" id="lastLayer" size=2 value="43">
         <div style="width: 100%;">
-            <canvas id="demo" width="720" height="480"></canvas>
+            <canvas id="demo" width="1280" height="720"></canvas>
             <div id="position_info"></div>
             <div>
                 <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
@@ -43,6 +41,8 @@
 
         <div style="clear: both;"></div>
           
+        <script src="common.js"></script>
+        <script src="fragment_map.js"></script>
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
             document.getElementById("add2ToTheN").addEventListener("input", function(event) {
