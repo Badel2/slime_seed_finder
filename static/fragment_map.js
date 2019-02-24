@@ -20,12 +20,21 @@ function mod(x, m) {
 //var FRAG_SIZE = 256;
 var CANVAS_W = document.getElementById("demo").width|0;
 var CANVAS_H = document.getElementById("demo").height|0;
+var NUM_LAYERS = 44;
+
+function array_filled_with(length, what) {
+    var a = Array(length);
+    for(var i=0; i<length; i++) {
+        a[i] = what();
+    }
+    return a;
+}
 
 var map = {
     tsize: null,
     // 2 layers
-    layers: Array(2).fill(new Map()),
-    generating: Array(2).fill(new Set()),
+    layers: array_filled_with(NUM_LAYERS, function() { return new Map(); }),
+    generating: array_filled_with(NUM_LAYERS, function() { return new Set(); }),
     getFragment: function (layer, fx, fy) {
         var k = fx + "," + fy;
         var frag = this.layers[layer].get(k);
@@ -33,11 +42,11 @@ var map = {
             // Check if we are already generating this fragment...
             if (!this.generating[layer].has(k)) {
                 this.generating[layer].add(k);
-                var this_layer = this.layers[layer];
-                this.generateFragment(fx, fy).then(function(value) {
+                var this_layers_layer = this.layers[layer];
+                this.generateFragment(layer, fx, fy).then(function(value) {
                     //console.log(value); // Success!
                     //console.log("Finished generating fragment: " + fx + ", " + fy);
-                    this_layer.set(k, value);
+                    this_layers_layer.set(k, value);
                     Game.dirty = true;
                 }, function(reason) {
                     console.error(reason); // Error!
@@ -139,6 +148,7 @@ Game.init = function (tsize, canvasH, canvasW) {
     this.ctx.imageSmoothingEnabled = false;
     // Dirty flag: only render if true, remember to set it when changing state
     this.dirty = true;
+    this.activeLayer = 0;
 };
 
 Game.update = function (delta) {
@@ -223,10 +233,8 @@ Game.render = function () {
     // clear previous frame
     this.ctx.fillStyle = "white";
     this.ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    // draw map background layer
-    this._drawLayer(0);
-    // draw map top layer
-    this._drawLayer(1);
+
+    this._drawLayer(this.activeLayer);
 };
 
 Game.mouse_coords_to_game_coords_float = function(x, y) {
@@ -258,8 +266,8 @@ Game.getSelection = function(layer, value) {
 };
 
 Game.clear = function(layer) {
-    map.layers = Array(2).fill(new Map());
-    map.generating = Array(2).fill(new Set());
+    map.layers = array_filled_with(NUM_LAYERS, function() { return new Map(); });
+    map.generating = array_filled_with(NUM_LAYERS, function() { return new Set(); });
     this.dirty = true;
 };
 
@@ -285,3 +293,9 @@ Game.centerAtBlock = function(x, y) {
     this.dirty = true;
     this.camera.centerAtBlock(Number.parseInt(x), Number.parseInt(y));
 }
+
+Game.setActiveLayer = function(layer) {
+    this.dirty = true;
+    this.activeLayer = layer;
+}
+

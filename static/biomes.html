@@ -70,12 +70,12 @@
                 var i = document.getElementById("lastLayer").value|0;
                 i += x;
                 document.getElementById("lastLayer").value = i;
-                var i = document.getElementById("lastLayer").value|0;
                 if(i >= 0 && i <= 43) {
                     var newScale = scales[i];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
-                    Game.clear();
+                    //Game.clear();
+                    Game.setActiveLayer(i);
                 }
             }
             function seedPlus2ToThe48(add_not_sub) {
@@ -180,14 +180,14 @@
             // Generate fragment
             // This function should return a promise, which is interpreted as
             // a HTML canvas
-            function generateFragmentB(fx, fy) {
+            function generateFragmentB(layer, fx, fy) {
                 if (window.Worker) {
                     var ws = document.getElementById('worldSeed');
                     // Since js doesnt support 64 bit ints, we just pass
                     // the string to the Rust code, it will be parsed there
                     var seed = ws.value;
                     var lastLayer = document.getElementById('lastLayer').value|0;
-                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: lastLayer }).then(function(e) {
+                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: layer }).then(function(e) {
                         /*
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         */
