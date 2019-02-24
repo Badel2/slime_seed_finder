@@ -156,8 +156,9 @@
             function Wrapper() {
                 this.maxWorkers = navigator.hardwareConcurrency || 4;
                 console.log("Creating " + this.maxWorkers + " workers");
-                this.workers = Array(this.maxWorkers).fill(new Worker('./worker_b.js'));
+                this.workers = Array(this.maxWorkers);
                 for (var i=0; i<this.maxWorkers; i++) {
+                    this.workers[i] = new Worker('./worker_b.js');
                     this.workers[i].onmessage = handleMsg;
                 }
                 this.incr = 0;
