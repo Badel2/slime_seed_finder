@@ -27,6 +27,7 @@
         <input type="text" id="lastLayer" size=2 value="43">
         <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
         <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
+        <button id="cacheLayers" onClick="pregenerateLayers()">CACHE</button>
         <div style="width: 100%;">
             <canvas id="demo" width="1280" height="720"></canvas>
             <div id="position_info"></div>
@@ -100,6 +101,12 @@
                     }, function( err ) {
                         console.error(err);
                     });
+                }
+            }
+            function pregenerateLayers() {
+                // Only works well when current layer == 43
+                for(var j=0; j<=43; j++) {
+                    Game._drawLayer(j);
                 }
             }
 
