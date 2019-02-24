@@ -113,7 +113,7 @@ Camera.prototype.resolutionChange = function (f) {
     // but 100,100 becomes 100*f,100*f
     var old_xy = this.blockAtCenter();
     this.zoom(f);
-    this.centerAtBlock(old_xy[0] / f, old_xy[1] / f);
+    this.centerAtBlock((old_xy[0] + 0.5) / f - 0.5, (old_xy[1] + 0.5) / f - 0.5);
 }
 
 Game.load = function () {
