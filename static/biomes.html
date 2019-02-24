@@ -25,12 +25,16 @@
         <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">+2^48</button>
         <input type="text" id="add2ToTheN" size=2 value="48">
         <input type="text" id="lastLayer" size=2 value="43">
+        <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
+        <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
         <div style="width: 100%;">
             <canvas id="demo" width="1280" height="720"></canvas>
             <div id="position_info"></div>
             <div>
                 <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
                 <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                <button onClick="Game.camera.resolutionChange(0.5)">SCALE/2</button>
+                <button onClick="Game.camera.resolutionChange(2)">SCALE*2</button>
                 <input id="center_x" size=6 value="0">
                 <input id="center_z" size=6 value="0">
                 <button id="center_button">CENTER</button>
@@ -45,6 +49,14 @@
         <script src="fragment_map.js"></script>
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
+            var scales = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 1];
+            var layerScale = 1;
+            {
+                var i = document.getElementById("lastLayer").value|0;
+                if(i >= 0 && i <= 43) {
+                    layerScale = scales[i];
+                }
+            }
             document.getElementById("add2ToTheN").addEventListener("input", function(event) {
                 var value = document.getElementById("add2ToTheN").value|0;
                 if(value >= 0 && value <= 64) {} else { value = 0; }
@@ -52,8 +64,20 @@
                 document.getElementById("buttonAdd2ToThe").innerHTML = "+2^" + value;
             });
             document.getElementById("lastLayer").addEventListener("input", function(event) {
-                Game.clear();
+                updateWithLayerPlus(0);
             });
+            function updateWithLayerPlus(x) {
+                var i = document.getElementById("lastLayer").value|0;
+                i += x;
+                document.getElementById("lastLayer").value = i;
+                var i = document.getElementById("lastLayer").value|0;
+                if(i >= 0 && i <= 43) {
+                    var newScale = scales[i];
+                    Game.camera.resolutionChange(newScale / layerScale);
+                    layerScale = newScale;
+                    Game.clear();
+                }
+            }
             function seedPlus2ToThe48(add_not_sub) {
                 var ws = document.getElementById('worldSeed');
                 var n = document.getElementById('add2ToTheN');

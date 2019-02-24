@@ -36,7 +36,7 @@ var map = {
                 var this_layer = this.layers[layer];
                 this.generateFragment(fx, fy).then(function(value) {
                     //console.log(value); // Success!
-                    console.log("Finished generating fragment: " + fx + ", " + fy);
+                    //console.log("Finished generating fragment: " + fx + ", " + fy);
                     this_layer.set(k, value);
                     Game.dirty = true;
                 }, function(reason) {
@@ -91,6 +91,20 @@ Camera.prototype.centerAt = function (x, y) {
 Camera.prototype.centerAtBlock = function (x, y) {
     this.x = ((x + 0.5) / map.tsize) * this.tsize - this.width / 2;
     this.y = ((y + 0.5) / map.tsize) * this.tsize - this.height / 2;
+}
+
+Camera.prototype.resolutionChange = function (f) {
+    // The map resolution changes by factor f, meaning 0,0 is still 0,0
+    // but 100,100 becomes 100*f,100*f
+    /* Ok, I give up
+    // TODO: centerAt
+    var old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
+    var old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
+    console.log("old center: " + old_center_x + "," + old_center_y);
+    console.log("new center: " + old_center_x * f + "," + old_center_y * f);
+    this.centerAt(old_center_x * f, old_center_y * f);
+    */
+    this.zoom(f);
 }
 
 Game.load = function () {
@@ -165,7 +179,7 @@ Game._drawLayer = function (layer) {
             }
         }
     }
-    console.log("Drawing fragments: " + i);
+    //console.log("Drawing fragments: " + i);
 
     //this.ctx.drawImage(fragmentImage, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
 
