@@ -95,7 +95,7 @@ pub fn biome_to_color(id: i32) -> [u8; 4] {
     [r, g, b, 255]
 }
 
-const NUM_LAYERS: u32 = 43;
+pub const NUM_LAYERS: u32 = 43;
 
 /*
 type LayerFn = fn(l: &Layer) -> Vec<i32>;
