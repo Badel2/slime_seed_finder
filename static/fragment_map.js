@@ -18,8 +18,9 @@ function mod(x, m) {
 }
 
 //var FRAG_SIZE = 256;
-var CANVAS_W = document.getElementById("demo").width|0;
-var CANVAS_H = document.getElementById("demo").height|0;
+var canvas = document.getElementById("demo");
+var CANVAS_W = canvas.width|0;
+var CANVAS_H = canvas.height|0;
 var NUM_LAYERS = 44;
 
 function array_filled_with(length, what) {
@@ -230,6 +231,12 @@ Game._drawLayer = function (layer) {
 Game.render = function () {
     if (!this.dirty) { return; }
     this.dirty = false;
+    CANVAS_W = canvas.width|0;
+    CANVAS_H = canvas.height|0;
+    this.camera.width = CANVAS_W;
+    this.camera.height = CANVAS_H;
+    // Disable smoothing, we want a sharp pixelated image
+    this.ctx.imageSmoothingEnabled = false;
     // clear previous frame
     this.ctx.fillStyle = "white";
     this.ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);

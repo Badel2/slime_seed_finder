@@ -13,6 +13,15 @@
             textarea {
                 font-family: monospace;
             }
+            #demo {
+                position:fixed;
+                left:0;
+                top:0;
+                width:100%;
+                height:100%;
+                z-index:-1;
+                image-rendering:pixelated;
+            }
         </style>
         <script src="json-stringify-pretty-compact.js"></script>
     </head>
@@ -29,7 +38,7 @@
         <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
         <button id="cacheLayers" onClick="pregenerateLayers()">CACHE</button>
         <div style="width: 100%;">
-            <canvas id="demo" width="1280" height="720"></canvas>
+            <canvas id="demo"></canvas>
             <div id="position_info"></div>
             <div>
                 <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
@@ -38,7 +47,7 @@
                 <input id="center_z" size=6 value="0">
                 <button id="center_button">CENTER</button>
                 <input type="range" min="0" max="10" value="10" class="slider" id="gridSize">
-                <button onClick="Game.showGrid = false">GRID OFF</button>
+                <button onClick="Game.showGrid = !Game.showGrid; Game.dirty = true">TOGGLE GRID</button>
             </div>
         </div>
 
@@ -247,6 +256,14 @@
                 // Regenerate map when seed changes
                 Game.clear();
             };
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                Game.dirty = true;
+            }
+
+            window.addEventListener('resize', resize, false); resize();
         </script>
     </body>
 </html>
