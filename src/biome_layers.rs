@@ -286,7 +286,7 @@ impl GetMap for MapVoronoiZoom {
             map.x += nx;
             map.z += nz;
             let (nx, nz) = (nx as usize, nz as usize);
-            map.a.slice_inplace(s![
+            map.a.slice_collapse(s![
                     nx..nx + area.w as usize,
                     nz..nz + area.h as usize
             ]);
@@ -487,7 +487,7 @@ impl GetMap for MapZoom {
             map.x += nx;
             map.z += nz;
             let (nx, nz) = (nx as usize, nz as usize);
-            map.a.slice_inplace(s![
+            map.a.slice_collapse(s![
                     nx..nx + area.w as usize,
                     nz..nz + area.h as usize
             ]);
@@ -2109,7 +2109,7 @@ impl GetMap for MapSkip {
                     map.x += nx;
                     map.z += nz;
                     let (nx, nz) = (nx as usize, nz as usize);
-                    map.a.slice_inplace(s![
+                    map.a.slice_collapse(s![
                             nx..nx + area.w as usize,
                             nz..nz + area.h as usize
                     ]);
