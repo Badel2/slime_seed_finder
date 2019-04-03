@@ -2271,6 +2271,51 @@ pub fn reverse_map_voronoi_zoom(buf: &Array2<i32>, _p_x: i64, _p_z: i64, _world_
     pmap
 }
 
+pub fn candidate_river_map_generator() -> impl GetMap {
+    let world_seed = 0;
+    let g22 = TestMapCheckers;
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(Rc::new(g22));
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    let mut g40 = HelperMapRiverAll::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+
+    g41
+}
+
+pub fn candidate_river_map(a: Area, world_seed: i64) -> Map {
+    let g22 = TestMapCheckers;
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(Rc::new(g22));
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    let mut g40 = HelperMapRiverAll::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+
+    g41.get_map(a)
+}
+
 fn draw_map(map: &Map) -> String {
     let (w, h) = map.a.dim();
     let mut s = String::new();

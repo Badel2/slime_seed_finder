@@ -33,3 +33,11 @@ required-features = ["clap"]
 name = "wasm_gui"
 path = "src/wasm_gui.rs"
 required-features = ["stdweb", "serde1"]
+
+[[example]]
+name = "rendermap"
+required-features = ["cubiomes_rs"]
+
+# TODO: this will not be needed in edition 2018
+[[example]]
+name = "rivers"
