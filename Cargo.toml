@@ -2,6 +2,7 @@
 name = "slime_seed_finder"
 version = "0.1.0"
 authors = ["Badel2 <2badel2@gmail.com>"]
+edition = "2018"
 
 [lib]
 name = "slime_seed_finder"
@@ -38,6 +39,3 @@ required-features = ["stdweb", "serde1"]
 name = "rendermap"
 required-features = ["cubiomes_rs"]
 
-# TODO: this will not be needed in edition 2018
-[[example]]
-name = "rivers"

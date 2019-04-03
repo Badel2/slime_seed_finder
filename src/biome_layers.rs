@@ -1,4 +1,4 @@
-use mc_rng::McRng;
+use crate::mc_rng::McRng;
 // TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
 // are defined as (z * w + x).
@@ -216,7 +216,7 @@ impl GetMap for TestMapXhz {
 
 // A map which applies a function to its parent map
 pub struct MapMap {
-    pub parent: Rc<GetMap>,
+    pub parent: Rc<dyn GetMap>,
     pub f: fn(i32) -> i32,
 }
 
@@ -235,7 +235,7 @@ impl GetMap for MapMap {
 pub struct MapVoronoiZoom {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapVoronoiZoom {
@@ -459,7 +459,7 @@ impl GetMap for MapIsland {
 pub struct MapZoom {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
     pub fuzzy: bool, // true when parent is MapIsland
     pub bug_world_seed_not_set: bool, // true if this layer is parent2 of MapHills
 }
@@ -573,7 +573,7 @@ impl GetMap for MapZoom {
 pub struct MapAddIsland {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapAddIsland {
@@ -593,7 +593,7 @@ impl GetMap for MapAddIsland {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -682,7 +682,7 @@ impl GetMap for MapAddIsland {
 pub struct MapRemoveTooMuchOcean {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapRemoveTooMuchOcean {
@@ -702,7 +702,7 @@ impl GetMap for MapRemoveTooMuchOcean {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -750,7 +750,7 @@ impl GetMap for MapRemoveTooMuchOcean {
 pub struct MapAddSnow {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapAddSnow {
@@ -770,7 +770,7 @@ impl GetMap for MapAddSnow {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -820,7 +820,7 @@ impl GetMap for MapAddSnow {
 pub struct MapCoolWarm {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapCoolWarm {
@@ -840,7 +840,7 @@ impl GetMap for MapCoolWarm {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -890,7 +890,7 @@ impl GetMap for MapCoolWarm {
 pub struct MapHeatIce {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapHeatIce {
@@ -910,7 +910,7 @@ impl GetMap for MapHeatIce {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -960,7 +960,7 @@ impl GetMap for MapHeatIce {
 pub struct MapSpecial {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapSpecial {
@@ -981,7 +981,7 @@ impl GetMap for MapSpecial {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1022,7 +1022,7 @@ impl GetMap for MapSpecial {
 pub struct MapAddMushroomIsland {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapAddMushroomIsland {
@@ -1042,7 +1042,7 @@ impl GetMap for MapAddMushroomIsland {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1097,7 +1097,7 @@ impl GetMap for MapAddMushroomIsland {
 pub struct MapDeepOcean {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapDeepOcean {
@@ -1117,7 +1117,7 @@ impl GetMap for MapDeepOcean {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1159,7 +1159,7 @@ impl GetMap for MapDeepOcean {
 pub struct MapBiome {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapBiome {
@@ -1180,7 +1180,7 @@ impl GetMap for MapBiome {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1292,7 +1292,7 @@ fn replace_edge(out: &mut i32, v10: i32, v21: i32, v01: i32, v12: i32, id: i32, 
 pub struct MapBiomeEdge {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapBiomeEdge {
@@ -1312,7 +1312,7 @@ impl GetMap for MapBiomeEdge {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1338,7 +1338,7 @@ impl GetMap for MapBiomeEdge {
                 let v21 = pmap.a[(x+2, z+1)];
                 let v01 = pmap.a[(x+0, z+1)];
                 let v12 = pmap.a[(x+1, z+2)];
-                let mut v11 = pmap.a[(x+1, z+1)];
+                let v11 = pmap.a[(x+1, z+1)];
 
                 if !replace_edge(&mut m.a[(x, z)], v10, v21, v01, v12, v11, mesaPlateau_F, mesa) &&
                 !replace_edge(&mut m.a[(x, z)], v10, v21, v01, v12, v11, mesaPlateau, mesa) &&
@@ -1380,7 +1380,7 @@ impl GetMap for MapBiomeEdge {
 pub struct MapRiverInit {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapRiverInit {
@@ -1401,7 +1401,7 @@ impl GetMap for MapRiverInit {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1418,7 +1418,7 @@ impl GetMap for MapRiverInit {
         let mut r = McRng::new(self.base_seed, self.world_seed);
         for z in 0..p_h as usize {
             for x in 0..p_w as usize {
-                let mut v = pmap.a[(x, z)];
+                let v = pmap.a[(x, z)];
                 m.a[(x, z)] = if v > 0 {
                     let chunk_x = x as i64 + m.x;
                     let chunk_z = z as i64 + m.z;
@@ -1449,8 +1449,8 @@ pub fn pretty_biome_map_hills(id: i32) -> i32 {
 pub struct MapHills {
     base_seed: i64,
     world_seed: i64,
-    pub parent1: Option<Rc<GetMap>>,
-    pub parent2: Option<Rc<GetMap>>,
+    pub parent1: Option<Rc<dyn GetMap>>,
+    pub parent2: Option<Rc<dyn GetMap>>,
 }
 
 impl MapHills {
@@ -1561,7 +1561,7 @@ impl GetMap for MapHills {
             let pmap1 = parent1.get_map(parea);
             let pmap2 = parent2.get_map(parea);
 
-            let mut map = self.get_map_from_pmap12(&pmap1, &pmap2);
+            let map = self.get_map_from_pmap12(&pmap1, &pmap2);
 
             // No need to crop
             map
@@ -1579,7 +1579,7 @@ impl GetMap for MapHills {
 pub struct MapRareBiome {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapRareBiome {
@@ -1599,7 +1599,7 @@ impl GetMap for MapRareBiome {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1644,7 +1644,7 @@ impl GetMap for MapRareBiome {
 pub struct MapShore {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapShore {
@@ -1664,7 +1664,7 @@ impl GetMap for MapShore {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1699,7 +1699,7 @@ impl GetMap for MapShore {
         let mut m = Map::new(area);
         for z in 0..area.h as usize {
             for x in 0..area.w as usize {
-                let mut v11 = pmap.a[(x+1, z+1)];
+                let v11 = pmap.a[(x+1, z+1)];
 
                 let v10 = pmap.a[(x+1, z+0)];
                 let v21 = pmap.a[(x+2, z+1)];
@@ -1765,7 +1765,7 @@ impl GetMap for MapShore {
 pub struct MapSmooth {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapSmooth {
@@ -1785,7 +1785,7 @@ impl GetMap for MapSmooth {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1864,7 +1864,7 @@ pub fn reduce_id(id: i32) -> i32 {
 pub struct MapRiver {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapRiver {
@@ -1884,7 +1884,7 @@ impl GetMap for MapRiver {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1928,7 +1928,7 @@ impl GetMap for MapRiver {
 pub struct HelperMapRiverAll {
     base_seed: i64,
     world_seed: i64,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl HelperMapRiverAll {
@@ -1948,7 +1948,7 @@ impl GetMap for HelperMapRiverAll {
             };
             let pmap = parent.get_map(parea);
 
-            let mut map = self.get_map_from_pmap(&pmap);
+            let map = self.get_map_from_pmap(&pmap);
 
             // No need to crop
             map
@@ -1992,9 +1992,9 @@ pub struct MapRiverMix {
     base_seed: i64,
     world_seed: i64,
     // Map parent
-    pub parent1: Option<Rc<GetMap>>,
+    pub parent1: Option<Rc<dyn GetMap>>,
     // River parent
-    pub parent2: Option<Rc<GetMap>>,
+    pub parent2: Option<Rc<dyn GetMap>>,
 }
 
 impl MapRiverMix {
@@ -2048,7 +2048,7 @@ impl GetMap for MapRiverMix {
             let pmap1 = parent1.get_map(parea);
             let pmap2 = parent2.get_map(parea);
 
-            let mut map = self.get_map_from_pmap12(&pmap1, &pmap2);
+            let map = self.get_map_from_pmap12(&pmap1, &pmap2);
 
             // No need to crop
             map
@@ -2065,7 +2065,7 @@ impl GetMap for MapRiverMix {
 
 pub struct MapSkip {
     zoom_factor: u8,
-    pub parent: Option<Rc<GetMap>>,
+    pub parent: Option<Rc<dyn GetMap>>,
 }
 
 impl MapSkip {
@@ -2073,7 +2073,7 @@ impl MapSkip {
     /// 0: same as parent
     /// 1: 2x zoom in each direction
     /// 2: 4x zoom in each direction
-    pub fn new(parent: Rc<GetMap>, zoom_factor: u8) -> Self {
+    pub fn new(parent: Rc<dyn GetMap>, zoom_factor: u8) -> Self {
         if zoom_factor >= 2 {
             Self {
                 zoom_factor: 1,
@@ -2901,7 +2901,7 @@ mod tests {
     fn preserve_area() {
         let world_seed = 9223090561890311698;
         let base_seed = 2000;
-        let parent: Option<Rc<GetMap>> = Some(Rc::new(TestMapZero));
+        let parent: Option<Rc<dyn GetMap>> = Some(Rc::new(TestMapZero));
         let g0 = MapIsland::new(base_seed, world_seed);
         let mut g1 = MapZoom::new(base_seed, world_seed);
         g1.parent = parent.clone();
@@ -2909,7 +2909,7 @@ mod tests {
         g2.parent = parent.clone();
         let mut g3 = MapVoronoiZoom::new(base_seed, world_seed);
         g3.parent = parent.clone();
-        let gv: Vec<&GetMap> = vec![&TestMapZero, &TestMapXhz, &g0, &g1, &g2, &g3];
+        let gv: Vec<&dyn GetMap> = vec![&TestMapZero, &TestMapXhz, &g0, &g1, &g2, &g3];
         let mut av = vec![];
         av.push(Area { x: 0, z: 0, w: 0, h: 0 });
         av.push(Area { x: 1, z: 2, w: 0, h: 0 });

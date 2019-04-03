@@ -2,7 +2,7 @@
     dead_code, mutable_transmutes, non_camel_case_types, non_snake_case, non_upper_case_globals,
     unused_mut
 )]
-extern crate libc;
+use libc;
 extern "C" {
     pub type _IO_FILE_plus;
     #[no_mangle]

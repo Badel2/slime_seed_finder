@@ -1,7 +1,7 @@
 #![feature(test)]
 
-extern crate slime_seed_finder;
-extern crate ndarray;
+
+
 extern crate test;
 
 use slime_seed_finder::biome_layers::*;
@@ -43,7 +43,7 @@ fn map_voronoi_zoom_zeros(b: &mut Bencher) {
     let world_seed = 1234;
     let voronoi_zoom = MapVoronoiZoom::new(base_seed, world_seed);
     let (w, h) = DIM4;
-    let mut a = Array2::zeros((w, h));
+    let a = Array2::zeros((w, h));
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
         
@@ -67,7 +67,7 @@ fn map_island(b: &mut Bencher) {
 #[bench]
 fn map_zoom_fuzzy_zeros(b: &mut Bencher) {
     let (w, h) = DIM2;
-    let mut a = Array2::zeros((w, h));
+    let a = Array2::zeros((w, h));
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
     bench_map_zoom(b, &m, true);
@@ -90,7 +90,7 @@ fn map_zoom_fuzzy_xhz(b: &mut Bencher) {
 #[bench]
 fn map_zoom_zeros(b: &mut Bencher) {
     let (w, h) = DIM2;
-    let mut a = Array2::zeros((w, h));
+    let a = Array2::zeros((w, h));
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
     bench_map_zoom(b, &m, false);
@@ -136,7 +136,7 @@ fn bench_map_zoom(b: &mut Bencher, pmap: &Map, fuzzy: bool) {
 #[bench]
 fn map_add_island_zeros(b: &mut Bencher) {
     let (w, h) = DIM;
-    let mut a = Array2::zeros((w, h));
+    let a = Array2::zeros((w, h));
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
 

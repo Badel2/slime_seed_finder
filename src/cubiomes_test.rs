@@ -1,9 +1,9 @@
-use biome_layers::*;
+use crate::biome_layers::*;
 // TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
 // are defined as (z * w + x).
-use cubiomes_rs::{biome_util, layers, generator};
-use cubiomes_rs::generator::{allocCache, applySeed, freeGenerator, genArea, setupGeneratorMC17};
+use crate::cubiomes_rs::{biome_util, layers, generator};
+use crate::cubiomes_rs::generator::{allocCache, applySeed, freeGenerator, genArea, setupGeneratorMC17};
 //use cubiomes_rs::rendermaplayers::getMapForLayerIdx;
 use libc;
 
@@ -81,7 +81,7 @@ impl GetMap for CubiomesLayer {
     fn get_map(&self, area: Area) -> Map {
         call_layer(self.idx, self.world_seed, area)
     }
-    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+    fn get_map_from_pmap(&self, _pmap: &Map) -> Map {
         unimplemented!("This layer must generate the pmap anyway");
     }
 }
@@ -89,7 +89,7 @@ impl GetMap for CubiomesLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mc_rng::McRng;
+    use crate::mc_rng::McRng;
     use std::rc::Rc;
 
     #[test]
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn biome_colors_t() {
-        use biome_layers::BIOME_COLORS;
+        use crate::biome_layers::BIOME_COLORS;
         let biome_colors = unsafe { biome_colors() };
         println!("{:?}", &biome_colors[..]);
         assert_eq!(&biome_colors[..], &BIOME_COLORS[..]);
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn biome_info_t() {
-        use biome_layers::BIOME_INFO;
+        use crate::biome_layers::BIOME_INFO;
         let biome_info = unsafe { biome_info() };
         println!("{:?}", &biome_info[..]);
         assert_eq!(&biome_info[..], &BIOME_INFO[..]);

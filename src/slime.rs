@@ -1,6 +1,6 @@
-use java_rng::Rng;
-use chunk::Chunk;
-use biome_layers::{Area, Map};
+use crate::java_rng::Rng;
+use crate::chunk::Chunk;
+use crate::biome_layers::{Area, Map};
 use std::num::Wrapping;
 use std::cmp::min;
 
@@ -317,7 +317,7 @@ mod tests {
         for x in 0..10 {
             let c = Chunk::new(x, z);
             let a = calculate_slime_data(&c);
-            let mut r = rng_with_slime_data(seed, a);
+            let r = rng_with_slime_data(seed, a);
             let hbits = r.get_seed() & bits_47_33;
             // For z=0, the high bits can be 0x0000 or 0xFFFE, we want
             // to consider both cases valid so we set 0xFFFE to 0

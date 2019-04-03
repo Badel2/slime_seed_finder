@@ -17,10 +17,10 @@ pub mod cubiomes_test;
 #[cfg(feature = "cubiomes_rs")]
 pub mod cubiomes_rs;
 pub mod voronoi;
-pub use java_rng::Rng;
-pub use chunk::Chunk;
-pub use slime::is_slime_chunk;
-pub use slime::seed_from_slime_chunks;
+pub use crate::java_rng::Rng;
+pub use crate::chunk::Chunk;
+pub use crate::slime::is_slime_chunk;
+pub use crate::slime::seed_from_slime_chunks;
 
 
 use std::fs::File;

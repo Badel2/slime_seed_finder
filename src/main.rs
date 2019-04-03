@@ -1,5 +1,5 @@
-extern crate slime_seed_finder;
-extern crate clap;
+
+
 use clap::{App, Arg};
 use slime_seed_finder::*;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;

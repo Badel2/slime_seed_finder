@@ -1,5 +1,5 @@
 use ndarray::Array2;
-use biome_layers::Map;
+use crate::biome_layers::Map;
 
 struct VoronoiSeedFinder {
     map_voronoi: Map,
@@ -21,14 +21,14 @@ enum VorPoint {
     },
     Shape {
         area: u32,
-        inside: Box<Fn(u16, u16) -> bool>,
+        inside: Box<dyn Fn(u16, u16) -> bool>,
     }
 }
 
 #[cfg(test)]
 mod tests {
     //use super::*;
-    use mc_rng::McRng;
+    use crate::mc_rng::McRng;
 
     #[test]
     fn voronoi_bits() {

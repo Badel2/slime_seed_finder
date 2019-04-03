@@ -1,3 +1,5 @@
+#![feature(custom_attribute)]
+
 extern crate slime_seed_finder;
 #[macro_use]
 extern crate stdweb;
@@ -7,8 +9,8 @@ extern crate serde;
 extern crate serde_json;
 extern crate palette;
 
-#[cfg(feature = "wasm")]
-use stdweb::js_export;
+//#[cfg(feature = "wasm")]
+//use stdweb::js_export;
 use palette::{Gradient, LinSrgb};
 
 use slime_seed_finder::*;

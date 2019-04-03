@@ -1,4 +1,4 @@
-extern crate slime_seed_finder;
+
 use slime_seed_finder::biome_layers::candidate_river_map;
 use slime_seed_finder::biome_layers::Area;
 
