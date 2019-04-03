@@ -2391,14 +2391,16 @@ pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
     g22.parent = Some(g17.clone());
     let g22 = Rc::new(g22);
     if layer == 22 { return g22.get_map(a); }
+    // TODO: use some special color palette for MapRiverInit?
+    //if layer == 23 { return MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }.get_map(a); }
     let mut g23 = MapZoom::new(1000, world_seed);
     g23.parent = Some(g22.clone());
     g23.bug_world_seed_not_set = true;
-    if layer == 23 { return g23.get_map(a); }
+    if layer == 23 { return MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }.get_map(a); }
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
     g24.bug_world_seed_not_set = true;
-    if layer == 24 { return g24.get_map(a); }
+    if layer == 24 { return MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }.get_map(a); }
     let mut g25 = MapHills::new(1000, world_seed);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
@@ -2429,22 +2431,22 @@ pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
     if layer == 33 { return g33.get_map(a); }
     let mut g34 = MapZoom::new(1000, world_seed);
     g34.parent = Some(g22.clone());
-    if layer == 34 { return g34.get_map(a); }
+    if layer == 34 { return MapMap { parent: Rc::new(g34), f: reduce_id }.get_map(a); }
     let mut g35 = MapZoom::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    if layer == 35 { return g35.get_map(a); }
+    if layer == 35 { return MapMap { parent: Rc::new(g35), f: reduce_id }.get_map(a); }
     let mut g36 = MapZoom::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    if layer == 36 { return g36.get_map(a); }
+    if layer == 36 { return MapMap { parent: Rc::new(g36), f: reduce_id }.get_map(a); }
     let mut g37 = MapZoom::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    if layer == 37 { return g37.get_map(a); }
+    if layer == 37 { return MapMap { parent: Rc::new(g37), f: reduce_id }.get_map(a); }
     let mut g38 = MapZoom::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    if layer == 38 { return g38.get_map(a); }
+    if layer == 38 { return MapMap { parent: Rc::new(g38), f: reduce_id }.get_map(a); }
     let mut g39 = MapZoom::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
-    if layer == 39 { return g39.get_map(a); }
+    if layer == 39 { return MapMap { parent: Rc::new(g39), f: reduce_id }.get_map(a); }
     let mut g40 = MapRiver::new(1, world_seed);
     g40.parent = Some(Rc::new(g39));
     if layer == 40 { return g40.get_map(a); }
