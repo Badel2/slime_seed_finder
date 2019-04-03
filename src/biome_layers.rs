@@ -2319,7 +2319,41 @@ pub fn generate(a: Area, world_seed: i64) -> Map {
     generate_up_to_layer(a, world_seed, NUM_LAYERS)
 }
 
+pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
+    let g22 = TestMapCheckers;
+    if layer == 122 { return g22.get_map(a); }
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(Rc::new(g22));
+    if layer == 134 { return g34.get_map(a); }
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    if layer == 135 { return g35.get_map(a); }
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    if layer == 136 { return g36.get_map(a); }
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    if layer == 137 { return g37.get_map(a); }
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    if layer == 138 { return g38.get_map(a); }
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    if layer == 139 { return g39.get_map(a); }
+    let mut g40 = HelperMapRiverAll::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    if layer == 140 { return g40.get_map(a); }
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+    if layer == 141 { return g41.get_map(a); }
+
+    TestMapZero.get_map(a)
+}
+
 pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
+    if layer >= 100 {
+        return generate_up_to_layer_extra(a, world_seed, layer);
+    }
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return g0.get_map(a); }
     let mut g1 = MapZoom::new(2000, world_seed);

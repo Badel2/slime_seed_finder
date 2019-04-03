@@ -33,7 +33,7 @@
         <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">-2^48</button>
         <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">+2^48</button>
         <input type="text" id="add2ToTheN" size=2 value="48">
-        <input type="text" id="lastLayer" size=2 value="43">
+        <input type="text" id="lastLayer" size=3 value="43">
         <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
         <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
         <button id="cacheLayers" onClick="pregenerateLayers()">CACHE</button>
@@ -64,6 +64,9 @@
                 if(i >= 0 && i <= 43) {
                     layerScale = scales[i];
                 }
+                if(i >= 100 && i <= 143) {
+                    layerScale = scales[i - 100];
+                }
             }
             document.getElementById("add2ToTheN").addEventListener("input", function(event) {
                 var value = document.getElementById("add2ToTheN").value|0;
@@ -80,6 +83,13 @@
                 document.getElementById("lastLayer").value = i;
                 if(i >= 0 && i <= 43) {
                     var newScale = scales[i];
+                    Game.camera.resolutionChange(newScale / layerScale);
+                    layerScale = newScale;
+                    //Game.clear();
+                    Game.setActiveLayer(i);
+                }
+                if(i >= 100 && i <= 143) {
+                    var newScale = scales[i - 100];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
                     //Game.clear();
