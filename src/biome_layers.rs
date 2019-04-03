@@ -2547,6 +2547,258 @@ pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
 mod tests {
     use super::*;
 
+    #[ignore]
+    #[test]
+    fn all_candidate_river_maps() {
+        let area = Area { x: 0, z: 0, w: 30, h: 30 };
+        //let world_seed = 1234;
+        for world_seed in 0..(1 << 26) {
+            candidate_river_map(area, world_seed);
+        }
+    }
+
+    #[ignore]
+    #[test]
+    fn river_seed_finder() {
+        let world_seed = 2251799825931796;
+        let map_smooth = MapSmooth::new(1000, world_seed);
+        let (w, h) = (200, 25);
+        let area = Area { x: 0, z: 0, w, h };
+        let m33 = generate_up_to_layer(area, world_seed, 33);
+
+        let g34 = MapZoom::new(1000, world_seed);
+        let g35 = MapZoom::new(1001, world_seed);
+        let g36 = MapZoom::new(1000, world_seed);
+        let g37 = MapZoom::new(1001, world_seed);
+        let g38 = MapZoom::new(1002, world_seed);
+        let g39 = MapZoom::new(1003, world_seed);
+        let g40 = MapRiver::new(1, world_seed);
+        let g41 = MapSmooth::new(1000, world_seed);
+
+        let m34 = g34.get_map_from_pmap(&m33);
+        let m35 = g35.get_map_from_pmap(&m34);
+        let m36 = g36.get_map_from_pmap(&m35);
+        let m37 = g37.get_map_from_pmap(&m36);
+        let m38 = g38.get_map_from_pmap(&m37);
+        let m39 = g39.get_map_from_pmap(&m38);
+        let m40 = g40.get_map_from_pmap(&m39);
+        let m41 = g41.get_map_from_pmap(&m40);
+
+        let r40 = reverse_map_smooth(&m41);
+        let r39 = reverse_map_river(&m40);
+        let r38 = reverse_map_zoom(&m39);
+        let r37 = reverse_map_zoom(&m38);
+        let r36 = reverse_map_zoom(&m37);
+        let r35 = reverse_map_zoom(&m36);
+        let r34 = reverse_map_zoom(&m35);
+        let a_r = r34.a.clone();
+        let a_s = m33.a.slice(s![1..-2, 1..-2]);
+        /*
+        println!("{}", draw_map(&m));
+        println!("BUT GOT");
+        println!("{}", draw_map(&r0));
+        println!("{:?}", (m.area(), r0.area()));
+
+        let mut diff = r0.clone();
+        diff.a = &a_s ^ &a_r;
+        println!("{}", draw_map(&diff));
+        panic!(";D");
+        */
+        //assert!(a_s == a_r, format!("{:#?}", &a_s ^ &a_r));
+        //assert_eq!(a_s, a_r);
+        let different = (&a_s ^ &a_r).fold(0, |acc, &x| if x != 0 { acc + 1 } else { acc });
+        // In this configuration we got 5 errors :(
+        assert_eq!(different, 5);
+    }
+
+    #[test]
+    fn smooth_zoom_magic_reverse_plus() {
+        let world_seed = 2251799825931796;
+        let map_smooth = MapSmooth::new(1000, world_seed);
+        let (w, h) = (200, 25);
+        let area = Area { x: 0, z: 0, w, h };
+        let m = generate_up_to_layer(area, world_seed, 30);
+
+        let g31 = MapZoom::new(1002, world_seed);
+        let g32 = MapZoom::new(1003, world_seed);
+        let g33 = MapSmooth::new(1000, world_seed);
+
+        let m_1 = g31.get_map_from_pmap(&m);
+        let m1 = g32.get_map_from_pmap(&m_1);
+        let m2 = g33.get_map_from_pmap(&m1);
+        let b = m2;
+
+        let r1 = reverse_map_smooth(&b);
+        let r_0 = reverse_map_zoom(&r1);
+        let r0 = reverse_map_zoom(&r_0);
+        let a_r = r0.a.clone();
+        let a_s = m.a.slice(s![1..-2, 1..-2]);
+        /*
+        println!("{}", draw_map(&m));
+        println!("BUT GOT");
+        println!("{}", draw_map(&r0));
+        println!("{:?}", (m.area(), r0.area()));
+
+        let mut diff = r0.clone();
+        diff.a = &a_s ^ &a_r;
+        println!("{}", draw_map(&diff));
+        panic!(";D");
+        */
+        //assert!(a_s == a_r, format!("{:#?}", &a_s ^ &a_r));
+        //assert_eq!(a_s, a_r);
+        let different = (&a_s ^ &a_r).fold(0, |acc, &x| if x != 0 { acc + 1 } else { acc });
+        // In this configuration we got 5 errors :(
+        assert_eq!(different, 5);
+    }
+
+    #[test]
+    fn smooth_zoom_magic_reverse() {
+        let world_seed = 2251799825931796;
+        let map_smooth = MapSmooth::new(1000, world_seed);
+        let (w, h) = (200, 25);
+        let area = Area { x: 0, z: 0, w, h };
+        let m = generate_up_to_layer(area, world_seed, 31);
+
+        let g32 = MapZoom::new(1003, world_seed);
+        let g33 = MapSmooth::new(1000, world_seed);
+
+        let m1 = g32.get_map_from_pmap(&m);
+        let m2 = g33.get_map_from_pmap(&m1);
+        let b = m2;
+
+        let r1 = reverse_map_smooth(&b);
+        let r0 = reverse_map_zoom(&r1);
+        let a_r = r0.a.clone();
+        let a_s = m.a.slice(s![1..-2, 1..-2]);
+        /*
+        println!("{}", draw_map(&m));
+        println!("BUT GOT");
+        println!("{}", draw_map(&r0));
+        println!("{:?}", (m.area(), r0.area()));
+
+        let mut diff = r0.clone();
+        diff.a = &a_s ^ &a_r;
+        println!("{}", draw_map(&diff));
+        panic!(";D");
+        */
+        //assert!(a_s == a_r, format!("{:#?}", &a_s ^ &a_r));
+        //assert_eq!(a_s, a_r);
+        let different = (&a_s ^ &a_r).fold(0, |acc, &x| if x != 0 { acc + 1 } else { acc });
+        // In this configuration we got 15 errors :(
+        assert_eq!(different, 15);
+    }
+
+    #[ignore]
+    #[test]
+    fn exists_unique_smooth() {
+        use std::collections::HashMap;
+        // Is there any output of MapSmooth that can only be produced by a very small number of
+        // inputs?
+        let (w, h) = (5, 5);
+        let area = Area { x: 0, z: 0, w, h };
+
+        // Helper function used to iterate over all possible 2-color maps
+        fn next_map(m: &Map) -> Map {
+            let mut n = m.clone();
+            let area = n.area();
+            let mut carry = 0;
+            'all: for z in 0..area.h {
+                for x in 0..area.w {
+                    let (x, z) = (x as usize, z as usize);
+                    match m.a[(x, z)] {
+                        0 => {
+                            n.a[(x, z)] = 1;
+                            break 'all;
+                        }
+                        1 => {
+                            n.a[(x, z)] = 0;
+                        }
+                        _ => {
+                            panic!("Only 2-color maps supported");
+                        }
+                    }
+                }
+            }
+            n
+        }
+
+        let mut sm = HashMap::with_capacity(1 << 9);
+        // Try 16 different world seeds, because MapSmooth has randomness
+        // which depends on the lower 25 bits of the world_seed
+        for world_seed in 0..16 {
+            let map_smooth = MapSmooth::new(1000, world_seed);
+            let mut m = Map::new(area);
+            // Iterate over all the possible 5x5 2-color maps
+            for _ in 0..=(1 << 25) {
+                //println!("{}", draw_map(&m));
+                // Generate the smooth of this map
+                let a = map_smooth.get_map_from_pmap(&m);
+                // Insert into the hashmap
+                //sm.entry(a.clone()).or_insert(vec![]).push(m.clone());
+                *sm.entry(a.clone()).or_insert(0) += 1;
+                m = next_map(&m);
+            }
+        }
+
+        let mut smv: Vec<_> = sm.into_iter().collect();
+        // Sort by uniqueness
+        //smv.sort_by(|(ka, va), (kb, vb)| va.len().cmp(&vb.len()));
+        //smv.sort_by(|(ka, va), (kb, vb)| vb.len().cmp(&va.len()));
+        smv.sort_unstable_by(|(ka, va), (kb, vb)| vb.cmp(&va));
+
+        for (m3x3, v_m5x5) in smv {
+            print!("{}", draw_map(&m3x3));
+            println!("{} inputs", v_m5x5);
+        }
+        panic!(":D");
+    }
+
+    #[test]
+    fn rev_map_zoom() {
+        let zoom = MapZoom::new(10, 0);
+        let (w, h) = (300, 300);
+        let mut m = Map::new(Area { x: 0, z: 0, w, h });
+        for z in 0..h {
+            for x in 0..w {
+                m.a[(x as usize, z as usize)] = (x * h + z) as i32;
+            }
+        }
+
+        let b = zoom.get_map_from_pmap(&m);
+        let r = reverse_map_zoom(&b);
+        let a_r = r.a;
+        let a_s = m.a.slice(s![0..-1, 0..-1]);
+
+        //assert!(a_s == a_r, format!("{:#?}", &a_s ^ &a_r));
+        //assert_eq!(a_s, a_r);
+        let different = (&a_s ^ &a_r).fold(0, |acc, &x| if x != 0 { acc + 1 } else { acc });
+        // In this configuration we got 1 error :(
+        assert_eq!(different, 0);
+    }
+
+    #[ignore]
+    #[test]
+    fn smooth_is_stable() {
+        // Maybe applying MapSmooth twice should be the same as applying it once?
+        // Obviously not
+        let world_seed = 0;
+        let map_smooth = MapSmooth::new(1000, world_seed);
+        let (w, h) = (300, 300);
+        let area = Area { x: 0, z: 0, w, h };
+        let m = generate_up_to_layer(area, world_seed, 32);
+
+        let b = map_smooth.get_map_from_pmap(&m);
+        let c = map_smooth.get_map_from_pmap(&b);
+
+        let b_s = b.a.slice(s![1..-2, 1..-2]);
+        let c_s = c.a.slice(s![0..-1, 0..-1]);
+
+        //assert!(b_s == c_s, format!("{:#?}", &b_s ^ &c_s));
+        //assert_eq!(a_s, a_r);
+        let different = (&b_s ^ &c_s).fold(0, |acc, &x| if x != 0 { acc + 1 } else { acc });
+        assert_eq!(different, 0);
+    }
+
     #[test]
     fn vzoom2() {
         let voronoi_zoom = MapVoronoiZoom::new(10, 0);
@@ -2558,7 +2810,7 @@ mod tests {
                 m.a[(x as usize, z as usize)] = (x * h + z) as i32;
             }
         }
-        
+
         let b = voronoi_zoom.get_map_from_pmap(&m);
         let a_r = reverse_map_voronoi_zoom(&b.a, 0, 0, 0);
         let a_s = m.a.slice(s![0..-1, 0..-1]);
@@ -2612,7 +2864,7 @@ mod tests {
         let mbig = gen.get_map(Area { x, z, w, h }).a;
         let (w, h) = (w as usize, h as usize);
         let mut msmall = Array2::zeros((w, h));
-        
+
         for i in 0..w {
             for j in 0..h {
                 let nx = x + i as i64;
@@ -2620,7 +2872,7 @@ mod tests {
                 msmall[(i, j)] = gen.get_map(Area { x: nx, z: nz, w: 1, h: 1 }).a[(0, 0)];
             }
         }
-        
+
         assert_eq!(mbig, msmall);
     }
 
