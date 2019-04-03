@@ -178,8 +178,8 @@ impl GetMap for TestMapCheckers {
         let mut m = Map::new(area);
         for z in 0..area.h {
             for x in 0..area.w {
-                let rx = ((area.x as u64 + x) % 4) as usize;
-                let rz = ((area.z as u64 + z) % 4) as usize;
+                let rx = ((area.x as u64).wrapping_add(x) % 4) as usize;
+                let rz = ((area.z as u64).wrapping_add(z) % 4) as usize;
                 m.a[(x as usize, z as usize)] = colors[rz * 4 + rx];
             }
         }
@@ -200,8 +200,7 @@ impl GetMap for TestMapXhz {
         let mut m = Map::new(area);
         for z in 0..area.h {
             for x in 0..area.w {
-                // TODO: Wrapping arithmetic here
-                m.a[(x as usize, z as usize)] = ((area.x + x as i64) * area.h as i64 + (area.z + z as i64)) as i32;
+                m.a[(x as usize, z as usize)] = ((area.x.wrapping_add(x as i64)).wrapping_mul(area.h as i64) + (area.z.wrapping_add(z as i64))) as i32;
             }
         }
 
