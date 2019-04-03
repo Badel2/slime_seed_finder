@@ -8,6 +8,8 @@ extern crate libc;
 pub mod java_rng;
 pub mod chunk;
 pub mod slime;
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
 pub mod biome_layers;
 pub mod mc_rng;
 #[cfg(feature = "cubiomes_rs")]

@@ -27,7 +27,7 @@ enum VorPoint {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    //use super::*;
     use mc_rng::McRng;
 
     #[test]

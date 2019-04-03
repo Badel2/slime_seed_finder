@@ -280,7 +280,7 @@ mod tests {
     fn original_world_seed_bits() {
         let base_seed = 10;
         let seed = 1234;
-        let mut r = McRng::new(base_seed, seed);
+        let r = McRng::new(base_seed, seed);
         let world_seed = r.world_seed();
         let ows = McRng::original_world_seed(base_seed, world_seed);
         assert!(ows.contains(&seed));

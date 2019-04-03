@@ -2561,7 +2561,6 @@ mod tests {
     #[test]
     fn river_seed_finder() {
         let world_seed = 2251799825931796;
-        let map_smooth = MapSmooth::new(1000, world_seed);
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
         let m33 = generate_up_to_layer(area, world_seed, 33);
@@ -2585,13 +2584,14 @@ mod tests {
         let m41 = g41.get_map_from_pmap(&m40);
 
         let r40 = reverse_map_smooth(&m41);
-        let r39 = reverse_map_river(&m40);
-        let r38 = reverse_map_zoom(&m39);
-        let r37 = reverse_map_zoom(&m38);
-        let r36 = reverse_map_zoom(&m37);
-        let r35 = reverse_map_zoom(&m36);
-        let r34 = reverse_map_zoom(&m35);
-        let a_r = r34.a.clone();
+        let r39 = reverse_map_river(&r40);
+        let r38 = reverse_map_zoom(&r39);
+        let r37 = reverse_map_zoom(&r38);
+        let r36 = reverse_map_zoom(&r37);
+        let r35 = reverse_map_zoom(&r36);
+        let r34 = reverse_map_zoom(&r35);
+        let r33 = reverse_map_zoom(&r34);
+        let a_r = r33.a.clone();
         let a_s = m33.a.slice(s![1..-2, 1..-2]);
         /*
         println!("{}", draw_map(&m));
@@ -2607,14 +2607,13 @@ mod tests {
         //assert!(a_s == a_r, format!("{:#?}", &a_s ^ &a_r));
         //assert_eq!(a_s, a_r);
         let different = (&a_s ^ &a_r).fold(0, |acc, &x| if x != 0 { acc + 1 } else { acc });
-        // In this configuration we got 5 errors :(
-        assert_eq!(different, 5);
+        // This fails because reverse_map_river is not implemented
+        assert_eq!(different, 0);
     }
 
     #[test]
     fn smooth_zoom_magic_reverse_plus() {
         let world_seed = 2251799825931796;
-        let map_smooth = MapSmooth::new(1000, world_seed);
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
         let m = generate_up_to_layer(area, world_seed, 30);
@@ -2654,7 +2653,6 @@ mod tests {
     #[test]
     fn smooth_zoom_magic_reverse() {
         let world_seed = 2251799825931796;
-        let map_smooth = MapSmooth::new(1000, world_seed);
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
         let m = generate_up_to_layer(area, world_seed, 31);
@@ -2701,7 +2699,6 @@ mod tests {
         fn next_map(m: &Map) -> Map {
             let mut n = m.clone();
             let area = n.area();
-            let mut carry = 0;
             'all: for z in 0..area.h {
                 for x in 0..area.w {
                     let (x, z) = (x as usize, z as usize);
@@ -2744,7 +2741,7 @@ mod tests {
         // Sort by uniqueness
         //smv.sort_by(|(ka, va), (kb, vb)| va.len().cmp(&vb.len()));
         //smv.sort_by(|(ka, va), (kb, vb)| vb.len().cmp(&va.len()));
-        smv.sort_unstable_by(|(ka, va), (kb, vb)| vb.cmp(&va));
+        smv.sort_unstable_by(|(_ka, va), (_kb, vb)| vb.cmp(&va));
 
         for (m3x3, v_m5x5) in smv {
             print!("{}", draw_map(&m3x3));
