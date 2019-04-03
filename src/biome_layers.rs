@@ -17,7 +17,7 @@ pub struct Area {
     pub h: u64,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Map {
     pub x: i64,
     pub z: i64,
@@ -31,6 +31,43 @@ impl Map {
     pub fn area(&self) -> Area {
         let (w, h) = self.a.dim();
         Area { x: self.x, z: self.z, w: w as u64, h: h as u64 }
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SparseMap {
+    pub x: i64,
+    pub z: i64,
+    pub a: Array2<Option<i32>>,
+}
+
+impl SparseMap {
+    pub fn new(a: Area) -> Self {
+        Self { x: a.x, z: a.z, a: Array2::default((a.w as usize, a.h as usize)) }
+    }
+    pub fn area(&self) -> Area {
+        let (w, h) = self.a.dim();
+        Area { x: self.x, z: self.z, w: w as u64, h: h as u64 }
+    }
+    pub fn unwrap_or(self, unknown_biome_id: i32) -> Map {
+        let a = self.a.map(|x| x.unwrap_or(unknown_biome_id));
+        Map {
+            x: self.x,
+            z: self.z,
+            a,
+        }
+    }
+}
+
+impl From<Map> for SparseMap {
+    fn from(m: Map) -> Self {
+        let a = m.a.map(|x| Some(*x));
+
+        Self {
+            x: m.x,
+            z: m.z,
+            a,
+        }
     }
 }
 
@@ -133,6 +170,29 @@ impl GetMap for TestMapZero {
     }
 }
 
+pub struct TestMapCheckers;
+
+impl GetMap for TestMapCheckers {
+    fn get_map(&self, area: Area) -> Map {
+        let colors = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        let mut m = Map::new(area);
+        for z in 0..area.h {
+            for x in 0..area.w {
+                let rx = ((area.x as u64 + x) % 4) as usize;
+                let rz = ((area.z as u64 + z) % 4) as usize;
+                m.a[(x as usize, z as usize)] = colors[rz * 4 + rx];
+            }
+        }
+
+        m
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let area = pmap.area();
+
+        self.get_map(area)
+    }
+}
+
 pub struct TestMapXhz;
 
 impl GetMap for TestMapXhz {
@@ -151,6 +211,24 @@ impl GetMap for TestMapXhz {
         let area = pmap.area();
 
         self.get_map(area)
+    }
+}
+
+// A map which applies a function to its parent map
+pub struct MapMap {
+    pub parent: Rc<GetMap>,
+    pub f: fn(i32) -> i32,
+}
+
+impl GetMap for MapMap {
+    fn get_map(&self, area: Area) -> Map {
+        let pmap = self.parent.get_map(area);
+        self.get_map_from_pmap(&pmap)
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let mut m = pmap.clone();
+        m.a = m.a.mapv(self.f);
+        m
     }
 }
 
@@ -259,7 +337,7 @@ impl GetMap for MapVoronoiZoom {
                             m.a[idx] = v00;
                         }
                     }
-                    
+
                     v00 = v10;
                     v01 = v11;
                     continue;
@@ -369,6 +447,15 @@ impl GetMap for MapIsland {
     }
 }
 
+// Random:
+// v00: 0 bits
+// v01: 25 bits, but gives us the bit 24 for free
+// v10: 25 bits
+// v11: 26 bits
+//  0 bits for v00,
+// 25 bits for v01,
+// 25 bits for v10,
+// 26 bits for v11.
 pub struct MapZoom {
     base_seed: i64,
     world_seed: i64,
@@ -423,7 +510,7 @@ impl GetMap for MapZoom {
             w: ((p_w - 1) << 1) as u64,
             h: ((p_h - 1) << 1) as u64
         };
-        
+
         let mut map = Map::new(area);
 
         for z in 0..p_h - 1 {
@@ -541,7 +628,7 @@ impl GetMap for MapAddIsland {
 
                     let mut v = 1;
                     let mut inc = 1;
-                    
+
                     if v00 != 0 {
                         // nextInt(1) is always 0
                         if r.next_int_n(inc) == 0 {
@@ -1338,13 +1425,24 @@ impl GetMap for MapRiverInit {
                     r.set_chunk_seed(chunk_x, chunk_z);
                     r.next_int_n(299999) + 2
                 } else {
-                    // TODO: is this branch ever executed?
                     0
                 };
             }
         }
 
         m
+    }
+}
+
+pub fn pretty_biome_map_hills(id: i32) -> i32 {
+    if id == 0 {
+        0
+    } else {
+        match (id - 2) % 29 {
+            0 => 2,
+            1 => 3,
+            _ => 255,
+        }
     }
 }
 
@@ -1543,18 +1641,6 @@ impl GetMap for MapRareBiome {
     }
 }
 
-fn replace_ocean(out: &mut i32, v10: i32, v21: i32, v01: i32, v12: i32, id: i32, replace_id: i32) -> bool {
-    if is_oceanic(id) {
-        return false;
-    }
-    if !is_oceanic(v10) && !is_oceanic(v21) && !is_oceanic(v01) && !is_oceanic(v12) {
-        *out = id;
-    } else {
-        *out = replace_id;
-    }
-    return true;
-}
-
 pub struct MapShore {
     base_seed: i64,
     world_seed: i64,
@@ -1590,6 +1676,19 @@ impl GetMap for MapShore {
     // pmap has 1 wide margin on each size: pmap.w == map.w + 2
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         use self::biome_id::*;
+        // Helper function to simplify repeated logic
+        fn replace_ocean(out: &mut i32, v10: i32, v21: i32, v01: i32, v12: i32, id: i32, replace_id: i32) -> bool {
+            if is_oceanic(id) {
+                return false;
+            }
+            if !is_oceanic(v10) && !is_oceanic(v21) && !is_oceanic(v01) && !is_oceanic(v12) {
+                *out = id;
+            } else {
+                *out = replace_id;
+            }
+            return true;
+        }
+
         let (p_w, p_h) = pmap.a.dim();
         let area = Area {
             x: pmap.x + 1,
@@ -1714,6 +1813,21 @@ impl GetMap for MapSmooth {
                 let v21 = pmap.a[(x+2, z+1)];
                 let v01 = pmap.a[(x+0, z+1)];
                 let v12 = pmap.a[(x+1, z+2)];
+                /*
+                 0B0
+                 AXa
+                 0b0
+                if A == a == B == b:
+                    X = A
+                else if A == a && B == b:
+                    X = random.choose(A, B)
+                else if A == a:
+                    X = A
+                else if B == b:
+                    X = B
+                else:
+                    X = X
+                 */
                 if v01 == v21 && v10 == v12 {
                     let chunk_x = x as i64 + m.x;
                     let chunk_z = z as i64 + m.z;
@@ -1737,7 +1851,9 @@ impl GetMap for MapSmooth {
     }
 }
 
-fn reduce_id(id: i32) -> i32 {
+/// Helper function to classify an input into [0, 1, 2, 3]
+/// Used by MapRiver
+pub fn reduce_id(id: i32) -> i32 {
     if id >= 2 {
         2 + (id & 1)
     } else {
@@ -1808,10 +1924,76 @@ impl GetMap for MapRiver {
     }
 }
 
+/// Like MapRiver, but will generate all the possible rivers for this 26-bit seed
+pub struct HelperMapRiverAll {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<GetMap>>,
+}
+
+impl HelperMapRiverAll {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for HelperMapRiverAll {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x - 1,
+                z: area.z - 1,
+                w: area.w + 2,
+                h: area.h + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let mut map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use self::biome_id::*;
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x + 1,
+            z: pmap.z + 1,
+            w: p_w as u64 - 2,
+            h: p_h as u64 - 2
+        };
+        let mut m = Map::new(area);
+        for z in 0..area.h as usize {
+            for x in 0..area.w as usize {
+                let v11 = pmap.a[(x+1, z+1)];
+                let v10 = pmap.a[(x+1, z+0)];
+                let v21 = pmap.a[(x+2, z+1)];
+                let v01 = pmap.a[(x+0, z+1)];
+                let v12 = pmap.a[(x+1, z+2)];
+
+                m.a[(x, z)] = if v11 == v01 && v11 == v10 && v11 == v21 && v11 == v12 {
+                    -1
+                } else {
+                    river
+                };
+            }
+        }
+
+        m
+    }
+}
+
 pub struct MapRiverMix {
     base_seed: i64,
     world_seed: i64,
+    // Map parent
     pub parent1: Option<Rc<GetMap>>,
+    // River parent
     pub parent2: Option<Rc<GetMap>>,
 }
 
@@ -1953,7 +2135,7 @@ impl GetMap for MapSkip {
                     w: ((p_w - 1) << 1) as u64,
                     h: ((p_h - 1) << 1) as u64
                 };
-                
+
                 let mut map = Map::new(area);
 
                 for z in 0..p_h - 1 {
@@ -1975,10 +2157,106 @@ impl GetMap for MapSkip {
     }
 }
 
+/// We lose some information here :/
+/// Returns a tuple (BiomeMap, RiverMap)
+fn decompose_map_river_mix(map: &Map) -> (SparseMap, SparseMap) {
+    use self::biome_id::*;
+    let mut parent1 = SparseMap::new(map.area());
+    let mut parent2 = SparseMap::new(map.area());
+    for ((x, z), b) in map.a.indexed_iter() {
+        match *b {
+            frozenRiver => {
+                parent1.a[(x, z)] = Some(icePlains);
+                parent2.a[(x, z)] = Some(river);
+            }
+            mushroomIslandShore => {
+                // We can not be sure that it was a river
+                // It may have been generated by MapShore
+            }
+            river => {
+                parent2.a[(x, z)] = Some(river);
+            }
+            anything_else => {
+                parent1.a[(x, z)] = Some(anything_else);
+            }
+        }
+    }
 
-// Works 99.9 % of the time*
-// p = 0.9992 for each tile
-// The probability of having at least one error in a 30x30 area is 50%
+    (parent1, parent2)
+}
+
+
+// TODO: this function must do the reverse of edge detection
+pub fn reverse_map_river(m: &Map) -> Map {
+    let (w, h) = m.a.dim();
+    let (p_w, p_h) = (w - 2, h - 2);
+    let (p_w, p_h) = (p_w as u64, p_h as u64);
+    let mut pmap = Map::new(Area { x: m.x + 1, z: m.z + 1, w: p_w, h: p_h });
+
+    for z in 0..p_h {
+        for x in 0..p_w {
+            // if v11 is not a river, then all of [v11, v10, v21, v01, v12] are equal
+            let (x, z) = (x as usize, z as usize);
+            pmap.a[(x, z)] = m.a[(x + 1, z + 1)];
+        }
+    }
+
+    pmap
+}
+
+/// This returns the biome parent of MapRiverMix.
+/// Since the rivers actually overwrite some of the info, it is incomplete.
+/// The unknown biomes are represented as 0xFF
+pub fn reverse_map_river_mix(m: &Map) -> Map {
+    decompose_map_river_mix(m).0.unwrap_or(UNKNOWN_BIOME_ID)
+}
+
+/// Actually, this works 100% of the time
+pub fn reverse_map_zoom(m: &Map) -> Map {
+    let (w, h) = m.a.dim();
+    let (p_w, p_h) = (w >> 1, h >> 1);
+    let (p_w, p_h) = (p_w as u64, p_h as u64);
+    let mut pmap = Map::new(Area { x: m.x >> 1, z: m.z >> 1, w: p_w, h: p_h });
+    let (fx, fz) = ((m.x & 1) as usize, (m.z & 1) as usize);
+
+    for z in 0..p_h {
+        for x in 0..p_w {
+            let (x, z) = (x as usize, z as usize);
+            pmap.a[(x, z)] = m.a[(fx + (x << 1), fz + (z << 1))];
+        }
+    }
+
+    pmap
+}
+
+/// Works at least 9/16*100 % of the time
+pub fn reverse_map_smooth(m: &Map) -> Map {
+    let (w, h) = m.a.dim();
+    let (p_w, p_h) = (w - 2, h - 2);
+    let (p_w, p_h) = (p_w as u64, p_h as u64);
+    let mut pmap = Map::new(Area { x: (m.x + 1), z: (m.z + 1), w: p_w, h: p_h });
+    let (fx, fz) = ((m.x & 1) as usize, (m.z & 1) as usize);
+
+    for z in 0..p_h {
+        for x in 0..p_w {
+            let (x, z) = (x as usize, z as usize);
+            // Set each pixel to the same color as the "parent" before MapZoom:
+            // [0, 0] = [0, 0]
+            // [0, 1] = [0, 0]
+            // [1, 0] = [0, 0]
+            // [1, 1] = [0, 0]
+            // [2, 0] = [2, 0]
+            pmap.a[(x, z)] = m.a[(fx + (x & !1), fz + (z & !1))];
+        }
+    }
+
+    pmap
+}
+
+
+/// Works 99.9 % of the time*
+/// p = 0.9992 for each tile
+/// The probability of having at least one error in a 30x30 area is 50%
 pub fn reverse_map_voronoi_zoom(buf: &Array2<i32>, _p_x: i64, _p_z: i64, _world_seed: i64) -> Array2<i32> {
     let (w, h) = buf.dim();
     let (p_w, p_h) = (w >> 2, h >> 2);
@@ -2430,8 +2708,10 @@ pub const Warm: BiomeTempCategory = 1;
 pub const Oceanic: BiomeTempCategory = 0;
 }
 
+// TODO: I changed 252 to pure green to help with debugging
+pub const UNKNOWN_BIOME_ID: i32 = 252;
 pub static BIOME_COLORS: [[u8; 3]; 256] =
-[[0, 0, 112], [141, 179, 96], [250, 148, 24], [96, 96, 96], [5, 102, 33], [11, 102, 89], [7, 249, 178], [0, 0, 255], [255, 0, 0], [128, 128, 255], [112, 112, 214], [160, 160, 255], [255, 255, 255], [160, 160, 160], [255, 0, 255], [160, 0, 255], [250, 222, 85], [210, 95, 18], [34, 85, 28], [22, 57, 51], [114, 120, 154], [83, 123, 9], [44, 66, 5], [98, 139, 23], [0, 0, 48], [162, 162, 132], [250, 240, 192], [48, 116, 68], [31, 95, 50], [64, 81, 26], [49, 85, 74], [36, 63, 54], [89, 102, 81], [69, 79, 62], [80, 112, 80], [189, 178, 95], [167, 157, 100], [217, 69, 21], [176, 151, 101], [202, 140, 101], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 172], [0, 0, 144], [32, 32, 112], [0, 0, 80], [0, 0, 64], [32, 32, 56], [64, 64, 144], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 112], [141, 179, 96], [250, 148, 24], [96, 96, 96], [5, 102, 33], [11, 102, 89], [7, 249, 178], [0, 0, 255], [255, 0, 0], [128, 128, 255], [144, 144, 160], [160, 160, 255], [140, 180, 180], [160, 160, 160], [255, 0, 255], [160, 0, 255], [250, 222, 85], [210, 95, 18], [34, 85, 28], [22, 57, 51], [114, 120, 154], [83, 123, 9], [44, 66, 5], [98, 139, 23], [0, 0, 48], [162, 162, 132], [250, 240, 192], [48, 116, 68], [31, 95, 50], [64, 81, 26], [49, 85, 74], [36, 63, 54], [89, 102, 81], [69, 79, 62], [80, 112, 80], [189, 178, 95], [167, 157, 100], [217, 69, 21], [176, 151, 101], [202, 140, 101], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
+[[0, 0, 112], [141, 179, 96], [250, 148, 24], [96, 96, 96], [5, 102, 33], [11, 102, 89], [7, 249, 178], [0, 0, 255], [255, 0, 0], [128, 128, 255], [112, 112, 214], [160, 160, 255], [255, 255, 255], [160, 160, 160], [255, 0, 255], [160, 0, 255], [250, 222, 85], [210, 95, 18], [34, 85, 28], [22, 57, 51], [114, 120, 154], [83, 123, 9], [44, 66, 5], [98, 139, 23], [0, 0, 48], [162, 162, 132], [250, 240, 192], [48, 116, 68], [31, 95, 50], [64, 81, 26], [49, 85, 74], [36, 63, 54], [89, 102, 81], [69, 79, 62], [80, 112, 80], [189, 178, 95], [167, 157, 100], [217, 69, 21], [176, 151, 101], [202, 140, 101], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 172], [0, 0, 144], [32, 32, 112], [0, 0, 80], [0, 0, 64], [32, 32, 56], [64, 64, 144], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 112], [141, 179, 96], [250, 148, 24], [96, 96, 96], [5, 102, 33], [11, 102, 89], [7, 249, 178], [0, 0, 255], [255, 0, 0], [128, 128, 255], [144, 144, 160], [160, 160, 255], [140, 180, 180], [160, 160, 160], [255, 0, 255], [160, 0, 255], [250, 222, 85], [210, 95, 18], [34, 85, 28], [22, 57, 51], [114, 120, 154], [83, 123, 9], [44, 66, 5], [98, 139, 23], [0, 0, 48], [162, 162, 132], [250, 240, 192], [48, 116, 68], [31, 95, 50], [64, 81, 26], [49, 85, 74], [36, 63, 54], [89, 102, 81], [69, 79, 62], [80, 112, 80], [189, 178, 95], [167, 157, 100], [217, 69, 21], [176, 151, 101], [202, 140, 101], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 255, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]]
 ;
 
 pub static BIOME_INFO: [Biome; 256] = 
