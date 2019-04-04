@@ -2948,7 +2948,7 @@ mod tests {
 }
 
 #[allow(non_upper_case_globals)]
-mod biome_id {
+pub mod biome_id {
 pub type BiomeID = i32;
 pub const BIOME_NUM: BiomeID = 51;
 pub const frozenDeepOcean: BiomeID = 50;
