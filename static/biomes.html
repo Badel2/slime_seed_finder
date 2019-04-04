@@ -67,6 +67,9 @@
                 if(i >= 100 && i <= 143) {
                     layerScale = scales[i - 100];
                 }
+                if(i >= 200 && i <= 243) {
+                    layerScale = scales[i - 200];
+                }
             }
             document.getElementById("add2ToTheN").addEventListener("input", function(event) {
                 var value = document.getElementById("add2ToTheN").value|0;
@@ -90,6 +93,13 @@
                 }
                 if(i >= 100 && i <= 143) {
                     var newScale = scales[i - 100];
+                    Game.camera.resolutionChange(newScale / layerScale);
+                    layerScale = newScale;
+                    //Game.clear();
+                    Game.setActiveLayer(i);
+                }
+                if(i >= 200 && i <= 243) {
+                    var newScale = scales[i - 200];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
                     //Game.clear();

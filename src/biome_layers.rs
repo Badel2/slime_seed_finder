@@ -573,6 +573,7 @@ impl GetMap for MapZoom {
 /// from any of its neighbours. This way we can generate all the possible
 /// edges (and therefore rivers) for this 25-bit seed.
 // Update: this did not work as I expected, but could still be useful
+// Note that the black spots are not necessarily points where no river can spawn
 pub struct HelperMapZoomAllEdges {
     base_seed: i64,
     world_seed: i64,
@@ -2392,17 +2393,17 @@ pub fn reverse_map_voronoi_zoom(buf: &Array2<i32>, _p_x: i64, _p_z: i64, _world_
 pub fn candidate_river_map_generator() -> impl GetMap {
     let world_seed = 0;
     let g22 = TestMapCheckers;
-    let mut g34 = MapZoom::new(1000, world_seed);
+    let mut g34 = HelperMapZoomAllEdges::new(1000, world_seed);
     g34.parent = Some(Rc::new(g22));
-    let mut g35 = MapZoom::new(1001, world_seed);
+    let mut g35 = HelperMapZoomAllEdges::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    let mut g36 = MapZoom::new(1000, world_seed);
+    let mut g36 = HelperMapZoomAllEdges::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    let mut g37 = MapZoom::new(1001, world_seed);
+    let mut g37 = HelperMapZoomAllEdges::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    let mut g38 = MapZoom::new(1002, world_seed);
+    let mut g38 = HelperMapZoomAllEdges::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    let mut g39 = MapZoom::new(1003, world_seed);
+    let mut g39 = HelperMapZoomAllEdges::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
     let mut g40 = HelperMapRiverAll::new(1, world_seed);
     g40.parent = Some(Rc::new(g39));
@@ -2414,17 +2415,17 @@ pub fn candidate_river_map_generator() -> impl GetMap {
 
 pub fn candidate_river_map(a: Area, world_seed: i64) -> Map {
     let g22 = TestMapCheckers;
-    let mut g34 = MapZoom::new(1000, world_seed);
+    let mut g34 = HelperMapZoomAllEdges::new(1000, world_seed);
     g34.parent = Some(Rc::new(g22));
-    let mut g35 = MapZoom::new(1001, world_seed);
+    let mut g35 = HelperMapZoomAllEdges::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    let mut g36 = MapZoom::new(1000, world_seed);
+    let mut g36 = HelperMapZoomAllEdges::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    let mut g37 = MapZoom::new(1001, world_seed);
+    let mut g37 = HelperMapZoomAllEdges::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    let mut g38 = MapZoom::new(1002, world_seed);
+    let mut g38 = HelperMapZoomAllEdges::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    let mut g39 = MapZoom::new(1003, world_seed);
+    let mut g39 = HelperMapZoomAllEdges::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
     let mut g40 = HelperMapRiverAll::new(1, world_seed);
     g40.parent = Some(Rc::new(g39));
@@ -2482,6 +2483,37 @@ pub fn generate(a: Area, world_seed: i64) -> Map {
     generate_up_to_layer(a, world_seed, NUM_LAYERS)
 }
 
+pub fn generate_up_to_layer_extra_2(a: Area, world_seed: i64, layer: u32) -> Map {
+    let g22 = TestMapCheckers;
+    if layer == 222 { return g22.get_map(a); }
+    let mut g34 = HelperMapZoomAllEdges::new(1000, world_seed);
+    g34.parent = Some(Rc::new(g22));
+    if layer == 234 { return g34.get_map(a); }
+    let mut g35 = HelperMapZoomAllEdges::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    if layer == 235 { return g35.get_map(a); }
+    let mut g36 = HelperMapZoomAllEdges::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    if layer == 236 { return g36.get_map(a); }
+    let mut g37 = HelperMapZoomAllEdges::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    if layer == 237 { return g37.get_map(a); }
+    let mut g38 = HelperMapZoomAllEdges::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    if layer == 238 { return g38.get_map(a); }
+    let mut g39 = HelperMapZoomAllEdges::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    if layer == 239 { return g39.get_map(a); }
+    let mut g40 = HelperMapRiverAll::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    if layer == 240 { return g40.get_map(a); }
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+    if layer == 241 { return g41.get_map(a); }
+
+    TestMapZero.get_map(a)
+}
+
 pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
     let g22 = TestMapCheckers;
     if layer == 122 { return g22.get_map(a); }
@@ -2514,6 +2546,9 @@ pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
 }
 
 pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
+    if layer >= 200 {
+        return generate_up_to_layer_extra_2(a, world_seed, layer);
+    }
     if layer >= 100 {
         return generate_up_to_layer_extra(a, world_seed, layer);
     }
@@ -2683,12 +2718,12 @@ mod tests {
         let area = Area { x: 0, z: 0, w, h };
         let m33 = generate_up_to_layer(area, world_seed, 33);
 
-        let g34 = MapZoom::new(1000, world_seed);
-        let g35 = MapZoom::new(1001, world_seed);
-        let g36 = MapZoom::new(1000, world_seed);
-        let g37 = MapZoom::new(1001, world_seed);
-        let g38 = MapZoom::new(1002, world_seed);
-        let g39 = MapZoom::new(1003, world_seed);
+        let g34 = HelperMapZoomAllEdges::new(1000, world_seed);
+        let g35 = HelperMapZoomAllEdges::new(1001, world_seed);
+        let g36 = HelperMapZoomAllEdges::new(1000, world_seed);
+        let g37 = HelperMapZoomAllEdges::new(1001, world_seed);
+        let g38 = HelperMapZoomAllEdges::new(1002, world_seed);
+        let g39 = HelperMapZoomAllEdges::new(1003, world_seed);
         let g40 = MapRiver::new(1, world_seed);
         let g41 = MapSmooth::new(1000, world_seed);
 
@@ -2775,7 +2810,7 @@ mod tests {
         let area = Area { x: 0, z: 0, w, h };
         let m = generate_up_to_layer(area, world_seed, 31);
 
-        let g32 = MapZoom::new(1003, world_seed);
+        let g32 = HelperMapZoomAllEdges::new(1003, world_seed);
         let g33 = MapSmooth::new(1000, world_seed);
 
         let m1 = g32.get_map_from_pmap(&m);

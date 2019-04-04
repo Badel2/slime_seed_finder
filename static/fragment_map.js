@@ -21,7 +21,7 @@ function mod(x, m) {
 var canvas = document.getElementById("demo");
 var CANVAS_W = canvas.width|0;
 var CANVAS_H = canvas.height|0;
-var NUM_LAYERS = 144;
+var NUM_LAYERS = 244;
 
 function array_filled_with(length, what) {
     var a = Array(length);
