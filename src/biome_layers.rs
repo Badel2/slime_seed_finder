@@ -4,6 +4,8 @@ use crate::mc_rng::McRng;
 // are defined as (z * w + x).
 use ndarray::Array2;
 use std::rc::Rc;
+use std::cell::RefCell;
+use std::collections::HashMap;
 
 // The different Map* layers are copied from
 // https://github.com/Cubitect/cubiomes
@@ -68,6 +70,59 @@ impl From<Map> for SparseMap {
             z: m.z,
             a,
         }
+    }
+}
+
+pub struct CachedMap {
+    pub parent: Rc<dyn GetMap>,
+    pub cache: RefCell<HashMap<(i64, i64), i32>>,
+}
+
+impl CachedMap {
+    fn new(parent: Rc<dyn GetMap>) -> Self {
+        Self {
+            parent, cache: Default::default()
+        }
+    }
+    fn insert_into_cache(&self, m: &Map) {
+        let area = m.area();
+        for z in 0..area.h as usize {
+            for x in 0..area.w as usize {
+                self.cache.borrow_mut().insert((area.x as i64 + x as i64, area.z as i64 + z as i64), m.a[(x, z)]);
+            }
+        }
+    }
+    fn get_all_from_cache(&self, area: Area) -> Option<Map> {
+        let mut m = Map::new(area);
+        for z in 0..area.h as usize {
+            for x in 0..area.w as usize {
+                if let Some(b) = self.cache.borrow().get(&(area.x as i64 + x as i64, area.z as i64 + z as i64)) {
+                    m.a[(x, z)] = *b;
+                } else {
+                    return None;
+                }
+            }
+        }
+
+        Some(m)
+    }
+}
+
+impl GetMap for CachedMap {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(m) = self.get_all_from_cache(area) {
+            m
+        } else {
+            let m = self.parent.get_map(area);
+            self.insert_into_cache(&m);
+            
+            m
+        }
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let area = pmap.area();
+
+        self.get_map(area)
     }
 }
 
@@ -2376,14 +2431,47 @@ pub fn reverse_map_smooth(m: &Map) -> Map {
 /// Works 99.9 % of the time*
 /// p = 0.9992 for each tile
 /// The probability of having at least one error in a 30x30 area is 50%
-pub fn reverse_map_voronoi_zoom(buf: &Array2<i32>, _p_x: i64, _p_z: i64, _world_seed: i64) -> Array2<i32> {
-    let (w, h) = buf.dim();
-    let (p_w, p_h) = (w >> 2, h >> 2);
-    let mut pmap = Array2::zeros((p_w, p_h));
+pub fn reverse_map_voronoi_zoom(m: &Map) -> Map {
+    // Ignore these functions, I decided to shift the map by 2 and make them useless
+    fn divide_coord_by_4(x: i64) -> i64 {
+        // 0 => 0
+        // 1 => 0
+        // 2 => 0
+        // 3 => 1
+        // 4 => 1
+        // 5 => 1
+        // 6 => 1
+        // 7 => 2
+        (x + 1) / 4
+    }
+    fn multiply_coord_by_4(x: i64) -> i64 {
+        // 0 => 2
+        // 1 => 6
+        (x * 4) + 2
+    }
+    let d4 = |x| x / 4;
+    let m4 = |x| x * 4;
+    let area = m.area();
+    // Adjust map so that m.a[(0, 0)] corresponds to (2+4k, 2+4k)
+    let (adj_x, adj_z) = ((area.x as u64 + 2) % 4, (area.z as u64 + 2) % 4);
+    let (adj_x, adj_z) = (adj_x as usize, adj_z as usize);
+    let adjusted_map = m.a.slice(s![adj_x.., adj_z..]);
+    let area = Area { x: area.x + adj_x as i64, z: area.z + adj_z as i64, w: area.w - adj_x as u64, h: area.h - adj_z as u64 };
+    let (p_x, p_z) = (d4(area.x) - 1, d4(area.z) - 1);
+    //let (p_x_max, p_z_max) = (d4(area.x + area.w as i64 - 1), d4(area.z + area.h as i64 - 1));
+    let (p_w, p_h) = ((area.w + 3) >> 2, (area.h + 3) >> 2);
+    //let (p_w, p_h) = (p_x_max - p_x + 1, p_z_max - p_z + 1);
+    //let (p_w, p_h) = (p_w as u64, p_h as u64);
+    let parea = Area { x: p_x, z: p_z, w: p_w, h: p_h };
+    let mut pmap = Map::new(parea);
+    //println!("{:?} vs {:?}", area, parea);
 
-    for z in 0..p_h {
-        for x in 0..p_w {
-            pmap[(x, z)] = buf[(x << 2, z << 2)];
+    for z in 0..p_h as usize {
+        for x in 0..p_w as usize {
+            let xx = m4(x as i64) as usize;
+            let zz = m4(z as i64) as usize;
+            //println!("{:?} => {:?}", (x, z), (xx, zz));
+            pmap.a[(x, z)] = adjusted_map[(xx, zz)];
         }
     }
 
@@ -2393,17 +2481,17 @@ pub fn reverse_map_voronoi_zoom(buf: &Array2<i32>, _p_x: i64, _p_z: i64, _world_
 pub fn candidate_river_map_generator() -> impl GetMap {
     let world_seed = 0;
     let g22 = TestMapCheckers;
-    let mut g34 = HelperMapZoomAllEdges::new(1000, world_seed);
+    let mut g34 = MapZoom::new(1000, world_seed);
     g34.parent = Some(Rc::new(g22));
-    let mut g35 = HelperMapZoomAllEdges::new(1001, world_seed);
+    let mut g35 = MapZoom::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    let mut g36 = HelperMapZoomAllEdges::new(1000, world_seed);
+    let mut g36 = MapZoom::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    let mut g37 = HelperMapZoomAllEdges::new(1001, world_seed);
+    let mut g37 = MapZoom::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    let mut g38 = HelperMapZoomAllEdges::new(1002, world_seed);
+    let mut g38 = MapZoom::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    let mut g39 = HelperMapZoomAllEdges::new(1003, world_seed);
+    let mut g39 = MapZoom::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
     let mut g40 = HelperMapRiverAll::new(1, world_seed);
     g40.parent = Some(Rc::new(g39));
@@ -2415,17 +2503,17 @@ pub fn candidate_river_map_generator() -> impl GetMap {
 
 pub fn candidate_river_map(a: Area, world_seed: i64) -> Map {
     let g22 = TestMapCheckers;
-    let mut g34 = HelperMapZoomAllEdges::new(1000, world_seed);
+    let mut g34 = MapZoom::new(1000, world_seed);
     g34.parent = Some(Rc::new(g22));
-    let mut g35 = HelperMapZoomAllEdges::new(1001, world_seed);
+    let mut g35 = MapZoom::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    let mut g36 = HelperMapZoomAllEdges::new(1000, world_seed);
+    let mut g36 = MapZoom::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    let mut g37 = HelperMapZoomAllEdges::new(1001, world_seed);
+    let mut g37 = MapZoom::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    let mut g38 = HelperMapZoomAllEdges::new(1002, world_seed);
+    let mut g38 = MapZoom::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    let mut g39 = HelperMapZoomAllEdges::new(1003, world_seed);
+    let mut g39 = MapZoom::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
     let mut g40 = HelperMapRiverAll::new(1, world_seed);
     g40.parent = Some(Rc::new(g39));
@@ -2962,7 +3050,7 @@ mod tests {
         }
 
         let b = voronoi_zoom.get_map_from_pmap(&m);
-        let a_r = reverse_map_voronoi_zoom(&b.a, 0, 0, 0);
+        let a_r = reverse_map_voronoi_zoom(&b).a;
         let a_s = m.a.slice(s![0..-1, 0..-1]);
 
         //assert!(a_s == a_r, format!("{:#?}", &a_s ^ &a_r));
