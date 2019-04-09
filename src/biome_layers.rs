@@ -744,6 +744,10 @@ impl GetMap for HelperMapZoomAllEdges {
     }
 }
 
+/// This layer uses 64 bits but only affects shores (regions near ocean).
+/// Deep ocean is not affected.
+/// This makes continental biome borders a good candidate for getting the seed.
+/// Ocean islands also seem unaffected, but they are generated in layer 25.
 pub struct MapAddIsland {
     base_seed: i64,
     world_seed: i64,
@@ -1620,6 +1624,7 @@ pub fn pretty_biome_map_hills(id: i32) -> i32 {
     }
 }
 
+/// This layer uses 64 bits
 pub struct MapHills {
     base_seed: i64,
     world_seed: i64,
@@ -2603,10 +2608,12 @@ pub fn generate_up_to_layer_extra_2(a: Area, world_seed: i64, layer: u32) -> Map
 }
 
 pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
+    /* RIVER LAYERS */
     let g22 = TestMapCheckers;
+    let g22 = Rc::new(g22);
     if layer == 122 { return g22.get_map(a); }
     let mut g34 = MapZoom::new(1000, world_seed);
-    g34.parent = Some(Rc::new(g22));
+    g34.parent = Some(g22.clone());
     if layer == 134 { return g34.get_map(a); }
     let mut g35 = MapZoom::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
@@ -2629,6 +2636,88 @@ pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
     let mut g41 = MapSmooth::new(1000, world_seed);
     g41.parent = Some(Rc::new(g40));
     if layer == 141 { return g41.get_map(a); }
+    /* END RIVER LAYERS */
+
+    /* BIOME LAYERS */
+    let g12 = TestMapCheckers;
+    if layer <= 112 { return g12.get_map(a); }
+    let mut g13 = MapZoom::new(2002, world_seed);
+    g13.parent = Some(Rc::new(g12));
+    if layer == 113 { return g13.get_map(a); }
+    let mut g14 = MapZoom::new(2003, world_seed);
+    g14.parent = Some(Rc::new(g13));
+    if layer == 114 { return g14.get_map(a); }
+    //let mut g15 = MapAddIsland::new(4, world_seed);
+    //g15.parent = Some(Rc::new(g14));
+    //if layer == 115 { return g15.get_map(a); }
+    //let mut g16 = MapAddMushroomIsland::new(5, world_seed);
+    //g16.parent = Some(Rc::new(g15));
+    //if layer == 116 { return g16.get_map(a); }
+    //let mut g17 = MapDeepOcean::new(4, world_seed);
+    //g17.parent = Some(Rc::new(g16));
+    //let g17 = Rc::new(g17);
+    //if layer == 117 { return g17.get_map(a); }
+    //let mut g18 = MapBiome::new(200, world_seed);
+    //g18.parent = Some(g17.clone());
+    //if layer == 118 { return g18.get_map(a); }
+    let mut g19 = MapZoom::new(1000, world_seed);
+    g19.parent = Some(Rc::new(g14));
+    if layer <= 119 { return g19.get_map(a); }
+    let mut g20 = MapZoom::new(1001, world_seed);
+    g20.parent = Some(Rc::new(g19));
+    if layer == 120 { return g20.get_map(a); }
+    //let mut g21 = MapBiomeEdge::new(1000, world_seed);
+    //g21.parent = Some(Rc::new(g20));
+    //if layer == 121 { return g21.get_map(a); }
+
+    let mut g23 = MapZoom::new(1000, world_seed);
+    g23.parent = Some(g22.clone());
+    g23.bug_world_seed_not_set = true;
+    if layer == 123 { return g23.get_map(a); }
+    let mut g24 = MapZoom::new(1001, world_seed);
+    g24.parent = Some(Rc::new(g23));
+    g24.bug_world_seed_not_set = true;
+    if layer == 124 { return g24.get_map(a); }
+    //let mut g25 = MapHills::new(1000, world_seed);
+    //g25.parent1 = Some(Rc::new(g20));
+    //g25.parent2 = Some(Rc::new(g24));
+    //if layer == 25 { return g25.get_map(a); }
+    //let mut g26 = MapRareBiome::new(1001, world_seed);
+    //g26.parent = Some(Rc::new(g25));
+    //if layer == 26 { return g26.get_map(a); }
+    let mut g27 = MapZoom::new(1000, world_seed);
+    g27.parent = Some(Rc::new(g24));
+    // Target deep ocean islands:
+    //g27.parent = Some(g22.clone());
+    if layer == 127 { return g27.get_map(a); }
+    //let mut g28 = MapAddIsland::new(3, world_seed);
+    //g28.parent = Some(Rc::new(g27));
+    //if layer == 28 { return g28.get_map(a); }
+    let mut g29 = MapZoom::new(1001, world_seed);
+    g29.parent = Some(Rc::new(g27));
+    if layer == 129 { return g29.get_map(a); }
+    //let mut g30 = MapShore::new(1000, world_seed);
+    //g30.parent = Some(Rc::new(g29));
+    //if layer == 30 { return g30.get_map(a); }
+    let mut g31 = MapZoom::new(1002, world_seed);
+    g31.parent = Some(Rc::new(g29));
+    // Target MapShore:
+    //g31.parent = Some(g22.clone());
+    if layer == 131 { return g31.get_map(a); }
+    let mut g32 = MapZoom::new(1003, world_seed);
+    g32.parent = Some(Rc::new(g31));
+    if layer == 132 { return g32.get_map(a); }
+    let mut g33 = MapSmooth::new(1000, world_seed);
+    g33.parent = Some(Rc::new(g32));
+    if layer == 133 { return g33.get_map(a); }
+
+    let mut g42 = MapRiverMix::new(100, world_seed);
+    g42.parent1 = Some(Rc::new(g33));
+    g42.parent2 = Some(Rc::new(g41));
+    if layer == 142 { return g42.get_map(a); }
+    let mut g43 = MapVoronoiZoom::new(10, world_seed);
+    g43.parent = Some(Rc::new(g42));
+    if layer == 143 { return g43.get_map(a); }
 
     TestMapZero.get_map(a)
 }
