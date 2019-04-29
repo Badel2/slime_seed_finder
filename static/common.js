@@ -182,8 +182,11 @@ window.onload = function () {
                 // Update selection textarea
                 var seltextarea = document.getElementById('selection_output');
                 seltextarea.value = stringify({
-                    slime_chunks: Game.getSelection(0, 1),
-                    slime_chunks_not: Game.getSelection(0, 2)
+                    version: "1.7",
+                    slimeChunks: Game.getSelection(0, 1),
+                    negative: {
+                        slimeChunks: Game.getSelection(0, 2)
+                    }
                 }, { maxLength: 20 });
             }
             dragging = null;
@@ -204,8 +207,11 @@ window.onload = function () {
     var seltextarea = document.getElementById('selection_output');
     if (seltextarea && seltextarea.value == "") {
         seltextarea.value = stringify({
-            slime_chunks: Game.getSelection(0, 1),
-            slime_chunks_not: Game.getSelection(0, 2)
+            version: "1.7",
+            slimeChunks: Game.getSelection(0, 1),
+            negative: {
+                slimeChunks: Game.getSelection(0, 2)
+            }
         }, { maxLength: 20 });
     }
 
@@ -219,6 +225,6 @@ function load_selection() {
     var seltextarea = document.getElementById('selection_output');
     var x = JSON.parse(seltextarea.value);
     Game.clearSelection(0);
-    Game.setSelection(0, 1, x.slime_chunks);
-    Game.setSelection(0, 2, x.slime_chunks_not);
+    Game.setSelection(0, 1, x.slimeChunks);
+    Game.setSelection(0, 2, x.negative.slimeChunks);
 }

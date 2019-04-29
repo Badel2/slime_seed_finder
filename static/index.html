@@ -62,13 +62,11 @@
             }
             function runGui() {
                     var seltextarea = document.getElementById('selection_output');
-                    var s = JSON.parse(seltextarea.value);
-                    var chunks = s.slime_chunks;
-                    var no_chunks = s.slime_chunks_not;
+                    var seedInfo = JSON.parse(seltextarea.value);
                     var outta = document.getElementById('output_textarea');
                     outta.value = "Calculating...";
                     if (window.Worker) {
-                        myWorker.postMessage({ chunks: chunks, no_chunks: no_chunks });
+                        myWorker.postMessage({ seedInfo: seedInfo });
                         console.log('Message posted to worker');
                         myWorker.onmessage = function(e) {
                             outta.value = e.data;
@@ -77,7 +75,7 @@
                     } else {
                         Rust.wasm_gui.then( function( wasmgui ) {
                             // TODO: check if a thread is already running and kill it
-                            outta.value = wasmgui.slime_seed_finder(chunks, no_chunks);
+                            outta.value = wasmgui.slime_seed_finder(seedInfo);
                         }, function( err ) {
                             console.error(err);
                         });
@@ -89,10 +87,8 @@
                 Rust.wasm_gui.then( function( wasmgui ) {
                     var outta = document.getElementById('num_candidates');
                     var seltextarea = document.getElementById('selection_output');
-                    var s = JSON.parse(seltextarea.value);
-                    var chunks = s.slime_chunks;
-                    var no_chunks = s.slime_chunks_not;
-                    outta.value = wasmgui.count_candidates({ chunks: chunks, no_chunks: no_chunks});
+                    var seedInfo = JSON.parse(seltextarea.value);
+                    outta.value = wasmgui.count_candidates({ seedInfo: seedInfo });
                 }, function( err ) {
                     console.error(err);
                 });

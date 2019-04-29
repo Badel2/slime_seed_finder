@@ -9,7 +9,7 @@ type Point = (i64, i64);
 type BiomeId = i32;
 type MinecraftVersion = String;
 
-#[derive(Default, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct SeedStructures {
     #[serde(default, skip_serializing_if = "is_default", rename = "slimeChunks")]
     pub slime_chunks: Vec<Chunk>,
@@ -29,7 +29,7 @@ pub struct SeedStructures {
     pub villages: Vec<Chunk>,
 }
 
-#[derive(Default, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct SeedInfo {
     pub version: MinecraftVersion,
     #[serde(default, skip_serializing_if = "is_default")]

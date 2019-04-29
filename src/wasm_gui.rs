@@ -9,13 +9,13 @@ extern crate serde;
 extern crate serde_json;
 extern crate palette;
 
-//#[cfg(feature = "wasm")]
-//use stdweb::js_export;
+use stdweb::serde::Serde;
 use palette::{Gradient, LinSrgb};
 
 use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
+use slime_seed_finder::seed_info::SeedInfo;
 
 #[cfg(feature = "wasm")]
 fn main(){
@@ -24,19 +24,16 @@ fn main(){
 
 #[derive(Deserialize, Debug)]
 pub struct Options {
-    #[serde(default)]
-    chunks: Vec<[i32; 2]>,
-    #[serde(default)]
-    no_chunks: Vec<[i32; 2]>,
+    #[serde(rename = "seedInfo")]
+    seed_info: SeedInfo,
 }
-
-js_deserializable!( Options );
 
 #[cfg(feature = "wasm")]
 #[js_export]
 //pub fn slime_seed_finder(chunks_str: &str, no_chunks_str: &str) -> String {
 //    let r = find_seed(chunks_str, no_chunks_str);
-pub fn slime_seed_finder(o: Options) -> String {
+pub fn slime_seed_finder(o: Serde<Options>) -> String {
+    let o = o.0;
     console!(log, "Hello from Rust");
     let r = find_seed(o);
 
@@ -78,9 +75,10 @@ pub fn extend48(s: &str) -> String {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn count_candidates(o: Options) -> String {
-    let c: Vec<_> = o.chunks.into_iter().map(|c| Chunk::new(c[0], c[1])).collect();
-    let nc: Vec<_> = o.no_chunks.into_iter().map(|c| Chunk::new(c[0], c[1])).collect();
+pub fn count_candidates(o: Serde<Options>) -> String {
+    let o = o.0;
+    let c: Vec<_> = o.seed_info.positive.slime_chunks;
+    let nc: Vec<_> = o.seed_info.negative.slime_chunks;
 
     if (c.len() == 0) && (nc.len() == 0) {
         return format!("{} * 2^30 candidates", 1 << 18);
@@ -91,8 +89,8 @@ pub fn count_candidates(o: Options) -> String {
 }
 
 pub fn find_seed(o: Options) -> Vec<u64> {
-    let c: Vec<_> = o.chunks.into_iter().map(|c| Chunk::new(c[0], c[1])).collect();
-    let nc: Vec<_> = o.no_chunks.into_iter().map(|c| Chunk::new(c[0], c[1])).collect();
+    let c: Vec<_> = o.seed_info.positive.slime_chunks;
+    let nc: Vec<_> = o.seed_info.negative.slime_chunks;
 
     if (c.len() == 0) && (nc.len() == 0) {
         console!(log, "Can't find seed without chunks");
