@@ -10,18 +10,19 @@ type BiomeId = i32;
 type MinecraftVersion = String;
 
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SeedStructures {
-    #[serde(default, skip_serializing_if = "is_default", rename = "slimeChunks")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub slime_chunks: Vec<Chunk>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub mineshafts: Vec<Chunk>,
-    #[serde(default, skip_serializing_if = "is_default", rename = "netherForts")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub nether_forts: Vec<Chunk>,
-    #[serde(default, skip_serializing_if = "is_default", rename = "desertTemples")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub desert_temples: Vec<Chunk>,
-    #[serde(default, skip_serializing_if = "is_default", rename = "jungleTemples")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub jungle_temples: Vec<Chunk>,
-    #[serde(default, skip_serializing_if = "is_default", rename = "witchHuts")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub witch_huts: Vec<Chunk>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub strongholds: Vec<Chunk>,
