@@ -6,6 +6,9 @@ extern crate stdweb;
 extern crate serde;
 extern crate serde_json;
 extern crate palette;
+extern crate log;
+
+mod stdweb_logger;
 
 use stdweb::serde::Serde;
 use palette::{Gradient, LinSrgb};
@@ -14,10 +17,13 @@ use serde::{Serialize, Deserialize};
 use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
+use slime_seed_finder::biome_layers::biome_id;
 use slime_seed_finder::seed_info::SeedInfo;
 
 #[cfg(feature = "wasm")]
 fn main(){
+    // Init console logger
+    stdweb_logger::Logger::init_with_level(::log::LevelFilter::Debug);
     // Don't start, wait for user to press button
 }
 
@@ -25,6 +31,24 @@ fn main(){
 #[serde(rename_all = "camelCase")]
 pub struct Options {
     seed_info: SeedInfo,
+    range: Option<(u32, u32)>,
+}
+
+js_serializable!(DrawRivers);
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DrawRivers {
+    l43_area: Area,
+    l43: Vec<u8>,
+    l42_area: Area,
+    l42: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateRiversCandidate {
+    seed: String,
+    area: Area,
 }
 
 #[cfg(feature = "wasm")]
@@ -37,6 +61,74 @@ pub fn slime_seed_finder(o: Serde<Options>) -> String {
     let r = find_seed(o);
 
     format!("Found {} seeds!\n{:#?}", r.len(), r)
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn river_seed_finder(o: String) -> Vec<String> {
+    let o: Result<Options, _> = serde_json::from_str(&o);
+    let o = o.unwrap();
+    console!(log, "Hello from Rust");
+    let r = find_seed_rivers(o);
+
+    r.into_iter().map(|seed| format!("{}", seed)).collect()
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn draw_rivers(o: String) -> DrawRivers {
+    // TODO: detect when there are two separate river areas and return a vec of maps?
+    let o: Result<Options, _> = serde_json::from_str(&o);
+    let o = o.unwrap();
+    let area_rivers = biome_layers::area_from_coords(&o.seed_info.biomes[&biome_id::river]);
+    let target_map = biome_layers::map_with_river_at(&o.seed_info.biomes[&biome_id::river], area_rivers);
+    let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
+
+    DrawRivers {
+        l43_area: target_map.area(),
+        l43: biome_layers::draw_map_image(&target_map),
+        l42_area: m.area(),
+        l42: biome_layers::draw_map_image(&m),
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn generate_rivers_candidate(o: String) -> DrawRivers {
+    let o: Result<GenerateRiversCandidate, _> = serde_json::from_str(&o);
+    let o = o.unwrap();
+
+    DrawRivers {
+        l43_area: Area { x: 0, z: 0, w: 0, h: 0 },
+        l43: vec![],
+        l42_area: o.area,
+        l42: biome_layers::generate_image_up_to_layer(o.area, o.seed.parse().unwrap(), 141),
+    }
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn count_candidates(o: Serde<Options>) -> String {
+    let o = o.0;
+    let c: Vec<_> = o.seed_info.positive.slime_chunks;
+    let nc: Vec<_> = o.seed_info.negative.slime_chunks;
+
+    if (c.len() == 0) && (nc.len() == 0) {
+        return format!("{} * 2^30 candidates", 1 << 18);
+    }
+    let sc = SlimeChunks::new(&c, 0, &nc, 0);
+    let num_cand = sc.num_low_18_candidates() as u32;
+    return format!("{} * 2^30 candidates", num_cand);
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn draw_reverse_voronoi(o: Serde<Options>) -> Vec<u8> {
+    let o = o.0;
+    let target_map = seed_info::biomes_to_map(o.seed_info.biomes);
+
+    let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
+    biome_layers::draw_map_image(&m)
 }
 
 #[cfg(feature = "wasm")]
@@ -74,17 +166,14 @@ pub fn extend48(s: &str) -> String {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn count_candidates(o: Serde<Options>) -> String {
-    let o = o.0;
-    let c: Vec<_> = o.seed_info.positive.slime_chunks;
-    let nc: Vec<_> = o.seed_info.negative.slime_chunks;
-
-    if (c.len() == 0) && (nc.len() == 0) {
-        return format!("{} * 2^30 candidates", 1 << 18);
+pub fn count_rivers(o: String) -> String {
+    let o: Result<Options, _> = serde_json::from_str(&o);
+    let o = o.unwrap();
+    if let Some(rivers) = o.seed_info.biomes.get(&biome_id::river) {
+        format!("{} rivers", rivers.len())
+    } else {
+        format!("No rivers :(")
     }
-    let sc = SlimeChunks::new(&c, 0, &nc, 0);
-    let num_cand = sc.num_low_18_candidates() as u32;
-    return format!("{} * 2^30 candidates", num_cand);
 }
 
 pub fn find_seed(o: Options) -> Vec<u64> {
@@ -112,6 +201,26 @@ pub fn find_seed(o: Options) -> Vec<u64> {
     }
 
     seeds
+}
+
+pub fn find_seed_rivers(o: Options) -> Vec<i64> {
+    let extra_biomes: Vec<_> = o.seed_info.biomes.iter().flat_map(|(id, vec_xz)| {
+        if *id == biome_id::river {
+            vec![]
+        } else {
+            vec_xz.iter().map(|(x, z)| (*id, *x, *z)).collect()
+        }
+    }).collect();
+    if let Some(rivers) = o.seed_info.biomes.get(&biome_id::river) {
+        if let Some((range_lo, range_hi)) = o.range {
+            biome_layers::river_seed_finder_range(rivers, &extra_biomes, range_lo, range_hi)
+        } else {
+            biome_layers::river_seed_finder(rivers, &extra_biomes)
+        }
+    } else {
+        console!(error, "Can't find seed without rivers");
+        vec![]
+    }
 }
 
 #[cfg(feature = "wasm")]
