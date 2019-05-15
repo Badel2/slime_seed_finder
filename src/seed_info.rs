@@ -3,7 +3,6 @@ use crate::biome_layers::Area;
 use crate::biome_layers::Map;
 use std::collections::HashMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer };
-use serde_derive::{Deserialize, Serialize};
 use serde_json;
 
 // TODO: use real types

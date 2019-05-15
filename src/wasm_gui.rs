@@ -3,14 +3,13 @@
 extern crate slime_seed_finder;
 #[macro_use]
 extern crate stdweb;
-#[macro_use]
-extern crate serde_derive;
 extern crate serde;
 extern crate serde_json;
 extern crate palette;
 
 use stdweb::serde::Serde;
 use palette::{Gradient, LinSrgb};
+use serde::{Serialize, Deserialize};
 
 use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
@@ -22,9 +21,9 @@ fn main(){
     // Don't start, wait for user to press button
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Options {
-    #[serde(rename = "seedInfo")]
     seed_info: SeedInfo,
 }
 

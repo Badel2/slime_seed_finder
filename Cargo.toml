@@ -15,11 +15,12 @@ cubiomes_rs = ["libc"]
 wasm = ["stdweb", "palette"]
 
 [dependencies]
+ansi_term = "0.11"
 clap = { version = "2", optional = true }
 libc = { version = "0.2", optional = true }
+log = { version = "0.4", features = ["std"] }
 stdweb = { version = "0.4", optional = true }
-serde = { version = "1.0", optional = false }
-serde_derive = { version = "1.0", optional = false }
+serde = { version = "1.0", optional = false, features = ["derive"] }
 serde_json = { version = "1.0", optional = false }
 ndarray = "0.12.1"
 palette = { version = "0.4", optional = true }
