@@ -3,6 +3,7 @@ use crate::mc_rng::McRng;
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
 // are defined as (z * w + x).
 use ndarray::Array2;
+use serde::{Serialize, Deserialize};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -11,7 +12,7 @@ use std::collections::HashMap;
 // https://github.com/Cubitect/cubiomes
 // since it's easier to translate C to Rust than Java to Rust.
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Area {
     pub x: i64,
     pub z: i64,
