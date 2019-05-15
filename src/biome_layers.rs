@@ -2529,10 +2529,11 @@ pub fn candidate_river_map(a: Area, world_seed: i64) -> Map {
     g41.get_map(a)
 }
 
-fn draw_map(map: &Map) -> String {
+pub fn draw_map(map: &Map) -> String {
+    use std::fmt::Write;
     let (w, h) = map.a.dim();
     let mut s = String::new();
-    s.push_str("TITLE\n");
+    write!(s, "MAP: x: {}, z: {}, {}x{}\n", map.x, map.z, w, h).unwrap();
     for z in 0..h {
         for x in 0..w {
             //let c = if map.a[(x, z)] != 0 { "#" } else { "_" };
@@ -2541,6 +2542,7 @@ fn draw_map(map: &Map) -> String {
                 1 => "#",
                 2 => "2",
                 3 => "3",
+                7 => "R",
                 _ => "?",
             };
             s.push_str(c);
@@ -2551,18 +2553,13 @@ fn draw_map(map: &Map) -> String {
     s
 }
 
-pub fn generate_image(area: Area, seed: i64) -> Vec<u8> {
-    generate_image_up_to_layer(area, seed, NUM_LAYERS)
-}
-
-pub fn generate_image_up_to_layer(area: Area, seed: i64, layer: u32) -> Vec<u8> {
-    let map = generate_up_to_layer(area, seed, layer);
+pub fn draw_map_image(map: &Map) -> Vec<u8> {
     let (w, h) = map.a.dim();
     let mut v = vec![0; w*h*4];
     for x in 0..w {
         for z in 0..h {
             let color = biome_to_color(map.a[(x, z)]);
-            let i = z * h + x;
+            let i = z * w + x;
             v[i*4+0] = color[0];
             v[i*4+1] = color[1];
             v[i*4+2] = color[2];
@@ -2571,6 +2568,17 @@ pub fn generate_image_up_to_layer(area: Area, seed: i64, layer: u32) -> Vec<u8> 
     }
 
     v
+}
+
+
+pub fn generate_image(area: Area, seed: i64) -> Vec<u8> {
+    generate_image_up_to_layer(area, seed, NUM_LAYERS)
+}
+
+pub fn generate_image_up_to_layer(area: Area, seed: i64, layer: u32) -> Vec<u8> {
+    let map = generate_up_to_layer(area, seed, layer);
+
+    draw_map_image(&map)
 }
 
 pub fn generate(a: Area, world_seed: i64) -> Map {
