@@ -2465,10 +2465,10 @@ pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
         // 1 => 6
         (x * 4) + 2
     }
-	// 0 => 0, 1 => 4, 2 => 4, 3 => 4, 4 => 4
-	fn next_multiple_of_4(x: i64) -> i64 {
-		(x + 3) & !0x03
-	}
+    // 0 => 0, 1 => 4, 2 => 4, 3 => 4, 4 => 4
+    fn next_multiple_of_4(x: i64) -> i64 {
+        (x + 3) & !0x03
+    }
     let d4 = |x| x / 4;
     let m4 = |x| x * 4;
     let area = m.area();
@@ -2476,7 +2476,7 @@ pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
         return Err(());
     }
     // Adjust map so that m.a[(0, 0)] corresponds to (2+4k, 2+4k)
-	// 261 => 262
+    // 261 => 262
     let (nx, nz) = (next_multiple_of_4(area.x - 2) + 2, next_multiple_of_4(area.z - 2) + 2);
     let (adj_x, adj_z) = (nx - area.x, nz - area.z);
     let (adj_x, adj_z) = (adj_x as usize, adj_z as usize);
@@ -2598,9 +2598,9 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     };
 
     let target_map_hd = target_map_derived_hd;
-	// Compare resolution of original and reverse-voronoi + voronoi
-	let g43 = MapVoronoiZoom::new(10, 1234);
-	let target_rv_voronoi = g43.get_map_from_pmap(&target_map_hd);
+    // Compare resolution of original and reverse-voronoi + voronoi
+    let g43 = MapVoronoiZoom::new(10, 1234);
+    let target_rv_voronoi = g43.get_map_from_pmap(&target_map_hd);
 
     let target_map_voronoi_sliced = slice_to_area(target_map_voronoi_hd.clone(), target_rv_voronoi.area());
 
@@ -2672,8 +2672,8 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             let g43 = MapVoronoiZoom::new(10, world_seed);
             let candidate_voronoi = g43.get_map_from_pmap(&target_map_hd);
             let candidate_voronoi = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
-			//debug!("{}", draw_map(&target_map_voronoi_sliced));
-			//debug!("{}", draw_map(&candidate_voronoi));
+            //debug!("{}", draw_map(&target_map_voronoi_sliced));
+            //debug!("{}", draw_map(&candidate_voronoi));
             let and_map = map_river_and(candidate_voronoi, &target_map_voronoi_sliced);
             let candidate_score = count_rivers(&and_map);
             if candidate_score >= target_score_voronoi_sliced * 90 / 100 {
@@ -2689,7 +2689,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
 
     // Can't use rivers to find 48 bits because rivers use 64 bits
     // Can't use biomes because biomes also use 64 bits
-	// But we can use rivers + extend48 to end the search with a 2^14 bruteforce
+    // But we can use rivers + extend48 to end the search with a 2^14 bruteforce
     // TODO: insert a filter by structures before the extend48
     let mut candidates_64 = candidates_34.into_iter().flat_map(|x| {
         let mut v = vec![];
@@ -3730,13 +3730,13 @@ mod tests {
         println!("{}", draw_map(&target_map));
 
         let river_coords_rv_expected = vec![
-			[65, 51], [66, 51], [65, 50], [66, 48], [67, 48], [67, 47], [66, 50], [66, 49], [67, 49], [66, 47], [67, 45], [68, 45], [68, 46], [67, 46], [68, 44], [69, 43], [69, 44], [70, 44], [70, 43], [71, 43], [71, 44], [72, 43], [72, 44], [73, 43], [73, 44], [74, 43], [74, 44], [75, 43], [76, 43], [75, 44], [77, 43], [76, 44], [76, 42], [77, 42], [77, 41], [78, 41], [78, 40], [79, 40], [79, 39], [79, 38], [80, 38], [80, 39], [81, 39], [81, 38], [82, 39], [83, 39], [83, 40], [82, 40], [84, 39], [84, 38], [85, 38], [85, 39], [85, 37], [86, 37], [86, 38], [86, 36], [87, 36], [88, 36], [87, 35], [88, 35], [89, 35], [88, 34], [89, 34], [89, 33], [90, 33], [90, 31], [91, 31], [91, 32], [90, 32], [91, 29], [91, 30], [92, 29], [92, 30], [93, 29], [92, 28], [93, 28], [94, 28], [94, 27], [95, 27], [96, 27], [97, 27], [97, 26], [96, 26], [95, 26], [94, 26], [94, 25], [95, 25], [93, 23], [93, 24], [94, 23], [94, 24], [93, 22], [92, 22], [91, 22], [65, 52], [66, 52], [98, 26], [98, 25]
+            [65, 51], [66, 51], [65, 50], [66, 48], [67, 48], [67, 47], [66, 50], [66, 49], [67, 49], [66, 47], [67, 45], [68, 45], [68, 46], [67, 46], [68, 44], [69, 43], [69, 44], [70, 44], [70, 43], [71, 43], [71, 44], [72, 43], [72, 44], [73, 43], [73, 44], [74, 43], [74, 44], [75, 43], [76, 43], [75, 44], [77, 43], [76, 44], [76, 42], [77, 42], [77, 41], [78, 41], [78, 40], [79, 40], [79, 39], [79, 38], [80, 38], [80, 39], [81, 39], [81, 38], [82, 39], [83, 39], [83, 40], [82, 40], [84, 39], [84, 38], [85, 38], [85, 39], [85, 37], [86, 37], [86, 38], [86, 36], [87, 36], [88, 36], [87, 35], [88, 35], [89, 35], [88, 34], [89, 34], [89, 33], [90, 33], [90, 31], [91, 31], [91, 32], [90, 32], [91, 29], [91, 30], [92, 29], [92, 30], [93, 29], [92, 28], [93, 28], [94, 28], [94, 27], [95, 27], [96, 27], [97, 27], [97, 26], [96, 26], [95, 26], [94, 26], [94, 25], [95, 25], [93, 23], [93, 24], [94, 23], [94, 24], [93, 22], [92, 22], [91, 22], [65, 52], [66, 52], [98, 26], [98, 25]
         ];
         let river_coords_rv_expected  = river_coords_rv_expected.into_iter().map(|x| (x[0], x[1])).collect::<Vec<_>>();
         let area_rv = area_from_coords(&river_coords_rv_expected);
         let expected_rv_map = map_with_river_at(&river_coords_rv_expected, area_rv);
         println!("{}", draw_map(&expected_rv_map));
-		assert_eq!(target_map, expected_rv_map);
+        assert_eq!(target_map, expected_rv_map);
     }
 }
 
