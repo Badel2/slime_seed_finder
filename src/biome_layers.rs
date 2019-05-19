@@ -2473,7 +2473,6 @@ pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
     let (nx, nz) = (next_multiple_of_4(area.x - 2) + 2, next_multiple_of_4(area.z - 2) + 2);
     let (adj_x, adj_z) = (nx - area.x, nz - area.z);
     let (adj_x, adj_z) = (adj_x as usize, adj_z as usize);
-    let adjusted_map = m.a.slice(s![adj_x.., adj_z..]);
     let area = Area { x: nx, z: nz, w: area.w - adj_x as u64, h: area.h - adj_z as u64 };
     let (p_x, p_z) = (d4(area.x - 2), d4(area.z - 2));
     //let (p_x_max, p_z_max) = (d4(area.x + area.w as i64 - 1), d4(area.z + area.h as i64 - 1));
@@ -2481,9 +2480,14 @@ pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
     //let (p_w, p_h) = (p_x_max - p_x + 1, p_z_max - p_z + 1);
     //let (p_w, p_h) = (p_w as u64, p_h as u64);
     let parea = Area { x: p_x, z: p_z, w: p_w, h: p_h };
+    if parea.w == 0 || parea.h == 0 {
+        // A zero sized map is useless
+        return Err(());
+    }
     let mut pmap = Map::new(parea);
     //println!("{:?} vs {:?}", area, parea);
 
+    let adjusted_map = m.a.slice(s![adj_x.., adj_z..]);
     for z in 0..p_h as usize {
         for x in 0..p_w as usize {
             let xx = m4(x as i64) as usize;
@@ -2533,7 +2537,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     let target_map_derived = match reverse_map_voronoi_zoom(&target_map_voronoi) {
         Ok(x) => x,
         Err(()) => {
-            debug!("Too few rivers!");
+            debug!("Too few rivers, minimum map size is 8x8");
             return vec![];
         },
     };
