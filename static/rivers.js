@@ -62,13 +62,7 @@ window.onload = function () {
             var txty = Game.mouse_coords_to_game_coords_float(x, y);
             var tx = txty[0];
             var ty = txty[1];
-            if (map.getFragment) {
-                pos_div.innerHTML = "Fragment x: " + Math.floor(tx) + ", z: " + Math.floor(ty);
-                pos_div.innerHTML += " --- Block x: " + Math.floor(tx*FRAG_SIZE) + ", z: " + Math.floor(ty*FRAG_SIZE);
-            } else {
-                pos_div.innerHTML = "Chunk x: " + Math.floor(tx) + ", z: " + Math.floor(ty);
-                pos_div.innerHTML += " --- Block x: " + Math.floor(tx*16) + ", z: " + Math.floor(ty*16);
-            }
+            pos_div.innerHTML = "Block x: " + Math.floor(tx) + ", z: " + Math.floor(ty);
         }, false)
     });
 
