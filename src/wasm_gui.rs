@@ -80,13 +80,17 @@ pub fn draw_rivers(o: String) -> DrawRivers {
     // TODO: detect when there are two separate river areas and return a vec of maps?
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
+    let (_prevoronoi_coords, hd_coords) = biome_layers::segregate_coords_prevoronoi_hd(o.seed_info.biomes[&biome_id::river].clone());
     let area_rivers = biome_layers::area_from_coords(&o.seed_info.biomes[&biome_id::river]);
     let target_map = biome_layers::map_with_river_at(&o.seed_info.biomes[&biome_id::river], area_rivers);
     let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
 
+    let area_hd = biome_layers::area_from_coords(&hd_coords);
+    let target_map_hd = biome_layers::map_with_river_at(&hd_coords, area_hd);
+
     DrawRivers {
-        l43_area: target_map.area(),
-        l43: biome_layers::draw_map_image(&target_map),
+        l43_area: target_map_hd.area(),
+        l43: biome_layers::draw_map_image(&target_map_hd),
         l42_area: m.area(),
         l42: biome_layers::draw_map_image(&m),
     }

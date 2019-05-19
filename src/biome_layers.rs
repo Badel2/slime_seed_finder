@@ -23,6 +23,13 @@ pub struct Area {
     pub h: u64,
 }
 
+impl Area {
+    /// Returns true if (x, z) in inside this area
+    fn contains(&self, x: i64, z: i64) -> bool {
+        x >= self.x && x < self.x + self.w as i64 && z >= self.z && z < self.z + self.h as i64
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Map {
     pub x: i64,
@@ -2525,6 +2532,36 @@ fn slice_to_area(mut m: Map, a: Area) -> Map {
     m
 }
 
+/// Detect which points are being used for the last layer (hd)
+/// and which are used for the reverse_voronoi (prevoronoi)
+// TODO: this is mostly useless if we dont implement splitting of big areas:
+// it is faster to check many candidates from a small prevoronoi area than to
+// check few candidates that have been generated using double the area.
+pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Point>) {
+    // First, segregate coordinates by their importance in reverse_voronoi:
+    // x % 4 == 2 and z % 4 == 2
+    let mut prevoronoi_coords = vec![];
+    let mut hd_coords = vec![];
+    for (x, z) in coords {
+        if x % 4 == 2 && z % 4 == 2 {
+            prevoronoi_coords.push((x, z));
+        } else {
+            hd_coords.push((x, z));
+        }
+    }
+
+    // Now, try to build Area from other_coords, and duplicate all the
+    // voronoi_coords which are inside this area
+    let area = area_from_coords(&hd_coords);
+    for &(x, z) in &prevoronoi_coords {
+        if area.contains(x, z) {
+            hd_coords.push((x, z));
+        }
+    }
+
+    (prevoronoi_coords, hd_coords)
+}
+
 /// River Seed Finder
 pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)]) -> Vec<i64> {
     river_seed_finder_range(river_coords_voronoi, extra_biomes, 0, 1 << 25)
@@ -2532,6 +2569,8 @@ pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i
 
 /// River Seed Finder
 pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], range_lo: u32, range_hi: u32) -> Vec<i64> {
+    // prevoronoi_coords are used to find the first 26 bits
+    // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
     let area_voronoi = area_from_coords(&river_coords_voronoi);
     let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
     let target_map_derived = match reverse_map_voronoi_zoom(&target_map_voronoi) {
@@ -2546,23 +2585,55 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     let area = target_map.area();
     let target_score = count_rivers(&target_map);
 
+    // For the 34-bit voronoi phase we only want to compare hd_coords
+    let (prevoronoi_coords, hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
+    let hd_area = area_from_coords(&hd_coords);
+    let target_map_voronoi_hd = map_with_river_at(&hd_coords, hd_area);
+    let target_map_derived_hd = match reverse_map_voronoi_zoom(&target_map_voronoi_hd) {
+        Ok(x) => x,
+        Err(()) => {
+            debug!("Too few high resolution river borders!");
+            return vec![];
+        },
+    };
+
+    let target_map_hd = target_map_derived_hd;
 	// Compare resolution of original and reverse-voronoi + voronoi
 	let g43 = MapVoronoiZoom::new(10, 1234);
-	let target_rv_voronoi = g43.get_map_from_pmap(&target_map);
+	let target_rv_voronoi = g43.get_map_from_pmap(&target_map_hd);
 
-    let target_map_voronoi_sliced = slice_to_area(target_map_voronoi.clone(), target_rv_voronoi.area());
+    let target_map_voronoi_sliced = slice_to_area(target_map_voronoi_hd.clone(), target_rv_voronoi.area());
 
     // Actually, we only want to compare borders, so use HelperMapRiverAll, which is actually an
     // edge detector
     let target_map_voronoi_sliced = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&target_map_voronoi_sliced);
     let target_score_voronoi_sliced = count_rivers(&target_map_voronoi_sliced);
+
+    // Ok, begin bruteforce!
     
+    // If the area is large, do a few quick 1x1 checks
+    // TODO: do it even if the area is not large?
+    let check_coords: Vec<_> = [prevoronoi_coords[0], prevoronoi_coords[prevoronoi_coords.len() / 2], prevoronoi_coords[prevoronoi_coords.len() - 1]].into_iter().map(|(x, z)| {
+        let x = (x - 2) / 4;
+        let z = (z - 2) / 4;
+        Area { x, z, w: 1, h: 1, }
+    }).collect();
+
     debug!("{}", draw_map(&target_map));
     debug!("Target score: {}", target_score);
     let mut candidates_26 = vec![];
 
     for world_seed in range_lo..range_hi {
         let world_seed = world_seed as i64;
+
+        if check_coords.iter().all(|area| {
+            let candidate_map = candidate_river_map(*area, world_seed);
+            candidate_map.a[(0, 0)] != biome_id::river
+        }) {
+            // Skip this candidate if none of the check_coords are river
+            continue;
+        }
+
         let candidate_map = candidate_river_map(area, world_seed);
         //debug!("{}", draw_map(&candidate_map));
 
@@ -2599,7 +2670,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         for seed in 0..(1 << (34 - 26)) {
             let world_seed = x | (seed << 26);
             let g43 = MapVoronoiZoom::new(10, world_seed);
-            let candidate_voronoi = g43.get_map_from_pmap(&target_map);
+            let candidate_voronoi = g43.get_map_from_pmap(&target_map_hd);
             let candidate_voronoi = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
 			//debug!("{}", draw_map(&target_map_voronoi_sliced));
 			//debug!("{}", draw_map(&candidate_voronoi));
@@ -2620,13 +2691,12 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     // Can't use biomes because biomes also use 64 bits
 	// But we can use rivers + extend48 to end the search with a 2^14 bruteforce
     // TODO: insert a filter by structures before the extend48
-    let candidates_64 = candidates_34.into_iter().flat_map(|x| {
+    let mut candidates_64 = candidates_34.into_iter().flat_map(|x| {
         let mut v = vec![];
         for seed in 0..(1 << (48 - 34)) {
             let world_seed = x | (seed << 34);
             v.extend(Rng::extend_long_48(world_seed as u64));
         }
-        v.sort_unstable();
 
         v
     }).filter_map(|world_seed| {
@@ -2658,6 +2728,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             None
         }
     }).collect::<Vec<_>>();
+    candidates_64.sort_unstable();
     debug!("{:016X?}", candidates_64);
     debug!("64 bit candidates: {}", candidates_64.len());
 
