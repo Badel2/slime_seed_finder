@@ -2511,21 +2511,12 @@ fn slice_to_area(mut m: Map, a: Area) -> Map {
     debug!("{:?} vs {:?}", m.area(), a);
     let x_diff = a.x - m.x;
     let z_diff = a.z - m.z;
-    debug!("x_diff: {}, z_diff: {}", x_diff, z_diff);
     m.x += x_diff;
     m.z += z_diff;
     let (x_diff, z_diff) = (x_diff as i32, z_diff as i32);
-    m.a.slice_collapse(s![x_diff.., z_diff..]);
-    let n = m.area();
-    let w_diff = (a.w - n.w) as i32;
-    if w_diff != 0 {
-        m.a.slice_collapse(s![..w_diff, ..]);
-    }
-    let h_diff = (a.h - n.h) as i32;
-    if h_diff != 0 {
-        m.a.slice_collapse(s![.., ..h_diff]);
-    }
-    debug!("w_diff: {}, h_diff: {}", w_diff, h_diff);
+    let (new_w, new_h) = (a.w as i32 + x_diff, a.h as i32 + z_diff);
+    debug!("x_diff: {}, z_diff: {}, new_w: {}, new_h: {}", x_diff, z_diff, new_w, new_h);
+    m.a.slice_collapse(s![x_diff..new_w, z_diff..new_h]);
     debug!("{:?} vs {:?}", m.area(), a);
     assert_eq!(m.area(), a);
 
