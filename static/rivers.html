@@ -35,12 +35,20 @@
                 height: 100%;
             }
             .pixelated {
-                width: 512px;
+                /* width: 512px; */
                 /* height: 512px; */
                 image-rendering: -moz-crisp-edges;
                 image-rendering: -webkit-crisp-edges;
                 image-rendering: pixelated;
                 image-rendering: crisp-edges;
+            }
+            div .canvasContainer {
+                height: 100%;
+                width: 100%;
+            }
+            #gridContainer textarea {
+                width: 100%;
+                margin: 0;
             }
         </style>
         <script src="json-stringify-pretty-compact.js"></script>
@@ -48,117 +56,123 @@
     <body>
         <a href="https://github.com/Badel2/slime_seed_finder">SLIME SEED FINDER</a>
         <strong>Under construction.</strong><br>
-        <div style="width: 100%;">
-        <div style="display: inline-block; width: 50%; vertical-align: top;">
-            <div>
-                <div id="progressBarLabel" class="progress" data-label="NOT RUNNING">
-                    <span id="progressBarSpan" class="value" style="width:0%;"></span>
+        <div>
+            <div id="progressBarLabel" class="progress" data-label="NOT RUNNING">
+                <span id="progressBarSpan" class="value" style="width:0%;"></span>
+            </div>
+        </div>
+        <div id="gridContainer" style="display: grid; grid-auto-flow: dense; align-items: center;">
+            <div style="grid-column: 1 / 3; grid-row: 1 / 2;">
+                <div>
+                    <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
+                    <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                    <select id="toolSelector">
+                        <option value="click">CLICK</option>
+                        <option value="move">MOVE</option>
+                        <option value="pencil">PENCIL</option>
+                        <option value="pencil_erase">PENCIL ERASE</option>
+                        <option value="bucket">BUCKET</option>
+                        <option value="bucket_erase">BUCKET ERASE</option>
+                    </select>
+                    <button id="undo_button" onClick="undo_selection()">UNDO</button>
+                </div>
+                <div id="position_info">Hover the mouse to show coordinates</div>
+            </div>
+            <div class="canvasContainer" style="grid-column: 1 / 3; grid-row: 2 / 4;">
+                <canvas id="demo"></canvas>
+            </div>
+            <div style="grid-column: 3 / 4; grid-row: 1 / 2;">
+                <div id="extraBiomes">
+                    Insert extra biomes here: (block x, block z)<br>
+                    <input id="extraBiomeX" size=4>
+                    <input id="extraBiomeZ" size=4>
+                    <select id="extraBiomeId" style="width: 250px;">
+                        <option value="0">ocean [0]</option>
+                        <option value="1">plains [1]</option>
+                        <option value="2">desert [2]</option>
+                        <option value="3">extreme_hills [3]</option>
+                        <option value="4">forest [4]</option>
+                        <option value="5">taiga [5]</option>
+                        <option value="6">swampland [6]</option>
+                        <option value="7">river [7]</option>
+                        <option value="10">frozen_ocean [10]</option>
+                        <option value="11">frozen_river [11]</option>
+                        <option value="12">ice_flats [12]</option>
+                        <option value="13">ice_mountains [13]</option>
+                        <option value="14">mushroom_island [14]</option>
+                        <option value="15">mushroom_island_shore [15]</option>
+                        <option value="16">beach [16]</option>
+                        <option value="17">desert_hills [17]</option>
+                        <option value="18">forest_hills [18]</option>
+                        <option value="19">taiga_hills [19]</option>
+                        <option value="20">smaller_extreme_hills [20]</option>
+                        <option value="21">jungle [21]</option>
+                        <option value="22">jungle_hills [22]</option>
+                        <option value="23">jungle_edge [23]</option>
+                        <option value="24">deep_ocean [24]</option>
+                        <option value="25">stone_beach [25]</option>
+                        <option value="26">cold_beach [26]</option>
+                        <option value="27">birch_forest [27]</option>
+                        <option value="28">birch_forest_hills [28]</option>
+                        <option value="29">roofed_forest [29]</option>
+                        <option value="30">cold_taiga [30]</option>
+                        <option value="31">cold_taiga_hills [31]</option>
+                        <option value="32">redwood_taiga [32]</option>
+                        <option value="33">redwood_taiga_hills [33]</option>
+                        <option value="34">extreme_hills_with_trees [34]</option>
+                        <option value="35">savanna [35]</option>
+                        <option value="36">savanna_rock [36]</option>
+                        <option value="37">mesa [37]</option>
+                        <option value="38">mesa_rock [38]</option>
+                        <option value="39">mesa_clear_rock [39]</option>
+                        <option value="129">mutated_plains [129]</option>
+                        <option value="130">mutated_desert [130]</option>
+                        <option value="131">mutated_extreme_hills [131]</option>
+                        <option value="132">mutated_forest [132]</option>
+                        <option value="133">mutated_taiga [133]</option>
+                        <option value="134">mutated_swampland [134]</option>
+                        <option value="135">mutated_ice_flats [135]</option>
+                        <option value="149">mutated_jungle [149]</option>
+                        <option value="151">mutated_jungle_edge [151]</option>
+                        <option value="155">mutated_birch_forest [155]</option>
+                        <option value="156">mutated_birch_forest_hills [156]</option>
+                        <option value="157">mutated_roofed_forest [157]</option>
+                        <option value="158">mutated_taiga_cold [158]</option>
+                        <option value="160">mutated_redwood_taiga [160]</option>
+                        <option value="161">mutated_redwood_taiga_hills [161]</option>
+                        <option value="162">mutated_extreme_hills_with_trees [162]</option>
+                        <option value="163">mutated_savanna [163]</option>
+                        <option value="164">mutated_savanna_rock [164]</option>
+                        <option value="165">mutated_mesa [165]</option>
+                        <option value="166">mutated_mesa_rock [166]</option>
+                        <option value="167">mutated_mesa_clear_rock [167]</option>
+                    </select>
+                    <button id="extraBiomeAdd" onClick="addExtraBiome()">+</button>
+                    <br>
+                    <button id="center_button">CENTER</button>
+                    <button onClick="load_selection()">&lt;&lt; LOAD JSON</button>
                 </div>
             </div>
-            <div>
-                <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
-                <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
-                <input id="center_x" size=2>
-                <input id="center_z" size=2>
-                <button id="center_button">CENTER</button>
-                <select id="toolSelector">
-                    <option value="click">CLICK</option>
-                    <option value="move">MOVE</option>
-                    <option value="pencil">PENCIL</option>
-                    <option value="pencil_erase">PENCIL ERASE</option>
-                    <option value="bucket">BUCKET</option>
-                    <option value="bucket_erase">BUCKET ERASE</option>
-                </select>
-                <button id="undo_button" onClick="undo_selection()">UNDO</button>
+            <div style="grid-column: 3 / 4; grid-row: 2 / 3;">
+                <textarea id="selection_output" class="code" rows="20"></textarea>
             </div>
-            <div id="position_info">Hover the mouse to show coordinates</div>
-            <canvas id="demo" width=512px height=512px></canvas>
-        </div>
-        <div style="display: inline-block; width: 49%; vertical-align: top;">
-            <div id="extraBiomes">
-                Insert extra biomes here: (block x, block z)<br>
-                <input id="extraBiomeX" size=4>
-                <input id="extraBiomeZ" size=4>
-                <select id="extraBiomeId" style="width: 250px;">
-                    <option value="0">ocean [0]</option>
-                    <option value="1">plains [1]</option>
-                    <option value="2">desert [2]</option>
-                    <option value="3">extreme_hills [3]</option>
-                    <option value="4">forest [4]</option>
-                    <option value="5">taiga [5]</option>
-                    <option value="6">swampland [6]</option>
-                    <option value="7">river [7]</option>
-                    <option value="10">frozen_ocean [10]</option>
-                    <option value="11">frozen_river [11]</option>
-                    <option value="12">ice_flats [12]</option>
-                    <option value="13">ice_mountains [13]</option>
-                    <option value="14">mushroom_island [14]</option>
-                    <option value="15">mushroom_island_shore [15]</option>
-                    <option value="16">beach [16]</option>
-                    <option value="17">desert_hills [17]</option>
-                    <option value="18">forest_hills [18]</option>
-                    <option value="19">taiga_hills [19]</option>
-                    <option value="20">smaller_extreme_hills [20]</option>
-                    <option value="21">jungle [21]</option>
-                    <option value="22">jungle_hills [22]</option>
-                    <option value="23">jungle_edge [23]</option>
-                    <option value="24">deep_ocean [24]</option>
-                    <option value="25">stone_beach [25]</option>
-                    <option value="26">cold_beach [26]</option>
-                    <option value="27">birch_forest [27]</option>
-                    <option value="28">birch_forest_hills [28]</option>
-                    <option value="29">roofed_forest [29]</option>
-                    <option value="30">cold_taiga [30]</option>
-                    <option value="31">cold_taiga_hills [31]</option>
-                    <option value="32">redwood_taiga [32]</option>
-                    <option value="33">redwood_taiga_hills [33]</option>
-                    <option value="34">extreme_hills_with_trees [34]</option>
-                    <option value="35">savanna [35]</option>
-                    <option value="36">savanna_rock [36]</option>
-                    <option value="37">mesa [37]</option>
-                    <option value="38">mesa_rock [38]</option>
-                    <option value="39">mesa_clear_rock [39]</option>
-                    <option value="129">mutated_plains [129]</option>
-                    <option value="130">mutated_desert [130]</option>
-                    <option value="131">mutated_extreme_hills [131]</option>
-                    <option value="132">mutated_forest [132]</option>
-                    <option value="133">mutated_taiga [133]</option>
-                    <option value="134">mutated_swampland [134]</option>
-                    <option value="135">mutated_ice_flats [135]</option>
-                    <option value="149">mutated_jungle [149]</option>
-                    <option value="151">mutated_jungle_edge [151]</option>
-                    <option value="155">mutated_birch_forest [155]</option>
-                    <option value="156">mutated_birch_forest_hills [156]</option>
-                    <option value="157">mutated_roofed_forest [157]</option>
-                    <option value="158">mutated_taiga_cold [158]</option>
-                    <option value="160">mutated_redwood_taiga [160]</option>
-                    <option value="161">mutated_redwood_taiga_hills [161]</option>
-                    <option value="162">mutated_extreme_hills_with_trees [162]</option>
-                    <option value="163">mutated_savanna [163]</option>
-                    <option value="164">mutated_savanna_rock [164]</option>
-                    <option value="165">mutated_mesa [165]</option>
-                    <option value="166">mutated_mesa_rock [166]</option>
-                    <option value="167">mutated_mesa_clear_rock [167]</option>
-                </select>
-                <button id="extraBiomeAdd" onClick="addExtraBiome()">+</button>
+            <div style="grid-column: 4 / 5; grid-row: 1 / 2;">
+              <input id="num_candidates" class="code" rows="1" value="Estimate runtime" readonly>
+              <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
+              <button id="comphdl_start" onClick="runGui()">RUN!</button>
             </div>
-            <textarea id="selection_output" class="code" rows="20" style="width: 45%;"></textarea>
-          <textarea id="output_textarea" class="code" rows="20" style="width: 45%;" readonly>Found seeds will appear here.</textarea>
-          <textarea id="num_candidates" class="code" rows="1" readonly></textarea>
-          <button onClick="load_selection()">LOAD JSON</button>
-          <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
-          <button id="comphdl_start" onClick="runGui()">RUN!</button>
-        </div>
-        </div>
+            <div style="grid-column: 4 / 5; grid-row: 2 / 3;">
+              <textarea id="output_textarea" class="code" rows="20" readonly>Found seeds will appear here.</textarea>
+            </div>
 
-        <div style="clear: both;"></div>
-        <div>
-            <div id="oneCanvas" style="position: relative; float: left; margin-right: 5px;">
-            <canvas id="mapLayer43" class="pixelated"></canvas>
+            <div id="oneCanvas" class="canvasContainer" style="grid-column: 3 / 4; grid-row: 3 / 4;">
+                <canvas id="mapLayer43" class="pixelated" style="width: 100%;"></canvas>
             </div>
-            <div id="twoCanvas" style="position: relative; float: left">
-            <canvas id="mapLayer42" class="pixelated" style="position: absolute; top: 0; left: 0;"></canvas>
-            <canvas id="mapLayer42Candidate" class="pixelated" style="position: absolute; top: 0; left: 0; opacity: 0.5;"></canvas>
+            <div id="twoCanvas" class="canvasContainer" style="grid-column: 4 / 5; grid-row: 3 / 4;">
+                <canvas id="mapLayer42" class="pixelated" style="width: 100%;"></canvas>
+            </div>
+            <div id="twoCanvasC" class="canvasContainer" style="grid-column: 4 / 5; grid-row: 3 / 4;">
+                <canvas id="mapLayer42Candidate" class="pixelated" style="opacity: 0.5; width: 100%;"></canvas>
             </div>
         </div>
         <script type="text/javascript" src="rivers_common.js"></script>

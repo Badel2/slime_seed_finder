@@ -8,17 +8,13 @@ window.onload = function () {
     var pos_div = document.getElementById('position_info');
     var center_butt = document.getElementById('center_button');
     center_butt.onclick = function() {
-        var x = document.getElementById('center_x').value;
-        var z = document.getElementById('center_z').value;
-        // Center at block if supported, otherwise center at chunk/fragment
-        if(Game.centerAtBlock) {
-            Game.centerAtBlock(x, z);
-        } else {
-            Game.centerAt(x, z);
-        }
+        var x = document.getElementById('extraBiomeX').value;
+        var z = document.getElementById('extraBiomeZ').value;
+        Game.centerAt(x, z);
     };
-    var elem = document.getElementById('demo'),
-    elemLeft = elem.offsetLeft,
+    var elem = document.getElementById('demo');
+    fitToContainer(elem);
+    var elemLeft = elem.offsetLeft,
     elemTop = elem.offsetTop,
     context = elem.getContext('2d'),
     elements = [];
@@ -161,7 +157,6 @@ window.onload = function () {
     }
 
     var tsize = 256;
-    fitToContainer(elem);
     var canvasW = elem.width;
     var canvasH = elem.height;
     Game.run(context, tsize, canvasW, canvasH);
@@ -178,11 +173,15 @@ function showProgressBar(currentValue, maxValue) {
 }
 function fitToContainer(canvas){
     // Make it visually fill the positioned parent
-   canvas.style.width ='100%';
-   //canvas.style.height='100%';
-   // ...then set the internal size to match
-   canvas.width  = canvas.offsetWidth;
-   //canvas.height = canvas.offsetHeight;
+    canvas.style.width ='100%';
+    canvas.style.height='100%';
+    // ...then set the internal size to match
+    canvas.width  = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    // And finally reset style w/h, because resizing the canvas may have also
+    // resized the parent container
+    canvas.style.width ='';
+    canvas.style.height='';
 }
 
 let seedInfo = {"version": "1.7"};
