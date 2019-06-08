@@ -2534,7 +2534,7 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
     let mut prevoronoi_coords = vec![];
     let mut hd_coords = vec![];
     for (x, z) in coords {
-        if x % 4 == 2 && z % 4 == 2 {
+        if x as u8 % 4 == 2 && z as u8 % 4 == 2 {
             prevoronoi_coords.push((x, z));
         } else {
             hd_coords.push((x, z));
