@@ -22,25 +22,30 @@
                 z-index:-1;
                 image-rendering:pixelated;
             }
+            .controlPanel {
+                background-color: #FFFFFF80;
+            }
         </style>
         <script src="json-stringify-pretty-compact.js"></script>
     </head>
     <body>
-        <a href="https://github.com/Badel2/slime_seed_finder">SLIME SEED FINDER</a>
-        <strong>Under construction.</strong>
-        ENTER SEED:
-        <input type="text" id="worldSeed" placeholder="Enter world seed" value="12246546">
-        <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">-2^48</button>
-        <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">+2^48</button>
-        <input type="text" id="add2ToTheN" size=2 value="48">
-        <input type="text" id="lastLayer" size=3 value="43">
-        <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
-        <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
-        <button id="cacheLayers" onClick="pregenerateLayers()">CACHE</button>
-        <div style="width: 100%;">
+        <div class="controlPanel">
+            <a href="https://github.com/Badel2/slime_seed_finder">SLIME SEED FINDER</a>
+            <strong>Under construction.</strong>
+            <button id="randomSeedButton" onClick="setSeed(randomSeed())">RANDOM</button>
+            ENTER SEED:
+            <input type="text" id="worldSeed" placeholder="Enter world seed">
+            <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">-2^48</button>
+            <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">+2^48</button>
+            <input type="text" id="add2ToTheN" size=2 value="48">
+            <input type="text" id="lastLayer" size=3 value="43">
+            <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
+            <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
+            &lt;- Layer controls
+        </div>
+        <div>
             <canvas id="demo"></canvas>
-            <div id="position_info"></div>
-            <div>
+            <div class="controlPanel">
                 <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
                 <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
                 <input id="center_x" size=6 value="0">
@@ -49,6 +54,7 @@
                 <input type="range" min="0" max="10" value="10" class="slider" id="gridSize">
                 <button onClick="Game.showGrid = !Game.showGrid; Game.dirty = true">TOGGLE GRID</button>
             </div>
+            <div id="position_info" class="controlPanel"></div>
         </div>
 
         <div style="clear: both;"></div>
@@ -57,12 +63,41 @@
         <script src="fragment_map.js"></script>
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
+            // https://codeburst.io/throttling-and-debouncing-in-javascript-646d076d0a44
+            function debounced(delay, fn) {
+              let timerId;
+              return function (...args) {
+                if (timerId) {
+                  clearTimeout(timerId);
+                }
+                timerId = setTimeout(() => {
+                  fn(...args);
+                  timerId = null;
+                }, delay);
+              }
+            }
+
+            function setSeed(seed) {
+                let element = document.getElementById("worldSeed");
+                if (element.value != seed) {
+                    element.value = seed;
+                    // Trigger input event, which will run Game.clear()
+                    // https://stackoverflow.com/a/35659572
+                    let event = new Event('input', {
+                        'bubbles': true,
+                        'cancelable': true
+                    });
+
+                    element.dispatchEvent(event);
+                }
+            }
+
             let scales = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 1];
             let layerScale = 1;
             {
                 //let i = document.getElementById("lastLayer").value|0;
-		let i = 43;
-		document.getElementById("lastLayer").value = i;
+                let i = 43;
+                document.getElementById("lastLayer").value = i;
                 if(i >= 0 && i <= 43) {
                     layerScale = scales[i];
                 }
@@ -71,6 +106,27 @@
                 }
                 if(i >= 200 && i <= 243) {
                     layerScale = scales[i - 200];
+                }
+            }
+            function randomSeed() {
+                // Return a random 17-digit integer as a string
+                // TODO: implement real 64-bit number generation?
+                // Or try to emulate Random.nextLong()?
+                let r = "";
+                // 50% of being negative
+                if (Math.random() < 0.5) {
+                    r += "-";
+                }
+                for (let i = 0; i < 17; i++) {
+                    let d = Math.floor(Math.random() * 10);
+                    r += d;
+                }
+                return r;
+            }
+            {
+                let seed = document.getElementById("worldSeed").value;
+                if (seed == "") {
+                    setSeed(randomSeed());
                 }
             }
             document.getElementById("add2ToTheN").addEventListener("input", function(event) {
@@ -85,13 +141,13 @@
             function updateWithLayerPlus(x) {
                 let i = document.getElementById("lastLayer").value|0;
                 i += x;
-                document.getElementById("lastLayer").value = i;
                 if(i >= 0 && i <= 43) {
                     let newScale = scales[i];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
+                    document.getElementById("lastLayer").value = i;
                 }
                 if(i >= 100 && i <= 143) {
                     let newScale = scales[i - 100];
@@ -99,6 +155,7 @@
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
+                    document.getElementById("lastLayer").value = i;
                 }
                 if(i >= 200 && i <= 243) {
                     let newScale = scales[i - 200];
@@ -106,6 +163,7 @@
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
+                    document.getElementById("lastLayer").value = i;
                 }
             }
             function seedPlus2ToThe48(add_not_sub) {
@@ -119,22 +177,24 @@
                     */
                     // Ok, I'll just implement it in Rust
                     return Rust.wasm_gui.then( function( wasmgui ) {
-                        let new_value = ws.value;
+                        let new_value;
                         if (add_not_sub) {
                             new_value = wasmgui.add_2_n(ws.value, n.value|0);
                         } else {
                             new_value = wasmgui.sub_2_n(ws.value, n.value|0);
                         }
-                        if (new_value != ws.value) {
-                            ws.value = new_value;
-                            Game.clear();
-                        }
+                        setSeed(new_value);
                     }, function( err ) {
                         console.error(err);
                     });
                 }
             }
             function pregenerateLayers() {
+                let i = document.getElementById("lastLayer").value|0;
+                if (i != 43) {
+                    alert("Please go to layer 43 first");
+                    return;
+                }
                 // Only works well when current layer == 43
                 for(let j=0; j<=43; j++) {
                     Game._drawLayer(j);
@@ -274,10 +334,15 @@
             map.generateFragment = generateFragmentB;
 
             let ws = document.getElementById('worldSeed');
-            ws.oninput = function() {
-                // Regenerate map when seed changes
-                Game.clear();
-            };
+            let oldSeed = ws.value;
+            // Only regenerate map if the input has been static for 500ms
+            ws.oninput = debounced(500, function() {
+                if (ws.value != oldSeed) {
+                    // Regenerate map when seed changes
+                    Game.clear();
+                    oldSeed = ws.value;
+                }
+            });
 
             function resize() {
                 canvas.width = window.innerWidth;

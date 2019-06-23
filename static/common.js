@@ -180,13 +180,15 @@ window.onload = function () {
 
                 // Update selection textarea
                 let seltextarea = document.getElementById('selection_output');
-                seltextarea.value = stringify({
-                    version: "1.7",
-                    slimeChunks: Game.getSelection(0, 1),
-                    negative: {
-                        slimeChunks: Game.getSelection(0, 2)
-                    }
-                }, { maxLength: 20 });
+                if (seltextarea) {
+                    seltextarea.value = stringify({
+                        version: "1.7",
+                        slimeChunks: Game.getSelection(0, 1),
+                        negative: {
+                            slimeChunks: Game.getSelection(0, 2)
+                        }
+                    }, { maxLength: 20 });
+                }
             }
             dragging = null;
         }, false)
