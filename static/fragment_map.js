@@ -10,40 +10,40 @@
 // In javascript % return the remainder (can be negative)
 // We want the modulus, so we force the value to be positive
 function mod(x, m) {
-    var a = x % m;
+    let a = x % m;
     if (a < 0) {
         a += m;
     }
     return a;
 }
 
-//var FRAG_SIZE = 256;
-var canvas = document.getElementById("demo");
-var CANVAS_W = canvas.width|0;
-var CANVAS_H = canvas.height|0;
-var NUM_LAYERS = 244;
+//let FRAG_SIZE = 256;
+let canvas = document.getElementById("demo");
+let CANVAS_W = canvas.width|0;
+let CANVAS_H = canvas.height|0;
+let NUM_LAYERS = 244;
 
 function array_filled_with(length, what) {
-    var a = Array(length);
-    for(var i=0; i<length; i++) {
+    let a = Array(length);
+    for(let i=0; i<length; i++) {
         a[i] = what();
     }
     return a;
 }
 
-var map = {
+let map = {
     tsize: null,
     // 2 layers
     layers: array_filled_with(NUM_LAYERS, function() { return new Map(); }),
     generating: array_filled_with(NUM_LAYERS, function() { return new Set(); }),
     getFragment: function (layer, fx, fy) {
-        var k = fx + "," + fy;
-        var frag = this.layers[layer].get(k);
+        let k = fx + "," + fy;
+        let frag = this.layers[layer].get(k);
         if (frag == undefined) {
             // Check if we are already generating this fragment...
             if (!this.generating[layer].has(k)) {
                 this.generating[layer].add(k);
-                var this_layers_layer = this.layers[layer];
+                let this_layers_layer = this.layers[layer];
                 this.generateFragment(layer, fx, fy).then(function(value) {
                     //console.log(value); // Success!
                     //console.log("Finished generating fragment: " + fx + ", " + fy);
@@ -84,8 +84,8 @@ Camera.prototype.moveRaw = function (dirx, diry) {
 };
 
 Camera.prototype.zoom = function (newF) {
-    var old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
-    var old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
+    let old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
+    let old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
     this.scale *= newF;
     this.scale = Math.max(this.scale, 0.01);
     this.tsize = Math.round(map.tsize * this.scale);
@@ -104,15 +104,15 @@ Camera.prototype.centerAtBlock = function (x, y) {
 }
 
 Camera.prototype.blockAtCenter = function () {
-    var x = (((this.x + this.width / 2) / this.tsize) * map.tsize) - 0.5;
-    var y = (((this.y + this.height / 2) / this.tsize) * map.tsize) - 0.5;
+    let x = (((this.x + this.width / 2) / this.tsize) * map.tsize) - 0.5;
+    let y = (((this.y + this.height / 2) / this.tsize) * map.tsize) - 0.5;
     return [x, y];
 }
 
 Camera.prototype.resolutionChange = function (f) {
     // The map resolution changes by factor f, meaning 0,0 is still 0,0
     // but 100,100 becomes 100*f,100*f
-    var old_xy = this.blockAtCenter();
+    let old_xy = this.blockAtCenter();
     this.zoom(f);
     this.centerAtBlock((old_xy[0] + 0.5) / f - 0.5, (old_xy[1] + 0.5) / f - 0.5);
 }
@@ -128,7 +128,7 @@ Game.init = function (tsize, canvasH, canvasW) {
     this.tileAtlas = Loader.getImage('tiles');
     this.camera = new Camera(map, CANVAS_W, CANVAS_H);
     this.showGrid = true;
-    var gs = document.getElementById('gridSize');
+    let gs = document.getElementById('gridSize');
     if (gs) {
         this.gridSize = Math.round(Math.pow(2, gs.value));
         gs.oninput = function() {
@@ -140,7 +140,7 @@ Game.init = function (tsize, canvasH, canvasW) {
     }
     this.centerAtBlock(0, 0);
     this.layerCanvas = map.layers.map(function() {
-        var c = document.createElement('canvas');
+        let c = document.createElement('canvas');
         c.width = CANVAS_W;
         c.height = CANVAS_H;
         return c;
@@ -158,23 +158,23 @@ Game.update = function (delta) {
 
 Game._drawLayer = function (layer) {
     // + 1 because when the width is not a multiple of tsize things get weird
-    var startCol = Math.floor(this.camera.x / this.camera.tsize);
-    var endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
-    var startRow = Math.floor(this.camera.y / this.camera.tsize);
-    var endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
-    var offsetX = -this.camera.x + startCol * this.camera.tsize;
-    var offsetY = -this.camera.y + startRow * this.camera.tsize;
+    let startCol = Math.floor(this.camera.x / this.camera.tsize);
+    let endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
+    let startRow = Math.floor(this.camera.y / this.camera.tsize);
+    let endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
+    let offsetX = -this.camera.x + startCol * this.camera.tsize;
+    let offsetY = -this.camera.y + startRow * this.camera.tsize;
 
     //console.log([startCol, endCol, startRow, endRow, offsetX, offsetY]);
 
-    var i = 0;
-    for (var c = startCol; c <= endCol; c++) {
-        for (var r = startRow; r <= endRow; r++) {
+    let i = 0;
+    for (let c = startCol; c <= endCol; c++) {
+        for (let r = startRow; r <= endRow; r++) {
             i += 1;
             //console.log(tile);
-            var x = (c - startCol) * this.camera.tsize + offsetX;
-            var y = (r - startRow) * this.camera.tsize + offsetY;
-            var fragmentImage = map.getFragment(layer, Math.round(c), Math.round(r));
+            let x = (c - startCol) * this.camera.tsize + offsetX;
+            let y = (r - startRow) * this.camera.tsize + offsetY;
+            let fragmentImage = map.getFragment(layer, Math.round(c), Math.round(r));
             if (fragmentImage != undefined) {
                 this.ctx.drawImage(
                     fragmentImage, // image
@@ -197,28 +197,28 @@ Game._drawLayer = function (layer) {
     // Draw grid lines
     if (this.showGrid) {
         // Returns fragment coords
-        var mtsize = Math.max(this.gridSize, map.tsize);
-        var xy = this.mouse_coords_to_game_coords_float(0, 0);
-        var startCol = Math.floor(xy[0]) * mtsize;
-        var startRow = Math.floor(xy[1]) * mtsize;
-        var xy = this.mouse_coords_to_game_coords_float(CANVAS_W, CANVAS_H);
-        var endCol= Math.floor(xy[0] + 1) * mtsize;
-        var endRow = Math.floor(xy[1] + 1) * mtsize
+        let mtsize = Math.max(this.gridSize, map.tsize);
+        let xyf = this.mouse_coords_to_game_coords_float(0, 0);
+        let startCol = Math.floor(xyf[0]) * mtsize;
+        let startRow = Math.floor(xyf[1]) * mtsize;
+        let xy = this.mouse_coords_to_game_coords_float(CANVAS_W, CANVAS_H);
+        let endCol= Math.floor(xy[0] + 1) * mtsize;
+        let endRow = Math.floor(xy[1] + 1) * mtsize
 
         this.ctx.strokeStyle = "#AAA";
         this.ctx.lineWidth = 1;
         // c and r are world-coordinates
-        for (var c = startCol; c <= endCol; c += this.gridSize) {
+        for (let c = startCol; c <= endCol; c += this.gridSize) {
             // Convert c to fragment-coordinates, and then to mouse/canvas coordinates
-            var x = this.game_coords_to_mouse_coords_float(c / mtsize, 0)[0];
+            let x = this.game_coords_to_mouse_coords_float(c / mtsize, 0)[0];
             x = Math.round(x);
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
             this.ctx.lineTo(x, CANVAS_H);
             this.ctx.stroke();
         }
-        for (var r = startRow; r <= endRow; r += this.gridSize) {
-            var y = this.game_coords_to_mouse_coords_float(0, r / mtsize)[1];
+        for (let r = startRow; r <= endRow; r += this.gridSize) {
+            let y = this.game_coords_to_mouse_coords_float(0, r / mtsize)[1];
             y = Math.round(y);
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
@@ -245,21 +245,21 @@ Game.render = function () {
 };
 
 Game.mouse_coords_to_game_coords_float = function(x, y) {
-    var tx = (x + this.camera.x) / this.camera.tsize;
-    var ty = (y + this.camera.y) / this.camera.tsize;
+    let tx = (x + this.camera.x) / this.camera.tsize;
+    let ty = (y + this.camera.y) / this.camera.tsize;
     return [tx, ty];
 };
 
 Game.game_coords_to_mouse_coords_float = function(tx, ty) {
-    var x = (tx * this.camera.tsize) - this.camera.x;
-    var y = (ty * this.camera.tsize) - this.camera.y;
+    let x = (tx * this.camera.tsize) - this.camera.x;
+    let y = (ty * this.camera.tsize) - this.camera.y;
     return [x, y];
 };
 
 Game.mouse_coords_to_game_coords = function(x, y) {
-    var txty = this.mouse_coords_to_game_coords_float(x, y);
-    var tx = txty[0];
-    var ty = txty[1];
+    let txty = this.mouse_coords_to_game_coords_float(x, y);
+    let tx = txty[0];
+    let ty = txty[1];
     tx = Math.floor(tx);
     ty = Math.floor(ty);
     return [tx, ty];

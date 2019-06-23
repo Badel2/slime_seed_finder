@@ -11,14 +11,14 @@
 // Asset loader
 //
 
-var Loader = {
+let Loader = {
     images: {}
 };
 
 Loader.loadImage = function (key, src) {
-    var img = new Image();
+    let img = new Image();
 
-    var d = new Promise(function (resolve, reject) {
+    let d = new Promise(function (resolve, reject) {
         img.onload = function () {
             this.images[key] = img;
             resolve(img);
@@ -41,13 +41,13 @@ Loader.getImage = function (key) {
 // Game object
 //
 
-var Game = {};
+let Game = {};
 
 Game.run = function (context, tsize, canvasW, canvasH) {
     this.ctx = context;
     this._previousElapsed = 0;
 
-    var p = this.load();
+    let p = this.load();
     Promise.all(p).then(function (loaded) {
         this.init(tsize, canvasW, canvasH);
         window.requestAnimationFrame(this.tick);
@@ -57,7 +57,7 @@ Game.run = function (context, tsize, canvasW, canvasH) {
 Game.tick = function (elapsed) {
     window.requestAnimationFrame(this.tick);
     // compute delta time in seconds -- also cap it
-    var delta = (elapsed - this._previousElapsed) / 1000.0;
+    let delta = (elapsed - this._previousElapsed) / 1000.0;
     delta = Math.min(delta, 0.25); // maximum delta of 250 ms
     this._previousElapsed = elapsed;
 

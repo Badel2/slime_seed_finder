@@ -58,12 +58,12 @@
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
             if (window.Worker) {
-                var myWorker = new Worker("worker.js");
+                let myWorker = new Worker("worker.js");
             }
             function runGui() {
-                    var seltextarea = document.getElementById('selection_output');
-                    var seedInfo = JSON.parse(seltextarea.value);
-                    var outta = document.getElementById('output_textarea');
+                    let seltextarea = document.getElementById('selection_output');
+                    let seedInfo = JSON.parse(seltextarea.value);
+                    let outta = document.getElementById('output_textarea');
                     outta.value = "Calculating...";
                     if (window.Worker) {
                         myWorker.postMessage({ seedInfo: seedInfo });
@@ -85,9 +85,9 @@
             // Count candidates
             function countCandidates() {
                 Rust.wasm_gui.then( function( wasmgui ) {
-                    var outta = document.getElementById('num_candidates');
-                    var seltextarea = document.getElementById('selection_output');
-                    var seedInfo = JSON.parse(seltextarea.value);
+                    let outta = document.getElementById('num_candidates');
+                    let seltextarea = document.getElementById('selection_output');
+                    let seedInfo = JSON.parse(seltextarea.value);
                     outta.value = wasmgui.count_candidates({ seedInfo: seedInfo });
                 }, function( err ) {
                     console.error(err);
@@ -96,8 +96,8 @@
 
             // Extend 48
             Rust.wasm_gui.then( function( wasmgui ) {
-                var seed48 = document.getElementById('seed48');
-                var outta = document.getElementById('output_extend48');
+                let seed48 = document.getElementById('seed48');
+                let outta = document.getElementById('output_extend48');
                 seed48.addEventListener( "keyup", function( event ) {
                     outta.value = wasmgui.extend48(seed48.value);
                 });

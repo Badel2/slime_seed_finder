@@ -4,29 +4,28 @@
 //
 
 window.onload = function () {
-    var context = document.getElementById('demo').getContext('2d');
-    var pos_div = document.getElementById('position_info');
-    var center_butt = document.getElementById('center_button');
+    let pos_div = document.getElementById('position_info');
+    let center_butt = document.getElementById('center_button');
     center_butt.onclick = function() {
-        var x = document.getElementById('extraBiomeX').value;
-        var z = document.getElementById('extraBiomeZ').value;
+        let x = document.getElementById('extraBiomeX').value;
+        let z = document.getElementById('extraBiomeZ').value;
         Game.centerAt(x, z);
     };
-    var elem = document.getElementById('demo');
+    let elem = document.getElementById('demo');
     fitToContainer(elem);
-    var elemLeft = elem.offsetLeft,
-    elemTop = elem.offsetTop,
-    context = elem.getContext('2d'),
-    elements = [];
-    var dragging = null;
+    let elemLeft = elem.offsetLeft;
+    let elemTop = elem.offsetTop;
+    let context = elem.getContext('2d');
+    let elements = [];
+    let dragging = null;
 
     // Add event listener for `click` events.
     // TODO: touchstart for mobile support
     // https://stackoverflow.com/a/16284281
-    var pointerEventToXY = function(e){
-      var out = {x:0, y:0};
+    let pointerEventToXY = function(e){
+      let out = {x:0, y:0};
       if(e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel'){
-        var touch = e.touches[0] || e.changedTouches[0];
+        let touch = e.touches[0] || e.changedTouches[0];
         out.x = touch.pageX;
         out.y = touch.pageY;
       } else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover'|| e.type=='mouseout' || e.type=='mouseenter' || e.type=='mouseleave') {
@@ -42,8 +41,8 @@ window.onload = function () {
             if (n == 'touchstart') {
                 e.preventDefault();
             }
-            var pointer = pointerEventToXY(e);
-            var x = pointer.x - elemLeft,
+            let pointer = pointerEventToXY(e);
+            let x = pointer.x - elemLeft,
                 y = pointer.y - elemTop;
 
             dragging = {x: x, y: y, actuallyScrolling: false};
@@ -52,12 +51,12 @@ window.onload = function () {
     ['touchmove', 'mousemove'].forEach(function(n) {
         elem.addEventListener(n, function(e) {
             //console.log('elem mousemove');
-            var pointer = pointerEventToXY(e);
-            var x = pointer.x - elemLeft,
+            let pointer = pointerEventToXY(e);
+            let x = pointer.x - elemLeft,
                 y = pointer.y - elemTop;
-            var txty = Game.mouse_coords_to_game_coords_float(x, y);
-            var tx = txty[0];
-            var ty = txty[1];
+            let txty = Game.mouse_coords_to_game_coords_float(x, y);
+            let tx = txty[0];
+            let ty = txty[1];
             pos_div.innerHTML = "Block x: " + Math.floor(tx) + ", z: " + Math.floor(ty);
         }, false)
     });
@@ -65,16 +64,16 @@ window.onload = function () {
     ['touchmove', 'mousemove'].forEach(function(n) {
         window.addEventListener(n, function(e) {
             if (dragging) {
-                var pointer = pointerEventToXY(e);
-                var x = pointer.x - elemLeft,
+                let pointer = pointerEventToXY(e);
+                let x = pointer.x - elemLeft,
                     y = pointer.y - elemTop;
                 if (dragging.actuallyScrolling == false && (Math.abs(dragging.x - x) > 10 || Math.abs(dragging.y - y) > 10)) {
                     // Moving more than 10 pixels from the initial position starts the scrolling
 
                     dragging.actuallyScrolling = true;
                 }
-                var tool = document.getElementById('toolSelector').value;
-                var scrollingEnabled = tool == 'click' || tool == 'move' || tool == 'bucket' || tool == 'bucket_erase';
+                let tool = document.getElementById('toolSelector').value;
+                let scrollingEnabled = tool == 'click' || tool == 'move' || tool == 'bucket' || tool == 'bucket_erase';
                 if (scrollingEnabled && dragging.actuallyScrolling) {
                     Game.scrollBy(dragging.x - x, dragging.y - y);
                     dragging.x = x;
@@ -105,8 +104,8 @@ window.onload = function () {
             if (n == 'touchend') {
                 e.preventDefault();
             }
-            var pointer = pointerEventToXY(e);
-            var x = pointer.x - elemLeft,
+            let pointer = pointerEventToXY(e);
+            let x = pointer.x - elemLeft,
                 y = pointer.y - elemTop;
 
             if (dragging == null) {
@@ -114,7 +113,7 @@ window.onload = function () {
                 console.error('BUG: The window event handler was executed before the elem event handler for event mouseup');
             }
             if (dragging && dragging.actuallyScrolling == false) {
-                var tool = document.getElementById('toolSelector').value;
+                let tool = document.getElementById('toolSelector').value;
                 if (tool == 'click') {
                     Game.clickTile(x, y);
                 } else if(tool == 'pencil') {
@@ -146,7 +145,7 @@ window.onload = function () {
     });
 
     // Update selection textarea
-    var seltextarea = document.getElementById('selection_output');
+    let seltextarea = document.getElementById('selection_output');
     if (seltextarea && seltextarea.value == "") {
         seltextarea.value = stringify({
             version: "1.7",
@@ -156,9 +155,9 @@ window.onload = function () {
         }, { maxLength: 20 });
     }
 
-    var tsize = 256;
-    var canvasW = elem.width;
-    var canvasH = elem.height;
+    let tsize = 256;
+    let canvasW = elem.width;
+    let canvasH = elem.height;
     Game.run(context, tsize, canvasW, canvasH);
 };
 
@@ -185,16 +184,16 @@ function fitToContainer(canvas){
 }
 
 let seedInfo = {"version": "1.7"};
-var l42AreaC = null;
+let l42AreaC = null;
 let foundSeeds = [];
 let workers = [];
-var selection_history = []
+let selection_history = []
 
 // From seedInfo textarea to seedInfo and map
 function load_selection() {
-    var seltextarea = document.getElementById('selection_output');
+    let seltextarea = document.getElementById('selection_output');
     try {
-        var x = JSON.parse(seltextarea.value);
+        let x = JSON.parse(seltextarea.value);
         seedInfo = x;
         Game.clearSelection(0);
         Game.setSelection(0, 1, x.biomes[7]);
@@ -206,7 +205,7 @@ function load_selection() {
 // From map to seedInfo and seedInfo textarea
 function update_selection() {
     // Update selection textarea
-    var seltextarea = document.getElementById('selection_output');
+    let seltextarea = document.getElementById('selection_output');
     selection_history.push(seltextarea.value);
     if (!seedInfo.biomes) {
         seedInfo.biomes = {};
@@ -216,9 +215,9 @@ function update_selection() {
 }
 
 function undo_selection() {
-    var x = selection_history.pop();
+    let x = selection_history.pop();
     if (x != undefined) {
-        var seltextarea = document.getElementById('selection_output');
+        let seltextarea = document.getElementById('selection_output');
         seltextarea.value = x;
         load_selection();
     }
@@ -251,7 +250,7 @@ function runWorkers(numWorkers, seedInfo) {
                     Rust.wasm_gui.then( function( wasmgui ) {
                         let seltextarea = document.getElementById('selection_output');
                         let seedInfo = JSON.parse(seltextarea.value);
-                        var r = wasmgui.generate_rivers_candidate(JSON.stringify({ seed: ""+startedX, area: l42AreaC}));
+                        let r = wasmgui.generate_rivers_candidate(JSON.stringify({ seed: ""+startedX, area: l42AreaC}));
                         drawMapToCanvas(document.getElementById("mapLayer42Candidate"), r.l42, r.l42Area);
                     });
                 }
@@ -291,7 +290,7 @@ function countCandidates() {
 
 function drawVoronoi() {
     Rust.wasm_gui.then( function( wasmgui ) {
-        var r = wasmgui.draw_rivers(JSON.stringify({ seedInfo: seedInfo }));
+        let r = wasmgui.draw_rivers(JSON.stringify({ seedInfo: seedInfo }));
         drawMapToCanvas(document.getElementById("mapLayer43"), r.l43, r.l43Area);
         drawMapToCanvas(document.getElementById("mapLayer42"), r.l42, r.l42Area);
         l42AreaC = r.l42Area;
@@ -303,26 +302,26 @@ function drawMapToCanvas(canvas, map, mapArea) {
     console.log("w * h * 4 = " + mapArea.w * mapArea.h * 4);
     console.log("map.length = " + map.length);
 
-    var c = canvas;
+    let c = canvas;
     c.width = mapArea.w;
     c.height = mapArea.h;
     //c.style.width = "512px";
     //c.style.height = "512px";
     c.style.imageRendering = "pixelated"
-    var ctx = c.getContext('2d');
+    let ctx = c.getContext('2d');
     // Generate fragment
-    var imageData = ctx.createImageData(mapArea.w, mapArea.h);
+    let imageData = ctx.createImageData(mapArea.w, mapArea.h);
     //imageData.data = rvec; // please
-    for(var i=0; i<map.length; i++) {
+    for(let i=0; i<map.length; i++) {
         imageData.data[i] = map[i];
     }
     ctx.putImageData(imageData, 0, 0);
 }
 // Extra biomes
 function addExtraBiome() {
-    var x = document.getElementById("extraBiomeX").value|0;
-    var z = document.getElementById("extraBiomeZ").value|0;
-    var biomeId = document.getElementById("extraBiomeId").value;
+    let x = document.getElementById("extraBiomeX").value|0;
+    let z = document.getElementById("extraBiomeZ").value|0;
+    let biomeId = document.getElementById("extraBiomeId").value;
     if (!seedInfo.biomes) { seedInfo.biomes = {}; }
     if (!seedInfo.biomes[biomeId]) {
         seedInfo.biomes[biomeId] = [];

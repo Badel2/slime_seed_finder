@@ -57,10 +57,12 @@
         <script src="fragment_map.js"></script>
         <script type="text/javascript" src="wasm_gui.js"></script>
         <script>
-            var scales = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 1];
-            var layerScale = 1;
+            let scales = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 1];
+            let layerScale = 1;
             {
-                var i = document.getElementById("lastLayer").value|0;
+                //let i = document.getElementById("lastLayer").value|0;
+		let i = 43;
+		document.getElementById("lastLayer").value = i;
                 if(i >= 0 && i <= 43) {
                     layerScale = scales[i];
                 }
@@ -72,7 +74,7 @@
                 }
             }
             document.getElementById("add2ToTheN").addEventListener("input", function(event) {
-                var value = document.getElementById("add2ToTheN").value|0;
+                let value = document.getElementById("add2ToTheN").value|0;
                 if(value >= 0 && value <= 64) {} else { value = 0; }
                 document.getElementById("buttonSub2ToThe").innerHTML = "-2^" + value;
                 document.getElementById("buttonAdd2ToThe").innerHTML = "+2^" + value;
@@ -81,25 +83,25 @@
                 updateWithLayerPlus(0);
             });
             function updateWithLayerPlus(x) {
-                var i = document.getElementById("lastLayer").value|0;
+                let i = document.getElementById("lastLayer").value|0;
                 i += x;
                 document.getElementById("lastLayer").value = i;
                 if(i >= 0 && i <= 43) {
-                    var newScale = scales[i];
+                    let newScale = scales[i];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
                 }
                 if(i >= 100 && i <= 143) {
-                    var newScale = scales[i - 100];
+                    let newScale = scales[i - 100];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
                 }
                 if(i >= 200 && i <= 243) {
-                    var newScale = scales[i - 200];
+                    let newScale = scales[i - 200];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
                     //Game.clear();
@@ -107,17 +109,17 @@
                 }
             }
             function seedPlus2ToThe48(add_not_sub) {
-                var ws = document.getElementById('worldSeed');
-                var n = document.getElementById('add2ToTheN');
+                let ws = document.getElementById('worldSeed');
+                let n = document.getElementById('add2ToTheN');
                 if(ws && n) {
                     /*
-                    var seed = ctypes.Int64(ws.value);
+                    let seed = ctypes.Int64(ws.value);
                     seed += ctypes.Int64("0x100000000");
                     ws.value = seed.toString();
                     */
                     // Ok, I'll just implement it in Rust
                     return Rust.wasm_gui.then( function( wasmgui ) {
-                        var new_value = ws.value;
+                        let new_value = ws.value;
                         if (add_not_sub) {
                             new_value = wasmgui.add_2_n(ws.value, n.value|0);
                         } else {
@@ -134,7 +136,7 @@
             }
             function pregenerateLayers() {
                 // Only works well when current layer == 43
-                for(var j=0; j<=43; j++) {
+                for(let j=0; j<=43; j++) {
                     Game._drawLayer(j);
                 }
             }
@@ -193,7 +195,7 @@
                 this.maxWorkers = navigator.hardwareConcurrency || 4;
                 console.log("Creating " + this.maxWorkers + " workers");
                 this.workers = Array(this.maxWorkers);
-                for (var i=0; i<this.maxWorkers; i++) {
+                for (let i=0; i<this.maxWorkers; i++) {
                     this.workers[i] = new Worker('./worker_b.js');
                     this.workers[i].onmessage = handleMsg;
                 }
@@ -211,30 +213,30 @@
 
             const work1 = new Wrapper();
 
-            var FRAG_SIZE = 256;
+            let FRAG_SIZE = 256;
             // Generate fragment
             // This function should return a promise, which is interpreted as
             // a HTML canvas
             function generateFragmentB(layer, fx, fy) {
                 if (window.Worker) {
-                    var ws = document.getElementById('worldSeed');
+                    let ws = document.getElementById('worldSeed');
                     // Since js doesnt support 64 bit ints, we just pass
                     // the string to the Rust code, it will be parsed there
-                    var seed = ws.value;
-                    var lastLayer = document.getElementById('lastLayer').value|0;
-                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: layer }).then(function(e) {
+                    let seed = ws.value;
+                    let lastLayer = document.getElementById('lastLayer').value|0;
+                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: lastLayer }).then(function(e) {
                         /*
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         */
                         // Create off-screen canvas
-                        var c = document.createElement('canvas');
+                        let c = document.createElement('canvas');
                         c.width = FRAG_SIZE;
                         c.height = FRAG_SIZE;
-                        var ctx = c.getContext('2d');
+                        let ctx = c.getContext('2d');
                         // Generate fragment
-                        var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                        let imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
                         //imageData.data = rvec; // please
-                        for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
+                        for(let i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
                             imageData.data[i] = e.rvec[i];
                         }
                         ctx.putImageData(imageData, 0, 0);
@@ -242,23 +244,23 @@
                     });
                 } else {
                     return Rust.wasm_gui.then( function( wasmgui ) {
-                        var ws = document.getElementById('worldSeed');
+                        let ws = document.getElementById('worldSeed');
                         // Since js doesnt support 64 bit ints, we just pass
                         // the string to the Rust code, it will be parsed there
-                        var seed = ws.value;
+                        let seed = ws.value;
                         console.log("Seed: " + seed);
                         console.log("Generating fragment: " + fx + ", " + fy);
-                        var rvec = wasmgui.generate_fragment(fx, fy, seed, FRAG_SIZE);
+                        let rvec = wasmgui.generate_fragment(fx, fy, seed, FRAG_SIZE);
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         // Create off-screen canvas
-                        var c = document.createElement('canvas');
+                        let c = document.createElement('canvas');
                         c.width = FRAG_SIZE;
                         c.height = FRAG_SIZE;
-                        var ctx = c.getContext('2d');
+                        let ctx = c.getContext('2d');
                         // Generate fragment
-                        var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                        let imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
                         //imageData.data = rvec; // please
-                        for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
+                        for(let i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
                             imageData.data[i] = rvec[i];
                         }
                         ctx.putImageData(imageData, 0, 0);
@@ -271,7 +273,7 @@
 
             map.generateFragment = generateFragmentB;
 
-            var ws = document.getElementById('worldSeed');
+            let ws = document.getElementById('worldSeed');
             ws.oninput = function() {
                 // Regenerate map when seed changes
                 Game.clear();

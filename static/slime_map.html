@@ -105,7 +105,7 @@
                 this.maxWorkers = navigator.hardwareConcurrency || 4;
                 console.log("Creating " + this.maxWorkers + " workers");
                 this.workers = Array(this.maxWorkers).fill(new Worker('./worker_s.js'));
-                for (var i=0; i<this.maxWorkers; i++) {
+                for (let i=0; i<this.maxWorkers; i++) {
                     this.workers[i].onmessage = handleMsg;
                 }
                 this.incr = 0;
@@ -122,16 +122,16 @@
 
             const work1 = new Wrapper();
 
-            var FRAG_SIZE = 256;
+            let FRAG_SIZE = 256;
             // Generate fragment
             // This function should return a promise, which is interpreted as
             // a HTML canvas
             function generateFragmentB(fx, fy) {
                 if (window.Worker) {
-                    var ws = document.getElementById('worldSeed');
+                    let ws = document.getElementById('worldSeed');
                     // Since js doesnt support 64 bit ints, we just pass
                     // the string array to the Rust code, it will be parsed there
-                    var seed = Array.from(ws.value
+                    let seed = Array.from(ws.value
                         .replace(/( |\n)/g, '')
                         .replace(/,$/g, '')
                         .split(",")
@@ -141,14 +141,14 @@
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         */
                         // Create off-screen canvas
-                        var c = document.createElement('canvas');
+                        let c = document.createElement('canvas');
                         c.width = FRAG_SIZE;
                         c.height = FRAG_SIZE;
-                        var ctx = c.getContext('2d');
+                        let ctx = c.getContext('2d');
                         // Generate fragment
-                        var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                        let imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
                         //imageData.data = rvec; // please
-                        for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
+                        for(let i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
                             imageData.data[i] = e.rvec[i];
                         }
                         ctx.putImageData(imageData, 0, 0);
@@ -156,27 +156,27 @@
                     });
                 } else {
                     return Rust.wasm_gui.then( function( wasmgui ) {
-                        var ws = document.getElementById('worldSeed');
+                        let ws = document.getElementById('worldSeed');
                         // Since js doesnt support 64 bit ints, we just pass
                         // the string array to the Rust code, it will be parsed there
-                        var seed = Array.from(ws.value
+                        let seed = Array.from(ws.value
                             .replace(/( |\n)/g, '')
                             .replace(/,$/g, '')
                             .split(",")
                         );
                         console.log("Seed: " + seed);
                         console.log("Generating fragment: " + fx + ", " + fy);
-                        var rvec = wasmgui.generate_fragment_slime_map(fx, fy, seed, FRAG_SIZE);
+                        let rvec = wasmgui.generate_fragment_slime_map(fx, fy, seed, FRAG_SIZE);
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         // Create off-screen canvas
-                        var c = document.createElement('canvas');
+                        let c = document.createElement('canvas');
                         c.width = FRAG_SIZE;
                         c.height = FRAG_SIZE;
-                        var ctx = c.getContext('2d');
+                        let ctx = c.getContext('2d');
                         // Generate fragment
-                        var imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                        let imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
                         //imageData.data = rvec; // please
-                        for(var i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
+                        for(let i=0; i<FRAG_SIZE*FRAG_SIZE*4; i++) {
                             imageData.data[i] = rvec[i];
                         }
                         ctx.putImageData(imageData, 0, 0);
@@ -190,14 +190,14 @@
             map.generateFragment = generateFragmentB;
 
             function genSeedTest() {
-                var base = document.getElementById('genSeedBase');
-                var n = document.getElementById('genSeedN');
-                var bits = document.getElementById('genSeedBits');
+                let base = document.getElementById('genSeedBase');
+                let n = document.getElementById('genSeedN');
+                let bits = document.getElementById('genSeedBits');
                 // Oh, right, the seed is 64 bits
 
                 Rust.wasm_gui.then( function( wasmgui ) {
-                    var new_value = wasmgui.gen_test_seed_base_n_bits(base.value, n.value, bits.value);
-                    var ws = document.getElementById('worldSeed');
+                    let new_value = wasmgui.gen_test_seed_base_n_bits(base.value, n.value, bits.value);
+                    let ws = document.getElementById('worldSeed');
                     ws.value = new_value;
                 }, function( err ) {
                     console.error(err);

@@ -7,7 +7,7 @@
 // Modified version can be found at:
 // https://github.com/Badel2/inf-proc-gen-tilemap
 
-var map = {
+let map = {
     tsize: 1,
     // 1 layer
     layers: Array(1).fill(new Map()),
@@ -15,11 +15,11 @@ var map = {
         // We must use a string as a key because two arrays
         // with are same elements are not equal according to js
         // [0, 0] != [0, 0]
-        var k = col + "," + row;
+        let k = col + "," + row;
         return this.layers[layer].get(k);
     },
     setTile: function (layer, col, row, value) {
-        var k = col + "," + row;
+        let k = col + "," + row;
         if (value == 0) {
             // No need to store "empty" tiles
             this.layers[layer].delete(k);
@@ -53,8 +53,8 @@ Camera.prototype.moveRaw = function (dirx, diry) {
 };
 
 Camera.prototype.zoom = function (newF) {
-    var old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
-    var old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
+    let old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
+    let old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
     this.scale *= newF;
     this.scale = Math.max(this.scale, 0.1);
     this.tsize = map.tsize * this.scale;
@@ -90,7 +90,7 @@ Game.update = function (delta) {
 };
 
 Game._drawTile = function (x, y, v) {
-    var colors = ["white", "#0000FF",];
+    let colors = ["white", "#0000FF",];
     if (v < 2) {
         this.ctx.fillStyle = colors[v];
         this.ctx.fillRect(
@@ -104,12 +104,12 @@ Game._drawTile = function (x, y, v) {
 
 Game._drawLayer = function (layer) {
     // + 1 because when the width is not a multiple of tsize things get weird
-    var startCol = Math.floor(this.camera.x / this.camera.tsize);
-    var endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
-    var startRow = Math.floor(this.camera.y / this.camera.tsize);
-    var endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
-    var offsetX = -this.camera.x + startCol * this.camera.tsize;
-    var offsetY = -this.camera.y + startRow * this.camera.tsize;
+    let startCol = Math.floor(this.camera.x / this.camera.tsize);
+    let endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
+    let startRow = Math.floor(this.camera.y / this.camera.tsize);
+    let endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
+    let offsetX = -this.camera.x + startCol * this.camera.tsize;
+    let offsetY = -this.camera.y + startRow * this.camera.tsize;
 
     //console.log([startCol, endCol, startRow, endRow, offsetX, offsetY]);
 
@@ -117,23 +117,23 @@ Game._drawLayer = function (layer) {
     // Many elements set: iterate over each tile
     if (map.layers[layer].size < (endCol - startCol) * (endRow - startRow)) {
         map.layers[layer].forEach((v, k) => {
-            var xy = k.split(",").map(a => Number.parseInt(a));
-            var c = xy[0];
-            var r = xy[1];
+            let xy = k.split(",").map(a => Number.parseInt(a));
+            let c = xy[0];
+            let r = xy[1];
             if (c >= startCol && c <= endCol && r >= startRow && r <= endRow) {
                 //console.log(tile);
-                var x = (c - startCol) * this.camera.tsize + offsetX;
-                var y = (r - startRow) * this.camera.tsize + offsetY;
+                let x = (c - startCol) * this.camera.tsize + offsetX;
+                let y = (r - startRow) * this.camera.tsize + offsetY;
                 this._drawTile(x, y, v);
             }
         });
     } else {
-        for (var c = startCol; c <= endCol; c++) {
-            for (var r = startRow; r <= endRow; r++) {
-                var v = map.getTile(layer, c, r);
+        for (let c = startCol; c <= endCol; c++) {
+            for (let r = startRow; r <= endRow; r++) {
+                let v = map.getTile(layer, c, r);
                 //console.log(tile);
-                var x = (c - startCol) * this.camera.tsize + offsetX;
-                var y = (r - startRow) * this.camera.tsize + offsetY;
+                let x = (c - startCol) * this.camera.tsize + offsetX;
+                let y = (r - startRow) * this.camera.tsize + offsetY;
                 if (v != undefined) { // undefined => empty tile
                     this._drawTile(x, y, v);
                 }
@@ -145,16 +145,16 @@ Game._drawLayer = function (layer) {
     if (this.showGrid) {
         this.ctx.strokeStyle = "#AAA";
         this.ctx.lineWidth = 1;
-        for (var c = startCol; c <= endCol; c++) {
-            var x = (c - startCol) * this.camera.tsize + offsetX;
+        for (let c = startCol; c <= endCol; c++) {
+            let x = (c - startCol) * this.camera.tsize + offsetX;
             x = Math.round(x);
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
             this.ctx.lineTo(x, this.camera.height);
             this.ctx.stroke();
         }
-        for (var r = startRow; r <= endRow; r++) {
-            var y = (r - startRow) * this.camera.tsize + offsetY;
+        for (let r = startRow; r <= endRow; r++) {
+            let y = (r - startRow) * this.camera.tsize + offsetY;
             y = Math.round(y);
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
@@ -166,24 +166,24 @@ Game._drawLayer = function (layer) {
 
 Game._drawVoronoiTiles = function () {
     // + 1 because when the width is not a multiple of tsize things get weird
-    var startCol = Math.floor(this.camera.x / this.camera.tsize);
-    var endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
-    var startRow = Math.floor(this.camera.y / this.camera.tsize);
-    var endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
-    var offsetX = -this.camera.x + startCol * this.camera.tsize;
-    var offsetY = -this.camera.y + startRow * this.camera.tsize;
+    let startCol = Math.floor(this.camera.x / this.camera.tsize);
+    let endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
+    let startRow = Math.floor(this.camera.y / this.camera.tsize);
+    let endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
+    let offsetX = -this.camera.x + startCol * this.camera.tsize;
+    let offsetY = -this.camera.y + startRow * this.camera.tsize;
 
     //console.log([startCol, endCol, startRow, endRow, offsetX, offsetY]);
 
-    for (var c = startCol; c <= endCol; c++) {
-        for (var r = startRow; r <= endRow; r++) {
+    for (let c = startCol; c <= endCol; c++) {
+        for (let r = startRow; r <= endRow; r++) {
                 function mod(n, m) {
                           return ((n % m) + m) % m;
                 }
-            var v = mod(c, 4) == 2 && mod(r, 4) == 2;
+            let v = mod(c, 4) == 2 && mod(r, 4) == 2;
             //console.log(tile);
-            var x = (c - startCol) * this.camera.tsize + offsetX;
-            var y = (r - startRow) * this.camera.tsize + offsetY;
+            let x = (c - startCol) * this.camera.tsize + offsetX;
+            let y = (r - startRow) * this.camera.tsize + offsetY;
             if (v) {
                 //this._drawTile(x, y, v);
                 this.ctx.fillStyle = '#ddffdd'
@@ -211,15 +211,15 @@ Game.render = function () {
 };
 
 Game.mouse_coords_to_game_coords_float = function(x, y) {
-    var tx = (x + this.camera.x) / this.camera.tsize;
-    var ty = (y + this.camera.y) / this.camera.tsize;
+    let tx = (x + this.camera.x) / this.camera.tsize;
+    let ty = (y + this.camera.y) / this.camera.tsize;
     return [tx, ty];
 };
 
 Game.mouse_coords_to_game_coords = function(x, y) {
-    var txty = this.mouse_coords_to_game_coords_float(x, y);
-    var tx = txty[0];
-    var ty = txty[1];
+    let txty = this.mouse_coords_to_game_coords_float(x, y);
+    let tx = txty[0];
+    let ty = txty[1];
     tx = Math.floor(tx);
     ty = Math.floor(ty);
     return [tx, ty];
@@ -227,15 +227,15 @@ Game.mouse_coords_to_game_coords = function(x, y) {
 
 Game.clickTile = function(x, y) {
     this.dirty = true;
-    var txty = this.mouse_coords_to_game_coords(x, y);
-    var tx = txty[0];
-    var ty = txty[1];
+    let txty = this.mouse_coords_to_game_coords(x, y);
+    let tx = txty[0];
+    let ty = txty[1];
     /*
     console.log("Clicked " + x + "," + y);
     console.log("Which is: " + tx + "," + ty);
     console.log(this.camera);
     */
-    var a = map.getTile(0, tx, ty);
+    let a = map.getTile(0, tx, ty);
     if (a == undefined) { a = 0; }
     a += 1;
     if (a >= 2) { a = 0; }
@@ -244,18 +244,18 @@ Game.clickTile = function(x, y) {
 
 Game.setTile = function(x, y, value) {
     this.dirty = true;
-    var txty = this.mouse_coords_to_game_coords(x, y);
-    var tx = txty[0];
-    var ty = txty[1];
+    let txty = this.mouse_coords_to_game_coords(x, y);
+    let tx = txty[0];
+    let ty = txty[1];
     map.setTile(0, tx, ty, value);
 }
 
 Game._recursiveBucketTool = function(targetValue, recursionCounter, stack) {
-    var newStack = [];
+    let newStack = [];
     stack.forEach((xy) => {
-        var x = xy[0];
-        var y = xy[1];
-            var a = map.getTile(0, x, y);
+        let x = xy[0];
+        let y = xy[1];
+            let a = map.getTile(0, x, y);
             if (a == undefined) { a = 0; }
             if (a != targetValue) {
                 map.setTile(0, x, y, targetValue);
@@ -272,22 +272,22 @@ Game._recursiveBucketTool = function(targetValue, recursionCounter, stack) {
 
 Game.bucketTool = function(x, y, targetValue) {
     this.dirty = true;
-    var txty = this.mouse_coords_to_game_coords(x, y);
-    var tx = txty[0];
-    var ty = txty[1];
+    let txty = this.mouse_coords_to_game_coords(x, y);
+    let tx = txty[0];
+    let ty = txty[1];
     this._recursiveBucketTool(targetValue, 10, [[tx, ty]]);
 };
 
 // Get all the (x, y) pairs from a layer with the given value
 Game.getSelection = function(layer, value) {
     // Iterators in JS dont have .filter()
-    var s = [];
+    let s = [];
     map.layers[layer].forEach((v, k) => {
-        var xy = k.split(",").map(a => Number.parseInt(a));
+        let xy = k.split(",").map(a => Number.parseInt(a));
         //console.log(k + " => " + v);
         //console.log(layer_x_y);
-        var x = xy[0];
-        var y = xy[1];
+        let x = xy[0];
+        let y = xy[1];
         if (v == value) {
             s.push([x, y]);
         }

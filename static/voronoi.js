@@ -32,24 +32,24 @@ function constrain(x, a, b) {
     return Math.min(Math.max(x, a), b);
 }
 
-var c = document.getElementById('voronoi');
-var elem = c;
-var ctx = c.getContext("2d");
-var c2 = document.getElementById('voronoi2');
-var ctx2 = c2.getContext("2d");
+let c = document.getElementById('voronoi');
+let elem = c;
+let ctx = c.getContext("2d");
+let c2 = document.getElementById('voronoi2');
+let ctx2 = c2.getContext("2d");
 
-var gridSizeX, size;
+let gridSizeX, size;
 
 // Positions of the generated points
-var genx, geny, dragging, vcolor;
-var baseColors = ["#aa00aa", "#880000", "#00FF00", "#0000FF", "#000000", "#008800", "#000088", "#dddd00", "#00FFFF", "#FF00FF"];
+let genx, geny, dragging, vcolor;
+let baseColors = ["#aa00aa", "#880000", "#00FF00", "#0000FF", "#000000", "#008800", "#000088", "#dddd00", "#00FFFF", "#FF00FF"];
 
 initPoints();
 
 function initPoints() {
     gridSizeX = document.getElementById("gridSizeX").value | 0;
     document.getElementById("gridSizeXValue").innerHTML = gridSizeX;
-    var c_width = document.getElementById("canvasSizeLol").value | 0;
+    let c_width = document.getElementById("canvasSizeLol").value | 0;
     if (c_width == 0) {
         c_width = 720;
     }
@@ -63,8 +63,8 @@ function initPoints() {
     dragging = new Array(gridSizeX * gridSizeX);
     vcolor = new Array(gridSizeX * gridSizeX);
 
-    for (var x = 0; x < gridSizeX; x++) {
-        for (var y = 0; y < gridSizeX; y++) {
+    for (let x = 0; x < gridSizeX; x++) {
+        for (let y = 0; y < gridSizeX; y++) {
             dragging[y * gridSizeX + x] = false;
             vcolor[y * gridSizeX + x] = baseColors[Math.floor(Math.random() * 8)];
         }
@@ -78,8 +78,8 @@ function initPoints() {
 }
 
 function randomGen() {
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             genx[iy * gridSizeX + ix] = 4.0 + 4.0 * ix + (Math.floor(Math.random() * 1024) / 1024.0 - 0.5) * 3.6;
             geny[iy * gridSizeX + ix] = 4.0 + 4.0 * iy + (Math.floor(Math.random() * 1024) / 1024.0 - 0.5) * 3.6;
         }
@@ -88,8 +88,8 @@ function randomGen() {
 }
 
 function centerGen() {
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             genx[iy * gridSizeX + ix] = 4.0 + 4.0 * ix + (512 / 1024.0 - 0.5) * 3.6;
             geny[iy * gridSizeX + ix] = 4.0 + 4.0 * iy + (512 / 1024.0 - 0.5) * 3.6;
         }
@@ -98,8 +98,8 @@ function centerGen() {
 }
 
 function center1Gen() {
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             genx[iy * gridSizeX + ix] = 4.0 + 4.0 * ix + (511 / 1024.0 - 0.5) * 3.6;
             geny[iy * gridSizeX + ix] = 4.0 + 4.0 * iy + (511 / 1024.0 - 0.5) * 3.6;
         }
@@ -108,13 +108,13 @@ function center1Gen() {
 }
 
 // https://stackoverflow.com/a/16284281
-var pointerEventToXY = function(e) {
-    var out = {
+let pointerEventToXY = function(e) {
+    let out = {
         x: 0,
         y: 0
     };
     if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
-        var touch = e.touches[0] || e.changedTouches[0];
+        let touch = e.touches[0] || e.changedTouches[0];
         out.x = touch.pageX;
         out.y = touch.pageY;
     } else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover' || e.type == 'mouseout' || e.type == 'mouseenter' || e.type == 'mouseleave') {
@@ -129,14 +129,14 @@ var pointerEventToXY = function(e) {
         if (n == 'touchstart') {
             e.preventDefault();
         }
-        var pointer = pointerEventToXY(e);
-        var elemLeft = elem.offsetLeft,
+        let pointer = pointerEventToXY(e);
+        let elemLeft = elem.offsetLeft,
             elemTop = elem.offsetTop;
-        var x = (pointer.x - elemLeft) / size,
+        let x = (pointer.x - elemLeft) / size,
             y = (pointer.y - elemTop) / size;
 
-        for (var ix = 0; ix < gridSizeX; ix++) {
-            for (var iy = 0; iy < gridSizeX; iy++) {
+        for (let ix = 0; ix < gridSizeX; ix++) {
+            for (let iy = 0; iy < gridSizeX; iy++) {
                 if (x >= 2.2 + 4.0 * ix && x <= 2.2 + 3.6 + 4.0 * ix && y >= 2.2 + 4.0 * iy && y <= 2.2 + 3.6 + 4.0 * iy) {
                     genx[iy * gridSizeX + ix] = constrain(x, 2.2 + 4.0 * ix, 2.2 + 3.6 + 4.0 * ix);
                     geny[iy * gridSizeX + ix] = constrain(y, 2.2 + 4.0 * iy, 2.2 + 3.6 + 4.0 * iy);
@@ -156,15 +156,15 @@ var pointerEventToXY = function(e) {
         if (n == 'touchstart') {
             e.preventDefault();
         }
-        var pointer = pointerEventToXY(e);
+        let pointer = pointerEventToXY(e);
 
-        var elemLeft = elem.offsetLeft,
+        let elemLeft = elem.offsetLeft,
             elemTop = elem.offsetTop;
-        var x = (pointer.x - elemLeft) / size,
+        let x = (pointer.x - elemLeft) / size,
             y = (pointer.y - elemTop) / size;
 
-        for (var ix = 0; ix < gridSizeX; ix++) {
-            for (var iy = 0; iy < gridSizeX; iy++) {
+        for (let ix = 0; ix < gridSizeX; ix++) {
+            for (let iy = 0; iy < gridSizeX; iy++) {
                 if (dragging[iy * gridSizeX + ix]) {
                     genx[iy * gridSizeX + ix] = constrain(x, 2.2 + 4.0 * ix, 2.2 + 3.6 + 4.0 * ix);
                     geny[iy * gridSizeX + ix] = constrain(y, 2.2 + 4.0 * iy, 2.2 + 3.6 + 4.0 * iy);
@@ -182,8 +182,8 @@ var pointerEventToXY = function(e) {
             // This breaks the page
             //e.preventDefault();
         }
-        for (var ix = 0; ix < gridSizeX; ix++) {
-            for (var iy = 0; iy < gridSizeX; iy++) {
+        for (let ix = 0; ix < gridSizeX; ix++) {
+            for (let iy = 0; iy < gridSizeX; iy++) {
                 dragging[iy * gridSizeX + ix] = false;
             }
         }
@@ -192,26 +192,26 @@ var pointerEventToXY = function(e) {
 
 
 function render() {
-    var w = c.width,
+    let w = c.width,
         h = c.height;
 
     // Clear canvas
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, w, h);
     // Draw background tiles
-    var backgroundPalette = ["#222222", "#EEEEEE"];
-    for (var ix = 0; ix < gridSizeX + 1; ix++) {
+    let backgroundPalette = ["#222222", "#EEEEEE"];
+    for (let ix = 0; ix < gridSizeX + 1; ix++) {
         ctx.fillStyle = backgroundPalette[ix % 2];
         ctx.fillRect(4 * size * ix, 0, size * 4, size * 4);
     }
-    for (var iy = 0; iy < gridSizeX + 1; iy++) {
+    for (let iy = 0; iy < gridSizeX + 1; iy++) {
         ctx.fillStyle = backgroundPalette[iy % 2];
         ctx.fillRect(0, 4 * size * iy, size * 4, size * 4);
     }
 
     // Draw colored tiles
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             ctx.fillStyle = vcolor[iy * gridSizeX + ix];
             ctx.fillRect(4.0 * size * (ix + 1), 4.0 * size * (iy + 1), size * 4, size * 4);
         }
@@ -219,17 +219,17 @@ function render() {
 
     if (document.getElementById("showResult").checked) {
 
-        for (var ix = 0; ix < gridSizeX - 1; ix++) {
-            for (var iy = 0; iy < gridSizeX - 1; iy++) {
+        for (let ix = 0; ix < gridSizeX - 1; ix++) {
+            for (let iy = 0; iy < gridSizeX - 1; iy++) {
                 // Calculate distance from (i, j) to each point
-                for (var i = 0; i < 4; i++) {
-                    for (var j = 0; j < 4; j++) {
-                        var da = (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1));
-                        var db = (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1));
-                        var dc = (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1));
-                        var dd = (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1));
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        let da = (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1));
+                        let db = (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1));
+                        let dc = (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1));
+                        let dd = (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1));
 
-                        var draw = vcolor[(iy + 1) * gridSizeX + ix + 1];
+                        let draw = vcolor[(iy + 1) * gridSizeX + ix + 1];
                         if (da < db && da < dc && da < dd) {
                             draw = vcolor[iy * gridSizeX + ix];
                         } else if (db < da && db < dc && db < dd) {
@@ -253,16 +253,16 @@ function render() {
     }
 
     document.getElementById("genInfo").innerHTML = "";
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             document.getElementById("genInfo").innerHTML += "x: " + ix + ", y: " + iy + " -- " + genx[iy * gridSizeX + ix] + ", " + geny[iy * gridSizeX + ix] + "<br>";
         }
     }
 
     if (document.getElementById("showGrid").checked) {
         ctx.beginPath();
-        for (var ix = 0; ix < gridSizeX; ix++) {
-            for (var iy = 0; iy < gridSizeX; iy++) {
+        for (let ix = 0; ix < gridSizeX; ix++) {
+            for (let iy = 0; iy < gridSizeX; iy++) {
                 ctx.rect(size * (4.0 * (ix + 1) - 1.8), size * (4.0 * (iy + 1) - 1.8), size * 3.6, size * 3.6);
             }
         }
@@ -271,8 +271,8 @@ function render() {
     }
 
     ctx.strokeStyle = "#ffffff";
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             ctx.beginPath();
             ctx.rect((genx[iy * gridSizeX + ix] - 0.1) * size, (geny[iy * gridSizeX + ix] - 0.1) * size, size * 0.2, size * 0.2);
             ctx.fillStyle = vcolor[iy * gridSizeX + ix];
@@ -358,9 +358,9 @@ function delaunay() {
     });
     */
 
-    for (var ix = 0; ix < gridSizeX - 1; ix++) {
-        for (var iy = 0; iy < gridSizeX - 1; iy++) {
-            var points = new Array(4 + 2);
+    for (let ix = 0; ix < gridSizeX - 1; ix++) {
+        for (let iy = 0; iy < gridSizeX - 1; iy++) {
+            let points = new Array(4 + 2);
             points[0] = [genx[(iy + 0) * gridSizeX + ix + 0], geny[(iy + 0) * gridSizeX + ix + 0]];
             points[1] = [genx[(iy + 0) * gridSizeX + ix + 1], geny[(iy + 0) * gridSizeX + ix + 1]];
             points[2] = [genx[(iy + 1) * gridSizeX + ix + 0], geny[(iy + 1) * gridSizeX + ix + 0]];
@@ -388,7 +388,7 @@ function delaunay() {
 
 function render2() {
 
-    var w = c2.width,
+    let w = c2.width,
         h = c2.height;
 
     // Clear canvas
@@ -396,8 +396,8 @@ function render2() {
     ctx2.fillRect(0, 0, w, h);
 
     /*
-      for (var ix=0; ix<gridSizeX; ix++) {
-          for (var iy=0; iy<gridSizeX; iy++) {
+      for (let ix=0; ix<gridSizeX; ix++) {
+          for (let iy=0; iy<gridSizeX; iy++) {
               ctx2.fillStyle = vcolor[iy * gridSizeX + ix];
               ctx2.fillRect(4.0 * size * (ix + 1), 4.0 * size * (iy + 1), size * 4, size * 4);
           }
@@ -406,17 +406,17 @@ function render2() {
 
     if (document.getElementById("showResult2").checked) {
 
-        for (var ix = 0; ix < gridSizeX - 1; ix++) {
-            for (var iy = 0; iy < gridSizeX - 1; iy++) {
+        for (let ix = 0; ix < gridSizeX - 1; ix++) {
+            for (let iy = 0; iy < gridSizeX - 1; iy++) {
                 // Calculate distance from (i, j) to each point
-                for (var i = 0; i < 4; i++) {
-                    for (var j = 0; j < 4; j++) {
-                        var da = (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1));
-                        var db = (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1));
-                        var dc = (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1));
-                        var dd = (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1));
+                for (let i = 0; i < 4; i++) {
+                    for (let j = 0; j < 4; j++) {
+                        let da = (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1));
+                        let db = (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1));
+                        let dc = (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1));
+                        let dd = (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1));
 
-                        var draw = vcolor[(iy + 1) * gridSizeX + ix + 1];
+                        let draw = vcolor[(iy + 1) * gridSizeX + ix + 1];
                         if (da < db && da < dc && da < dd) {
                             draw = vcolor[iy * gridSizeX + ix];
                         } else if (db < da && db < dc && db < dd) {
@@ -439,18 +439,18 @@ function render2() {
         }
     }
 
-    for (var ix = 0; ix < gridSizeX - 1; ix++) {
-        for (var iy = 0; iy < gridSizeX - 1; iy++) {
+    for (let ix = 0; ix < gridSizeX - 1; ix++) {
+        for (let iy = 0; iy < gridSizeX - 1; iy++) {
             // Calculate distance from (i, j) to each point
-            for (var i = 0; i < 4; i++) {
-                for (var j = 0; j < 4; j++) {
-                    var da = (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1));
-                    var db = (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1));
-                    var dc = (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1));
-                    var dd = (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1));
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    let da = (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix] + 4 * (ix + 1));
+                    let db = (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[iy * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[iy * gridSizeX + ix + 1] + 4 * (ix + 1));
+                    let dc = (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix] + 4 * (ix + 1));
+                    let dd = (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) * (j - geny[(iy + 1) * gridSizeX + ix + 1] + 4 * (iy + 1)) + (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1)) * (i - genx[(iy + 1) * gridSizeX + ix + 1] + 4 * (ix + 1));
 
-                    var nearest = 3;
-                    var draw = vcolor[(iy + 1) * gridSizeX + ix + 1];
+                    let nearest = 3;
+                    let draw = vcolor[(iy + 1) * gridSizeX + ix + 1];
                     if (da < db && da < dc && da < dd) {
                         nearest = 0;
                         draw = vcolor[iy * gridSizeX + ix];
@@ -632,8 +632,8 @@ function render2() {
                         }
                         console.error("Didnt enter any branch");
                     }
-                    var px = (4.0 * (ix + 1) + i);
-                    var py = (4.0 * (iy + 1) + j);
+                    let px = (4.0 * (ix + 1) + i);
+                    let py = (4.0 * (iy + 1) + j);
                     if (document.getElementById("showNegativeCircles").checked) {
                         circle(ctx2, px * size, py * size, distance_point_nearest_line(i, j, nearest) * size);
                     }
@@ -648,8 +648,8 @@ function render2() {
 
     if (document.getElementById("showGrid2").checked) {
         ctx2.beginPath();
-        for (var ix = 0; ix < gridSizeX; ix++) {
-            for (var iy = 0; iy < gridSizeX; iy++) {
+        for (let ix = 0; ix < gridSizeX; ix++) {
+            for (let iy = 0; iy < gridSizeX; iy++) {
                 ctx2.rect(size * (4.0 * (ix + 1) - 1.8), size * (4.0 * (iy + 1) - 1.8), size * 3.6, size * 3.6);
             }
         }
@@ -659,8 +659,8 @@ function render2() {
 
     /*
       ctx2.strokeStyle = "#ffffff";
-      for (var ix=0; ix<gridSizeX; ix++) {
-          for (var iy=0; iy<gridSizeX; iy++) {
+      for (let ix=0; ix<gridSizeX; ix++) {
+          for (let iy=0; iy<gridSizeX; iy++) {
               ctx2.beginPath();
               ctx2.rect((genx[iy * gridSizeX + ix] - 0.1) * size, (geny[iy * gridSizeX + ix] - 0.1) * size, size * 0.2, size * 0.2);
               ctx2.fillStyle = vcolor[iy * gridSizeX + ix];

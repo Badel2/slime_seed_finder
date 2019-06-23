@@ -31,18 +31,18 @@ function constrain(x, a, b) {
     return Math.min(Math.max(x, a), b);
 }
 
-var c = document.getElementById('voronoi');
-var elem = c;
-var ctx = c.getContext("2d");
-var c2 = document.getElementById('voronoi2');
-var ctx2 = c2.getContext("2d");
+let c = document.getElementById('voronoi');
+let elem = c;
+let ctx = c.getContext("2d");
+let c2 = document.getElementById('voronoi2');
+let ctx2 = c2.getContext("2d");
 
-var gridSizeX, size;
+let gridSizeX, size;
 
 // Positions of the generated points
-var genx, geny, dragging, vcolor;
-var baseColors = ["#000070", "#8db360", "#606060", "#056621", "#0b6659", "#fa9418", "#000000", "#008800", "#000088", "#dddd00", "#00FFFF", "#FF00FF"];
-var totalColors = 2;
+let genx, geny, dragging, vcolor;
+let baseColors = ["#000070", "#8db360", "#606060", "#056621", "#0b6659", "#fa9418", "#000000", "#008800", "#000088", "#dddd00", "#00FFFF", "#FF00FF"];
+let totalColors = 2;
 
 function nextColor(c) {
     return baseColors[(baseColors.findIndex((x) => x == c) + 1) % totalColors];
@@ -55,7 +55,7 @@ function initPoints() {
     document.getElementById("gridSizeXValue").innerHTML = gridSizeX;
     totalColors = constrain(document.getElementById("numColors").value | 0, 1, baseColors.length);
     document.getElementById("numColorsValue").innerHTML = totalColors;
-    var c_width = document.getElementById("canvasSizeLol").value | 0;
+    let c_width = document.getElementById("canvasSizeLol").value | 0;
     if (c_width == 0) {
         c_width = 720;
     }
@@ -70,8 +70,8 @@ function initPoints() {
 }
 
 function randomGen() {
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             vcolor[iy * gridSizeX + ix] = baseColors[Math.floor(Math.random() * totalColors)];
         }
     }
@@ -79,8 +79,8 @@ function randomGen() {
 }
 
 function clearGen() {
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             vcolor[iy * gridSizeX + ix] = baseColors[0];
         }
     }
@@ -88,13 +88,13 @@ function clearGen() {
 }
 
 // https://stackoverflow.com/a/16284281
-var pointerEventToXY = function(e) {
-    var out = {
+let pointerEventToXY = function(e) {
+    let out = {
         x: 0,
         y: 0
     };
     if (e.type == 'touchstart' || e.type == 'touchmove' || e.type == 'touchend' || e.type == 'touchcancel') {
-        var touch = e.touches[0] || e.changedTouches[0];
+        let touch = e.touches[0] || e.changedTouches[0];
         out.x = touch.pageX;
         out.y = touch.pageY;
     } else if (e.type == 'mousedown' || e.type == 'mouseup' || e.type == 'mousemove' || e.type == 'mouseover' || e.type == 'mouseout' || e.type == 'mouseenter' || e.type == 'mouseleave') {
@@ -130,14 +130,14 @@ var pointerEventToXY = function(e) {
             // This breaks the page
             //e.preventDefault();
         }
-        var pointer = pointerEventToXY(e);
-        var elemLeft = elem.offsetLeft,
+        let pointer = pointerEventToXY(e);
+        let elemLeft = elem.offsetLeft,
             elemTop = elem.offsetTop;
-        var x = Math.floor((pointer.x - elemLeft) / size),
+        let x = Math.floor((pointer.x - elemLeft) / size),
             y = Math.floor((pointer.y - elemTop) / size);
 
         if (x >= 0 && x < gridSizeX && y >= 0 && y < gridSizeX) {
-            var current = vcolor[y * gridSizeX + x];
+            let current = vcolor[y * gridSizeX + x];
             vcolor[y * gridSizeX + x] = nextColor(current);
             render();
         }
@@ -146,7 +146,7 @@ var pointerEventToXY = function(e) {
 
 
 function render() {
-    var w = c.width,
+    let w = c.width,
         h = c.height;
 
     // Clear canvas
@@ -154,8 +154,8 @@ function render() {
     ctx.fillRect(0, 0, w, h);
 
     // Draw colored tiles
-    for (var ix = 0; ix < gridSizeX; ix++) {
-        for (var iy = 0; iy < gridSizeX; iy++) {
+    for (let ix = 0; ix < gridSizeX; ix++) {
+        for (let iy = 0; iy < gridSizeX; iy++) {
             ctx.fillStyle = vcolor[iy * gridSizeX + ix];
             ctx.fillRect(size * ix, size * iy, size, size);
         }
@@ -166,7 +166,7 @@ function render() {
 
 function render2() {
 
-    var w = c2.width,
+    let w = c2.width,
         h = c2.height;
 
     // Clear canvas
@@ -174,13 +174,13 @@ function render2() {
     ctx2.fillRect(0, 0, w, h);
 
     // Draw colored tiles
-    for (var ix = 0; ix < gridSizeX - 2; ix++) {
-        for (var iy = 0; iy < gridSizeX - 2; iy++) {
-            var v11 = vcolor[(iy + 1) * gridSizeX + (ix + 1)];
-            var v10 = vcolor[(iy + 0) * gridSizeX + (ix + 1)];
-            var v01 = vcolor[(iy + 1) * gridSizeX + (ix + 0)];
-            var v12 = vcolor[(iy + 2) * gridSizeX + (ix + 1)];
-            var v21 = vcolor[(iy + 1) * gridSizeX + (ix + 2)];
+    for (let ix = 0; ix < gridSizeX - 2; ix++) {
+        for (let iy = 0; iy < gridSizeX - 2; iy++) {
+            let v11 = vcolor[(iy + 1) * gridSizeX + (ix + 1)];
+            let v10 = vcolor[(iy + 0) * gridSizeX + (ix + 1)];
+            let v01 = vcolor[(iy + 1) * gridSizeX + (ix + 0)];
+            let v12 = vcolor[(iy + 2) * gridSizeX + (ix + 1)];
+            let v21 = vcolor[(iy + 1) * gridSizeX + (ix + 2)];
             if ( v10 == v12 && v01 == v21 ) {
                 // Random choice, 50%
                 // Represented as a checker pattern
