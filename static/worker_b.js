@@ -7,12 +7,13 @@ function doCalculation(wasmgui, data, cb) {
     console.log('Message received from main script');
     console.log(data);
     */
+    let version = data.version;
     let fx = data.fx;
     let fy = data.fy;
     let seed = data.seed;
     let FRAG_SIZE = data.FRAG_SIZE;
     let lastLayer = data.lastLayer;
-    let rvec = wasmgui.generate_fragment_up_to_layer(fx, fy, seed, FRAG_SIZE, lastLayer);
+    let rvec = wasmgui.generate_fragment_up_to_layer(version, fx, fy, seed, FRAG_SIZE, lastLayer);
     let result = { rvec: rvec };
     cb(err, result);
 }

@@ -148,7 +148,7 @@ window.onload = function () {
     let seltextarea = document.getElementById('selection_output');
     if (seltextarea && seltextarea.value == "") {
         seltextarea.value = stringify({
-            version: "1.7",
+            version: minecraft_version,
             biomes: {
                 7: Game.getSelection(0, 1),
             },
@@ -183,11 +183,31 @@ function fitToContainer(canvas){
     canvas.style.height='';
 }
 
-let seedInfo = {"version": "1.7"};
+let minecraft_version = "1.7";
+let seedInfo = {"version": minecraft_version};
 let l42AreaC = null;
 let foundSeeds = [];
 let workers = [];
 let selection_history = []
+
+document.getElementById('minecraftVersion').addEventListener("input", function(event) {
+    minecraft_version = document.getElementById('minecraftVersion').value;
+    seedInfo.version = minecraft_version;
+    update_selection();
+});
+
+function version_map(s) {
+    if (s == "1.7" || s == "1.8" || s == "1.9" || s == "1.10" || s == "1.11" || s == "1.12") {
+        return "1.7";
+    } else if (s == "1.13") {
+        return "1.13";
+    } else if (s == "1.14") {
+        return "1.14";
+    } else {
+        console.error("Unknown minecraft version: " + s);
+        return "";
+    }
+}
 
 // From seedInfo textarea to seedInfo and map
 function load_selection() {
@@ -198,6 +218,7 @@ function load_selection() {
         Game.clearSelection(0);
         Game.setSelection(0, 1, x.biomes[7]);
         drawVoronoi();
+        document.getElementById('minecraftVersion').value = version_map(seedInfo.version);
     } catch(e) {
         // Invalid JSON
     }
@@ -250,7 +271,8 @@ function runWorkers(numWorkers, seedInfo) {
                     Rust.wasm_gui.then( function( wasmgui ) {
                         let seltextarea = document.getElementById('selection_output');
                         let seedInfo = JSON.parse(seltextarea.value);
-                        let r = wasmgui.generate_rivers_candidate(JSON.stringify({ seed: ""+startedX, area: l42AreaC}));
+                        let minecraft_version = seedInfo.version;
+                        let r = wasmgui.generate_rivers_candidate(JSON.stringify({ version: minecraft_version, seed: ""+startedX, area: l42AreaC}));
                         drawMapToCanvas(document.getElementById("mapLayer42Candidate"), r.l42, r.l42Area);
                     });
                 }

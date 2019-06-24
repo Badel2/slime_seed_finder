@@ -18,6 +18,7 @@ use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::biome_id;
+use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 
 #[cfg(feature = "wasm")]
@@ -47,6 +48,7 @@ pub struct DrawRivers {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateRiversCandidate {
+    version: String,
     seed: String,
     area: Area,
 }
@@ -102,11 +104,14 @@ pub fn generate_rivers_candidate(o: String) -> DrawRivers {
     let o: Result<GenerateRiversCandidate, _> = serde_json::from_str(&o);
     let o = o.unwrap();
 
+    // TODO: only works for version 1.7
+    let magic_layer_river_candidate = 141;
+
     DrawRivers {
         l43_area: Area { x: 0, z: 0, w: 0, h: 0 },
         l43: vec![],
         l42_area: o.area,
-        l42: biome_layers::generate_image_up_to_layer(o.area, o.seed.parse().unwrap(), 141),
+        l42: biome_layers::generate_image_up_to_layer(o.version.parse().unwrap(), o.area, o.seed.parse().unwrap(), magic_layer_river_candidate),
     }
 }
 
@@ -229,14 +234,29 @@ pub fn find_seed_rivers(o: Options) -> Vec<i64> {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn generate_fragment(fx: i32, fy: i32, seed: String, frag_size: usize) -> Vec<u8> {
-    generate_fragment_up_to_layer(fx, fy, seed, frag_size, biome_layers::NUM_LAYERS)
+pub fn generate_fragment(version: String, fx: i32, fy: i32, seed: String, frag_size: usize) -> Vec<u8> {
+    let version1: MinecraftVersion = match version.parse() {
+        Ok(s) => s,
+        Err(_) => {
+            console!(error, format!("{} is not a valid version", version));
+            return vec![0; frag_size*frag_size*4];
+        }
+    };
+    let num_layers = version1.num_layers();
+    generate_fragment_up_to_layer(version, fx, fy, seed, frag_size, num_layers)
 }
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn generate_fragment_up_to_layer(fx: i32, fy: i32, seed: String, frag_size: usize, layer: u32) -> Vec<u8> {
+pub fn generate_fragment_up_to_layer(version: String, fx: i32, fy: i32, seed: String, frag_size: usize, layer: u32) -> Vec<u8> {
     let frag_size = frag_size as usize;
+    let version = match version.parse() {
+        Ok(s) => s,
+        Err(_) => {
+            console!(error, format!("{} is not a valid version", version));
+            return vec![0; frag_size*frag_size*4];
+        }
+    };
     let seed = if let Ok(s) = seed.parse() {
         s
     } else {
@@ -248,7 +268,7 @@ pub fn generate_fragment_up_to_layer(fx: i32, fy: i32, seed: String, frag_size: 
     let area = Area { x: fx as i64 * frag_size as i64, z: fy as i64 * frag_size as i64, w: frag_size, h: frag_size};
     //let last_layer = 43;
     //let map = cubiomes_test::call_layer(last_layer, seed, area);
-    let v = biome_layers::generate_image_up_to_layer(area, seed, layer);
+    let v = biome_layers::generate_image_up_to_layer(version, area, seed, layer);
 
     v
 }

@@ -1,8 +1,9 @@
 use crate::mc_rng::McRng;
+use crate::seed_info::MinecraftVersion;
 // TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
 // are defined as (z * w + x).
-use log::debug;
+use log::{debug, error};
 use ndarray::Array2;
 use serde::{Serialize, Deserialize};
 use std::rc::Rc;
@@ -197,8 +198,6 @@ pub fn biome_to_color(id: i32) -> [u8; 4] {
 
     [r, g, b, 255]
 }
-
-pub const NUM_LAYERS: u32 = 43;
 
 /*
 type LayerFn = fn(l: &Layer) -> Vec<i32>;
@@ -2693,9 +2692,9 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     }).filter_map(|world_seed| {
         let world_seed = world_seed as i64;
         // Compare only rivers
-        //let g41 = generate_up_to_layer(area, world_seed, 41);
+        //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
         // Compare all biomes (slower)
-        let g42 = generate_up_to_layer(area, world_seed, 42);
+        let g42 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 42);
 
         let candidate_score = count_rivers_exact(&g42, &target_map);
         if candidate_score >= target_score * 90 / 100 {
@@ -2704,7 +2703,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             let target = extra_biomes.len() * 90 / 100;
             for (biome, x, z) in extra_biomes.iter().cloned() {
                 let area = Area { x, z, w: 1, h: 1 };
-                let g43 = generate_up_to_layer(area, world_seed, 43);
+                let g43 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 43);
                 if g43.a[(0, 0)] == biome {
                     hits += 1;
                 }
@@ -2772,7 +2771,7 @@ fn count_rivers_exact(a: &Map, b: &Map) -> u32 {
 fn all_candidate_river_maps() {
     let area = Area { x: 250, z: 50, w: 20, h: 20 };
     let world_seed = 0x00ABCDEF;
-    let target_map = generate_up_to_layer(area, world_seed, 41);
+    let target_map = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
     let target_score = count_rivers(&target_map);
     println!("Target score: {}", target_score);
     // Bruteforcing 2^25 should be enough: there will be a very high similarity
@@ -2904,21 +2903,33 @@ pub fn draw_map_image(map: &Map) -> Vec<u8> {
 }
 
 
-pub fn generate_image(area: Area, seed: i64) -> Vec<u8> {
-    generate_image_up_to_layer(area, seed, NUM_LAYERS)
+pub fn generate_image(version: MinecraftVersion, area: Area, seed: i64) -> Vec<u8> {
+    let num_layers = version.num_layers();
+    generate_image_up_to_layer(version, area, seed, num_layers)
 }
 
-pub fn generate_image_up_to_layer(area: Area, seed: i64, layer: u32) -> Vec<u8> {
-    let map = generate_up_to_layer(area, seed, layer);
+pub fn generate_image_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, layer: u32) -> Vec<u8> {
+    let map = generate_up_to_layer(version, area, seed, layer);
 
     draw_map_image(&map)
 }
 
-pub fn generate(a: Area, world_seed: i64) -> Map {
-    generate_up_to_layer(a, world_seed, NUM_LAYERS)
+pub fn generate(version: MinecraftVersion, a: Area, world_seed: i64) -> Map {
+    let num_layers = version.num_layers();
+    generate_up_to_layer(version, a, world_seed, num_layers)
 }
 
-pub fn generate_up_to_layer_extra_2(a: Area, world_seed: i64, layer: u32) -> Map {
+pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, num_layers: u32) -> Map {
+    match version {
+        MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers),
+        _ => {
+            error!("Biome generation in version {:?} is not implemented", version);
+            panic!("Biome generation in version {:?} is not implemented", version);
+        }
+    }
+}
+
+pub fn generate_up_to_layer_1_7_extra_2(a: Area, world_seed: i64, layer: u32) -> Map {
     let g22 = TestMapCheckers;
     if layer == 222 { return g22.get_map(a); }
     let mut g34 = HelperMapZoomAllEdges::new(1000, world_seed);
@@ -2949,7 +2960,7 @@ pub fn generate_up_to_layer_extra_2(a: Area, world_seed: i64, layer: u32) -> Map
     TestMapZero.get_map(a)
 }
 
-pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
+pub fn generate_up_to_layer_1_7_extra(a: Area, world_seed: i64, layer: u32) -> Map {
     /* RIVER LAYERS */
     let g22 = TestMapCheckers;
     let g22 = Rc::new(g22);
@@ -3064,12 +3075,12 @@ pub fn generate_up_to_layer_extra(a: Area, world_seed: i64, layer: u32) -> Map {
     TestMapZero.get_map(a)
 }
 
-pub fn generate_up_to_layer(a: Area, world_seed: i64, layer: u32) -> Map {
+pub fn generate_up_to_layer_1_7(a: Area, world_seed: i64, layer: u32) -> Map {
     if layer >= 200 {
-        return generate_up_to_layer_extra_2(a, world_seed, layer);
+        return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
     }
     if layer >= 100 {
-        return generate_up_to_layer_extra(a, world_seed, layer);
+        return generate_up_to_layer_1_7_extra(a, world_seed, layer);
     }
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return g0.get_map(a); }
@@ -3235,7 +3246,7 @@ mod tests {
         let world_seed = 2251799825931796;
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
-        let m33 = generate_up_to_layer(area, world_seed, 33);
+        let m33 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 33);
 
         let g34 = HelperMapZoomAllEdges::new(1000, world_seed);
         let g35 = HelperMapZoomAllEdges::new(1001, world_seed);
@@ -3288,7 +3299,7 @@ mod tests {
         let world_seed = 2251799825931796;
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
-        let m = generate_up_to_layer(area, world_seed, 30);
+        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 30);
 
         let g31 = MapZoom::new(1002, world_seed);
         let g32 = MapZoom::new(1003, world_seed);
@@ -3327,7 +3338,7 @@ mod tests {
         let world_seed = 2251799825931796;
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
-        let m = generate_up_to_layer(area, world_seed, 31);
+        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 31);
 
         let g32 = HelperMapZoomAllEdges::new(1003, world_seed);
         let g33 = MapSmooth::new(1000, world_seed);
@@ -3454,7 +3465,7 @@ mod tests {
         let map_smooth = MapSmooth::new(1000, world_seed);
         let (w, h) = (300, 300);
         let area = Area { x: 0, z: 0, w, h };
-        let m = generate_up_to_layer(area, world_seed, 32);
+        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 32);
 
         let b = map_smooth.get_map_from_pmap(&m);
         let c = map_smooth.get_map_from_pmap(&b);
@@ -3616,7 +3627,7 @@ mod tests {
     #[test]
     fn generate_t() {
         let a = Area { x: 0, z: 0, w: 100, h: 100 };
-        generate(a, 1234);
+        generate(MinecraftVersion::Java1_7, a, 1234);
     }
 
     #[test]
@@ -3666,7 +3677,7 @@ mod tests {
         fn all_candidate_river_maps() {
             let area = Area { x: 250, z: 50, w: 20, h: 20 };
             let world_seed = 0x00ABCDEF;
-            let target_map = generate_up_to_layer(area, world_seed, 41);
+            let target_map = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
             let target_score = count_rivers(&target_map);
             println!("Target score: {}", target_score);
             // Bruteforcing 2^25 should be enough: there will be a very high similarity

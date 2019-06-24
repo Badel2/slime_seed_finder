@@ -53,6 +53,11 @@
                 <button id="center_button">CENTER</button>
                 <input type="range" min="0" max="10" value="10" class="slider" id="gridSize">
                 <button onClick="Game.showGrid = !Game.showGrid; Game.dirty = true">TOGGLE GRID</button>
+                <select id="minecraftVersion">
+                    <option value="1.7">Java 1.7 - 1.12</option>
+                    <option value="1.13">Java 1.13</option>
+                    <option value="1.14">Java 1.14</option>
+                </select>
             </div>
             <div id="position_info" class="controlPanel"></div>
         </div>
@@ -137,6 +142,9 @@
             });
             document.getElementById("lastLayer").addEventListener("input", function(event) {
                 updateWithLayerPlus(0);
+            });
+            document.getElementById('minecraftVersion').addEventListener("input", function(event) {
+                Game.clear();
             });
             function updateWithLayerPlus(x) {
                 let i = document.getElementById("lastLayer").value|0;
@@ -284,7 +292,8 @@
                     // the string to the Rust code, it will be parsed there
                     let seed = ws.value;
                     let lastLayer = document.getElementById('lastLayer').value|0;
-                    return work1.sendMsg({ fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: lastLayer }).then(function(e) {
+                    let minecraft_version = document.getElementById('minecraftVersion').value;
+                    return work1.sendMsg({ version: minecraft_version, fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: lastLayer }).then(function(e) {
                         /*
                         console.log("Copying to canvas: " + fx + ", " + fy);
                         */

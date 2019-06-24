@@ -2,13 +2,43 @@ use crate::chunk::Chunk;
 use crate::biome_layers::Area;
 use crate::biome_layers::Map;
 use std::collections::HashMap;
+use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer };
 use serde_json;
 
 // TODO: use real types
 pub type Point = (i64, i64);
 pub type BiomeId = i32;
-pub type MinecraftVersion = String;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum MinecraftVersion {
+    Java1_6, // From Beta 1.7 to 1.6
+    Java1_7, // From 1.7 to 1.12
+    Java1_13,
+    Java1_14,
+}
+
+impl MinecraftVersion {
+    /// Total number of biome layers
+    pub fn num_layers(&self) -> u32 {
+        match self {
+            MinecraftVersion::Java1_7 => 43,
+            _ => 0,
+        }
+    }
+}
+
+impl FromStr for MinecraftVersion {
+    type Err = String;
+    fn from_str(x: &str) -> Result<Self, Self::Err> {
+        Ok(match x {
+            "1.7" | "1.8" | "1.9" | "1.10" | "1.11" | "1.12" => MinecraftVersion::Java1_7,
+            "1.13" => MinecraftVersion::Java1_13,
+            "1.14" => MinecraftVersion::Java1_14,
+            _ => return Err(x.to_string())
+        })
+    }
+}
 
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +63,7 @@ pub struct SeedStructures {
 
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct SeedInfo {
-    pub version: MinecraftVersion,
+    pub version: String,
     #[serde(default, skip_serializing_if = "is_default")]
     pub biomes: HashMap<BiomeId, Vec<Point>>,
     #[serde(flatten)]
@@ -53,6 +83,10 @@ impl SeedInfo {
         let seed_info = serde_json::from_reader(file)?;
 
         Ok(seed_info)
+    }
+
+    pub fn version(&self) -> Result<MinecraftVersion, String> {
+        self.version.parse()
     }
 }
 
@@ -168,10 +202,13 @@ mod tests {
 
     #[test]
     fn serialize_default() {
-        let seed_info = SeedInfo::default();
+        let seed_info = SeedInfo {
+            version: "1.7".to_string(),
+            ..Default::default()
+        };
         let x = serde_json::to_string(&seed_info).unwrap();
         // Version field must be serialized!
-        assert_eq!(x, r#"{"version":""}"#);
+        assert_eq!(x, r#"{"version":"1.7"}"#);
     }
 
     #[test]

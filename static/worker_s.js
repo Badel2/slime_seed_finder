@@ -3,10 +3,8 @@ importScripts("wasm_gui.js");
 // Simulate lengthy calculation or an async call
 function doCalculation(wasmgui, data, cb) {
     let err = null;
-    /*
     console.log('Message received from main script');
     console.log(data);
-    */
     let fx = data.fx;
     let fy = data.fy;
     let seed = data.seed;
