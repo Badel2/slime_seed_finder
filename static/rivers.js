@@ -262,7 +262,7 @@ function runWorkers(numWorkers, seedInfo) {
                 } else {
                     searchFinished = true;
                     workers = [];
-                    alert("Done! Found " + foundSeeds.length + " seeds");
+                    alert("Done! Found " + foundSeeds.length + " seed" + (foundSeeds.length == 1 ? "" : "s"));
                 }
             };
     }
