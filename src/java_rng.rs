@@ -155,6 +155,17 @@ impl Rng {
         self.next(1) != 0
     }
 
+    pub fn next_float(&mut self) -> f32 {
+        self.next(24) as f32 / (1 << 24) as f32
+    }
+
+    pub fn next_double(&mut self) -> f64 {
+        let hi = (self.next(26) as i64) << 27;
+        let lo = self.next(27) as i64;
+
+        (hi + lo) as f64 / ((1u64 << 53) as f64)
+    }
+
     // The inverse of next()
     pub fn previous(&mut self) {
         //self.seed = (self.seed.wrapping_sub(lcg_const::C)).wrapping_mul(lcg_const_extra::INV_A);
@@ -408,6 +419,13 @@ mod tests {
         r.set_seed(12345);
         let i = r.next_int_n(16);
         assert_eq!(i, 5);
+        r.set_seed(12345);
+        let i = r.next_float();
+        assert_eq!(i, 0.36180305);
+        r.set_seed(12345);
+        let i = r.next_double();
+        // Interesting, nextDouble returns the same number as nextFloat
+        assert_eq!(i, 0.3618031071604718);
     }
 
     #[test]
