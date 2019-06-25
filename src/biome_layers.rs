@@ -1442,6 +1442,14 @@ impl GetMap for MapBiome {
     }
 }
 
+fn is_deep_ocean(id: i32) -> bool {
+    use biome_id::*;
+    match id {
+        deepOcean | warmDeepOcean | lukewarmDeepOcean | coldDeepOcean | frozenDeepOcean => true,
+        _ => false,
+    }
+}
+
 fn equal_or_plateau(id1: i32, id2: i32) -> bool {
     use self::biome_id::*;
     if id1 == id2 {
@@ -1544,7 +1552,10 @@ impl GetMap for MapBiomeEdge {
                             if v10 != desert && v21 != desert && v01 != desert && v12 != desert &&
                                v10 != coldTaiga && v21 != coldTaiga && v01 != coldTaiga && v12 != coldTaiga &&
                                v10 != icePlains && v21 != icePlains && v01 != icePlains && v12 != icePlains {
-                                if v10 != jungle && v12 != jungle && v21 != jungle && v01 != jungle {
+                                if v10 != jungle && v12 != jungle && v21 != jungle && v01 != jungle
+                                    // TODO: bambooJungle is from 1.14
+                                    && v10 != bambooJungle && v12 != bambooJungle && v21 != bambooJungle
+                                    && v01 != bambooJungle {
                                     v11
                                 } else {
                                     jungleEdge
@@ -1691,12 +1702,14 @@ impl MapHills {
                         plains => if r.next_int_n(3) == 0 { forestHills } else { forest },
                         icePlains => iceMountains,
                         jungle => jungleHills,
+                        bambooJungle => bambooJungleHills, // TODO: 1.14
                         ocean => deepOcean,
                         extremeHills => extremeHillsPlus,
                         savanna => savannaPlateau,
                         _ => if equal_or_plateau(a11, mesaPlateau_F) {
                             mesa
-                        } else if a11 == deepOcean && r.next_int_n(3) == 0 {
+                        } else if is_deep_ocean(a11) && r.next_int_n(3) == 0 {
+                            // TODO: is_deep_ocean was introduced in 1.13
                             if r.next_int_n(2) == 0 { plains } else { forest }
                         } else {
                             a11
@@ -2252,6 +2265,260 @@ impl GetMap for MapRiverMix {
     }
 }
 
+struct OceanRnd {
+    a: f64,
+    b: f64,
+    c: f64,
+    d: [i32; 512],
+}
+
+impl OceanRnd {
+    fn new(seed: i64) -> Self {
+        let mut r = Rng::with_seed(seed as u64);
+        let a = r.next_double() * 256.0;
+        let b = r.next_double() * 256.0;
+        let c = r.next_double() * 256.0;
+        let mut d = [0; 512];
+
+        for i in 0..256 {
+            d[i] = i as i32;
+        }
+        for i in 0..256 {
+            // TODO: is this a mersenne twister?
+            // Anyway, it will be a really bad one if it is initialized using
+            // the Java PRNG
+            let n3 = r.next_int_n(256 - i as i32) + i as i32;
+            let n4 = d[i];
+            d[i] = d[n3 as usize];
+			d[n3 as usize] = n4;
+            d[i + 256] = d[i];
+        }
+        OceanRnd { a, b, c, d }
+    }
+
+    fn get_ocean_temp(&self, mut d1: f64, mut d2: f64, mut d3: f64) -> f64 {
+        d1 += self.a;
+        d2 += self.b;
+        d3 += self.c;
+        let mut i1 = d1 as i32 - if d1 < 0.0 { 1 } else { 0 };
+        let mut i2 = d2 as i32 - if d2 < 0.0 { 1 } else { 0 };
+        let mut i3 = d3 as i32 - if d3 < 0.0 { 1 } else { 0 };
+        d1 -= i1 as f64;
+        d2 -= i2 as f64;
+        d3 -= i3 as f64;
+        let t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
+        let t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
+        let t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
+
+        i1 &= 0xFF;
+        i2 &= 0xFF;
+        i3 &= 0xFF;
+
+        let a1 = self.d[i1 as usize] + i2;
+        let a2 = self.d[a1 as usize] + i3;
+        let a3 = self.d[(a1 + 1) as usize] + i3;
+        let b1 = self.d[(i1 + 1) as usize] + i2;
+        let b2 = self.d[b1 as usize] + i3;
+        let b3 = self.d[(b1 + 1) as usize] + i3;
+
+        let mut l1 = indexed_lerp(self.d[(a2    ) as usize], d1      , d2      , d3);
+        let     l2 = indexed_lerp(self.d[(b2    ) as usize], d1 - 1.0, d2      , d3);
+        let mut l3 = indexed_lerp(self.d[(a3    ) as usize], d1      , d2 - 1.0, d3);
+        let     l4 = indexed_lerp(self.d[(b3    ) as usize], d1 - 1.0, d2 - 1.0, d3);
+        let mut l5 = indexed_lerp(self.d[(a2 + 1) as usize], d1      , d2      , d3 - 1.0);
+        let     l6 = indexed_lerp(self.d[(b2 + 1) as usize], d1 - 1.0, d2      , d3 - 1.0);
+        let mut l7 = indexed_lerp(self.d[(a3 + 1) as usize], d1      , d2 - 1.0, d3 - 1.0);
+        let     l8 = indexed_lerp(self.d[(b3 + 1) as usize], d1 - 1.0, d2 - 1.0, d3 - 1.0);
+
+        l1 = lerp(t1, l1, l2);
+        l3 = lerp(t1, l3, l4);
+        l5 = lerp(t1, l5, l6);
+        l7 = lerp(t1, l7, l8);
+
+        l1 = lerp(t2, l1, l3);
+        l5 = lerp(t2, l5, l7);
+
+        lerp(t3, l1, l5)
+    }
+}
+
+fn lerp(part: f64, from: f64, to: f64) -> f64 {
+	from + part * (to - from)
+}
+
+fn indexed_lerp(idx: i32, d1: f64, d2: f64, d3: f64) -> f64 {
+	/* Table of vectors to cube edge centres (12 + 4 extra), used for ocean PRNG */
+	let c_edge_x = [1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0];
+	let c_edge_y = [1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0];
+	let c_edge_z = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0];
+
+	let idx = (idx & 0xF) as usize;
+
+	c_edge_x[idx] * d1 + c_edge_y[idx] * d2 + c_edge_z[idx] * d3
+}
+
+pub struct MapOceanTemp {
+    base_seed: i64,
+    world_seed: i64,
+    ocean_rnd: OceanRnd,
+}
+
+impl MapOceanTemp {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, ocean_rnd: OceanRnd::new(world_seed) }
+    }
+}
+
+impl GetMap for MapOceanTemp {
+    fn get_map(&self, area: Area) -> Map {
+        use biome_id::*;
+        let mut m = Map::new(area);
+
+        for z in 0..area.h {
+            for x in 0..area.w {
+                let tmp = self.ocean_rnd.get_ocean_temp((x as i64 + area.x) as f64 / 8.0, (z as i64 + area.z) as f64 / 8.0, 0.0);
+                m.a[(x as usize, z as usize)] = if tmp > 0.4 {
+                    warmOcean
+                } else if tmp > 0.2 {
+                    lukewarmOcean
+                } else if tmp < -0.4 {
+                    frozenOcean
+                } else if tmp < -0.2 {
+                    coldOcean
+                } else {
+                    ocean
+                };
+            }
+        }
+
+        m
+    }
+
+    // MapIsland is the first layer, so it does not need pmap
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let area = pmap.area();
+
+        self.get_map(area)
+    }
+}
+
+
+pub struct MapOceanMix {
+    base_seed: i64,
+    world_seed: i64,
+    // Map parent
+    pub parent1: Option<Rc<dyn GetMap>>,
+    // Ocean parent
+    pub parent2: Option<Rc<dyn GetMap>>,
+}
+
+impl MapOceanMix {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent1: None, parent2: None }
+    }
+    pub fn get_map_from_pmap12(&self, pmap1: &Map, pmap2: &Map) -> Map {
+        use self::biome_id::*;
+        let (p_w, p_h) = pmap2.a.dim();
+        {
+            // Check that both maps have the expected size and offset
+            let area = pmap2.area();
+            let land_area = Area {
+                x: area.x - 8,
+                z: area.z - 8,
+                w: area.w + 17,
+                h: area.h + 17,
+            };
+            assert_eq!(pmap1.area(), land_area);
+        }
+
+        let mut m = pmap2.clone();
+        for z in 0..p_h as usize {
+            'loop_x: for x in 0..p_w as usize {
+                let land_id = pmap1.a[(x+8, z+8)];
+                let mut ocean_id = pmap2.a[(x, z)];
+
+                if !is_oceanic(land_id) {
+                    m.a[(x, z)] = land_id;
+                    continue;
+                }
+
+                // Optimization: this loop is only useful when ocean_id is
+                // warm or frozen
+                if ocean_id == warmOcean || ocean_id == frozenOcean {
+                    for i in 0..=4 {
+                        for j in 0..=4 {
+                            let i = i * 4;
+                            let j = j * 4;
+                            let nearby_id = pmap1.a[(x + i, z + j)];
+
+                            if is_oceanic(nearby_id) {
+                                continue;
+                            }
+
+                            if ocean_id == warmOcean {
+                                m.a[(x, z)] = lukewarmOcean;
+                                continue 'loop_x;
+                            }
+
+                            if ocean_id == frozenOcean {
+                                m.a[(x, z)] = coldOcean;
+                                continue 'loop_x;
+                            }
+                        }
+                    }
+                }
+
+                if land_id == deepOcean {
+                    ocean_id = match ocean_id {
+                        lukewarmOcean => lukewarmDeepOcean,
+                        ocean => deepOcean,
+                        coldOcean => coldDeepOcean,
+                        frozenOcean => frozenDeepOcean,
+                        _ => ocean_id,
+                    };
+                }
+
+                m.a[(x, z)] = ocean_id;
+            }
+        }
+
+        m
+    }
+}
+
+impl GetMap for MapOceanMix {
+    fn get_map(&self, area: Area) -> Map {
+        if let (Some(ref parent1), Some(ref parent2)) = (&self.parent1, &self.parent2) {
+            let land_area = Area {
+                x: area.x - 8,
+                z: area.z - 8,
+                w: area.w + 17,
+                h: area.h + 17,
+            };
+            let parea = Area {
+                x: area.x,
+                z: area.z,
+                w: area.w,
+                h: area.h
+            };
+            let pmap1 = parent1.get_map(land_area);
+            let pmap2 = parent2.get_map(parea);
+
+            let map = self.get_map_from_pmap12(&pmap1, &pmap2);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parents not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, _pmap: &Map) -> Map {
+        panic!("MapOceanMix requires 2 pmaps!")
+    }
+}
+
 pub struct MapSkip {
     zoom_factor: u8,
     pub parent: Option<Rc<dyn GetMap>>,
@@ -2276,6 +2543,65 @@ impl MapSkip {
         }
     }
 }
+
+pub struct MapAddBamboo {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapAddBamboo {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapAddBamboo {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x,
+                z: area.z,
+                w: area.w,
+                h: area.h
+            };
+            let pmap = parent.get_map(parea);
+
+            let map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use biome_id::*;
+        let (p_w, p_h) = pmap.a.dim();
+        let mut m = pmap.clone();
+
+        let mut r = McRng::new(self.base_seed, self.world_seed);
+        for z in 0..p_h as usize {
+            for x in 0..p_w as usize {
+                let v = pmap.a[(x, z)];
+                if v == jungle {
+                    let chunk_x = x as i64 + m.x;
+                    let chunk_z = z as i64 + m.z;
+                    r.set_chunk_seed(chunk_x, chunk_z);
+                    if r.next_int_n(10) == 0 {
+                        m.a[(x, z)] = bambooJungle;
+                    }
+                }
+            }
+        }
+
+        m
+    }
+}
+
 
 // TODO: tests
 impl GetMap for MapSkip {
@@ -2922,6 +3248,8 @@ pub fn generate(version: MinecraftVersion, a: Area, world_seed: i64) -> Map {
 pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, num_layers: u32) -> Map {
     match version {
         MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers),
+        MinecraftVersion::Java1_13 => generate_up_to_layer_1_13(area, seed, num_layers),
+        MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
         _ => {
             error!("Biome generation in version {:?} is not implemented", version);
             panic!("Biome generation in version {:?} is not implemented", version);
@@ -3223,6 +3551,370 @@ pub fn generate_up_to_layer_1_7(a: Area, world_seed: i64, layer: u32) -> Map {
     g43.parent = Some(Rc::new(g42));
 
     let m1 = g43.get_map(a);
+    m1
+}
+
+pub fn generate_up_to_layer_1_13(a: Area, world_seed: i64, layer: u32) -> Map {
+    if layer >= 200 {
+        //return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
+    }
+    if layer >= 100 && layer <= 142 {
+        // The first 42 layers are almost equal in 1.7 and 1.13
+        // The main difference being the MapHills bug, which does
+        // not affect the river generation code
+        return generate_up_to_layer_1_7_extra(a, world_seed, layer);
+    }
+    let g0 = MapIsland::new(1, world_seed);
+    if layer == 0 { return g0.get_map(a); }
+    let mut g1 = MapZoom::new(2000, world_seed);
+    g1.parent = Some(Rc::new(g0));
+    g1.fuzzy = true;
+    if layer == 1 { return g1.get_map(a); }
+    let mut g2 = MapAddIsland::new(1, world_seed);
+    g2.parent = Some(Rc::new(g1));
+    if layer == 2 { return g2.get_map(a); }
+    let mut g3 = MapZoom::new(2001, world_seed);
+    g3.parent = Some(Rc::new(g2));
+    if layer == 3 { return g3.get_map(a); }
+    let mut g4 = MapAddIsland::new(2, world_seed);
+    g4.parent = Some(Rc::new(g3));
+    if layer == 4 { return g4.get_map(a); }
+    let mut g5 = MapAddIsland::new(50, world_seed);
+    g5.parent = Some(Rc::new(g4));
+    if layer == 5 { return g5.get_map(a); }
+    let mut g6 = MapAddIsland::new(70, world_seed);
+    g6.parent = Some(Rc::new(g5));
+    if layer == 6 { return g6.get_map(a); }
+    let mut g7 = MapRemoveTooMuchOcean::new(2, world_seed);
+    g7.parent = Some(Rc::new(g6));
+    if layer == 7 { return g7.get_map(a); }
+    let mut g8 = MapAddSnow::new(2, world_seed);
+    g8.parent = Some(Rc::new(g7));
+    if layer == 8 { return g8.get_map(a); }
+    let mut g9 = MapAddIsland::new(3, world_seed);
+    g9.parent = Some(Rc::new(g8));
+    if layer == 9 { return g9.get_map(a); }
+    let mut g10 = MapCoolWarm::new(2, world_seed);
+    g10.parent = Some(Rc::new(g9));
+    if layer == 10 { return g10.get_map(a); }
+    let mut g11 = MapHeatIce::new(2, world_seed);
+    g11.parent = Some(Rc::new(g10));
+    if layer == 11 { return g11.get_map(a); }
+    let mut g12 = MapSpecial::new(3, world_seed);
+    g12.parent = Some(Rc::new(g11));
+    if layer == 12 { return g12.get_map(a); }
+    let mut g13 = MapZoom::new(2002, world_seed);
+    g13.parent = Some(Rc::new(g12));
+    if layer == 13 { return g13.get_map(a); }
+    let mut g14 = MapZoom::new(2003, world_seed);
+    g14.parent = Some(Rc::new(g13));
+    if layer == 14 { return g14.get_map(a); }
+    let mut g15 = MapAddIsland::new(4, world_seed);
+    g15.parent = Some(Rc::new(g14));
+    if layer == 15 { return g15.get_map(a); }
+    let mut g16 = MapAddMushroomIsland::new(5, world_seed);
+    g16.parent = Some(Rc::new(g15));
+    if layer == 16 { return g16.get_map(a); }
+    let mut g17 = MapDeepOcean::new(4, world_seed);
+    g17.parent = Some(Rc::new(g16));
+    let g17 = Rc::new(g17);
+    if layer == 17 { return g17.get_map(a); }
+    let mut g18 = MapBiome::new(200, world_seed);
+    g18.parent = Some(g17.clone());
+    if layer == 18 { return g18.get_map(a); }
+    let mut g19 = MapZoom::new(1000, world_seed);
+    g19.parent = Some(Rc::new(g18));
+    if layer == 19 { return g19.get_map(a); }
+    let mut g20 = MapZoom::new(1001, world_seed);
+    g20.parent = Some(Rc::new(g19));
+    if layer == 20 { return g20.get_map(a); }
+    let mut g21 = MapBiomeEdge::new(1000, world_seed);
+    g21.parent = Some(Rc::new(g20));
+    if layer == 21 { return g21.get_map(a); }
+    let mut g22 = MapRiverInit::new(100, world_seed);
+    g22.parent = Some(g17.clone());
+    let g22 = Rc::new(g22);
+    if layer == 22 { return g22.get_map(a); }
+    // TODO: use some special color palette for MapRiverInit?
+    //if layer == 23 { return MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }.get_map(a); }
+    let mut g23 = MapZoom::new(1000, world_seed);
+    g23.parent = Some(g22.clone());
+    if layer == 23 { return MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }.get_map(a); }
+    let mut g24 = MapZoom::new(1001, world_seed);
+    g24.parent = Some(Rc::new(g23));
+    if layer == 24 { return MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }.get_map(a); }
+    let mut g25 = MapHills::new(1000, world_seed);
+    g25.parent1 = Some(Rc::new(g21));
+    g25.parent2 = Some(Rc::new(g24));
+    if layer == 25 { return g25.get_map(a); }
+    let mut g26 = MapRareBiome::new(1001, world_seed);
+    g26.parent = Some(Rc::new(g25));
+    if layer == 26 { return g26.get_map(a); }
+    let mut g27 = MapZoom::new(1000, world_seed);
+    g27.parent = Some(Rc::new(g26));
+    if layer == 27 { return g27.get_map(a); }
+    let mut g28 = MapAddIsland::new(3, world_seed);
+    g28.parent = Some(Rc::new(g27));
+    if layer == 28 { return g28.get_map(a); }
+    let mut g29 = MapZoom::new(1001, world_seed);
+    g29.parent = Some(Rc::new(g28));
+    if layer == 29 { return g29.get_map(a); }
+    let mut g30 = MapShore::new(1000, world_seed);
+    g30.parent = Some(Rc::new(g29));
+    if layer == 30 { return g30.get_map(a); }
+    let mut g31 = MapZoom::new(1002, world_seed);
+    g31.parent = Some(Rc::new(g30));
+    if layer == 31 { return g31.get_map(a); }
+    let mut g32 = MapZoom::new(1003, world_seed);
+    g32.parent = Some(Rc::new(g31));
+    if layer == 32 { return g32.get_map(a); }
+    let mut g33 = MapSmooth::new(1000, world_seed);
+    g33.parent = Some(Rc::new(g32));
+    if layer == 33 { return g33.get_map(a); }
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(g22.clone());
+    if layer == 34 { return MapMap { parent: Rc::new(g34), f: reduce_id }.get_map(a); }
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    if layer == 35 { return MapMap { parent: Rc::new(g35), f: reduce_id }.get_map(a); }
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    if layer == 36 { return MapMap { parent: Rc::new(g36), f: reduce_id }.get_map(a); }
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    if layer == 37 { return MapMap { parent: Rc::new(g37), f: reduce_id }.get_map(a); }
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    if layer == 38 { return MapMap { parent: Rc::new(g38), f: reduce_id }.get_map(a); }
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    if layer == 39 { return MapMap { parent: Rc::new(g39), f: reduce_id }.get_map(a); }
+    let mut g40 = MapRiver::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    if layer == 40 { return g40.get_map(a); }
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+    if layer == 41 { return g41.get_map(a); }
+    let mut g42 = MapRiverMix::new(100, world_seed);
+    g42.parent1 = Some(Rc::new(g33));
+    g42.parent2 = Some(Rc::new(g41));
+    if layer == 42 { return g42.get_map(a); }
+
+    // 1.13 ocean layers
+    let g43 = MapOceanTemp::new(2, world_seed);
+    if layer == 43 { return g43.get_map(a); }
+    let mut g44 = MapZoom::new(2001, world_seed);
+    g44.parent = Some(Rc::new(g43));
+    if layer == 44 { return g44.get_map(a); }
+    let mut g45 = MapZoom::new(2002, world_seed);
+    g45.parent = Some(Rc::new(g44));
+    if layer == 45 { return g45.get_map(a); }
+    let mut g46 = MapZoom::new(2003, world_seed);
+    g46.parent = Some(Rc::new(g45));
+    if layer == 46 { return g46.get_map(a); }
+    let mut g47 = MapZoom::new(2004, world_seed);
+    g47.parent = Some(Rc::new(g46));
+    if layer == 47 { return g47.get_map(a); }
+    let mut g48 = MapZoom::new(2005, world_seed);
+    g48.parent = Some(Rc::new(g47));
+    if layer == 48 { return g48.get_map(a); }
+    let mut g49 = MapZoom::new(2006, world_seed);
+    g49.parent = Some(Rc::new(g48));
+    if layer == 49 { return g49.get_map(a); }
+
+    let mut g50 = MapOceanMix::new(100, world_seed);
+    g50.parent1 = Some(Rc::new(g42)); // MapRiverMix
+    g50.parent2 = Some(Rc::new(g49)); // MapZoom <- MapOceanTemp
+    if layer == 50 { return g50.get_map(a); }
+
+    let mut g51 = MapVoronoiZoom::new(10, world_seed);
+    g51.parent = Some(Rc::new(g50));
+
+    let m1 = g51.get_map(a);
+    m1
+}
+
+pub fn generate_up_to_layer_1_14(a: Area, world_seed: i64, layer: u32) -> Map {
+    if layer >= 200 {
+        //return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
+    }
+    if layer >= 100 && layer <= 142 {
+        // The first 42 layers are almost equal in 1.7 and 1.13
+        // The main difference being the MapHills bug, which does
+        // not affect the river generation code
+        return generate_up_to_layer_1_7_extra(a, world_seed, layer);
+    }
+    let g0 = MapIsland::new(1, world_seed);
+    if layer == 0 { return g0.get_map(a); }
+    let mut g1 = MapZoom::new(2000, world_seed);
+    g1.parent = Some(Rc::new(g0));
+    g1.fuzzy = true;
+    if layer == 1 { return g1.get_map(a); }
+    let mut g2 = MapAddIsland::new(1, world_seed);
+    g2.parent = Some(Rc::new(g1));
+    if layer == 2 { return g2.get_map(a); }
+    let mut g3 = MapZoom::new(2001, world_seed);
+    g3.parent = Some(Rc::new(g2));
+    if layer == 3 { return g3.get_map(a); }
+    let mut g4 = MapAddIsland::new(2, world_seed);
+    g4.parent = Some(Rc::new(g3));
+    if layer == 4 { return g4.get_map(a); }
+    let mut g5 = MapAddIsland::new(50, world_seed);
+    g5.parent = Some(Rc::new(g4));
+    if layer == 5 { return g5.get_map(a); }
+    let mut g6 = MapAddIsland::new(70, world_seed);
+    g6.parent = Some(Rc::new(g5));
+    if layer == 6 { return g6.get_map(a); }
+    let mut g7 = MapRemoveTooMuchOcean::new(2, world_seed);
+    g7.parent = Some(Rc::new(g6));
+    if layer == 7 { return g7.get_map(a); }
+    let mut g8 = MapAddSnow::new(2, world_seed);
+    g8.parent = Some(Rc::new(g7));
+    if layer == 8 { return g8.get_map(a); }
+    let mut g9 = MapAddIsland::new(3, world_seed);
+    g9.parent = Some(Rc::new(g8));
+    if layer == 9 { return g9.get_map(a); }
+    let mut g10 = MapCoolWarm::new(2, world_seed);
+    g10.parent = Some(Rc::new(g9));
+    if layer == 10 { return g10.get_map(a); }
+    let mut g11 = MapHeatIce::new(2, world_seed);
+    g11.parent = Some(Rc::new(g10));
+    if layer == 11 { return g11.get_map(a); }
+    let mut g12 = MapSpecial::new(3, world_seed);
+    g12.parent = Some(Rc::new(g11));
+    if layer == 12 { return g12.get_map(a); }
+    let mut g13 = MapZoom::new(2002, world_seed);
+    g13.parent = Some(Rc::new(g12));
+    if layer == 13 { return g13.get_map(a); }
+    let mut g14 = MapZoom::new(2003, world_seed);
+    g14.parent = Some(Rc::new(g13));
+    if layer == 14 { return g14.get_map(a); }
+    let mut g15 = MapAddIsland::new(4, world_seed);
+    g15.parent = Some(Rc::new(g14));
+    if layer == 15 { return g15.get_map(a); }
+    let mut g16 = MapAddMushroomIsland::new(5, world_seed);
+    g16.parent = Some(Rc::new(g15));
+    if layer == 16 { return g16.get_map(a); }
+    let mut g17 = MapDeepOcean::new(4, world_seed);
+    g17.parent = Some(Rc::new(g16));
+    let g17 = Rc::new(g17);
+    if layer == 17 { return g17.get_map(a); }
+    let mut g18 = MapBiome::new(200, world_seed);
+    g18.parent = Some(g17.clone());
+    //if layer == 18 { return g18.get_map(a); }
+    // 1.14: bamboo
+    let mut g18b = MapAddBamboo::new(1001, world_seed);
+    g18b.parent = Some(Rc::new(g18));
+    if layer == 18 { return g18b.get_map(a); }
+    let mut g19 = MapZoom::new(1000, world_seed);
+    g19.parent = Some(Rc::new(g18b));
+    if layer == 19 { return g19.get_map(a); }
+    let mut g20 = MapZoom::new(1001, world_seed);
+    g20.parent = Some(Rc::new(g19));
+    if layer == 20 { return g20.get_map(a); }
+    let mut g21 = MapBiomeEdge::new(1000, world_seed);
+    g21.parent = Some(Rc::new(g20));
+    if layer == 21 { return g21.get_map(a); }
+    let mut g22 = MapRiverInit::new(100, world_seed);
+    g22.parent = Some(g17.clone());
+    let g22 = Rc::new(g22);
+    if layer == 22 { return g22.get_map(a); }
+    // TODO: use some special color palette for MapRiverInit?
+    //if layer == 23 { return MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }.get_map(a); }
+    let mut g23 = MapZoom::new(1000, world_seed);
+    g23.parent = Some(g22.clone());
+    if layer == 23 { return MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }.get_map(a); }
+    let mut g24 = MapZoom::new(1001, world_seed);
+    g24.parent = Some(Rc::new(g23));
+    if layer == 24 { return MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }.get_map(a); }
+    let mut g25 = MapHills::new(1000, world_seed);
+    g25.parent1 = Some(Rc::new(g21));
+    g25.parent2 = Some(Rc::new(g24));
+    if layer == 25 { return g25.get_map(a); }
+    let mut g26 = MapRareBiome::new(1001, world_seed);
+    g26.parent = Some(Rc::new(g25));
+    if layer == 26 { return g26.get_map(a); }
+    let mut g27 = MapZoom::new(1000, world_seed);
+    g27.parent = Some(Rc::new(g26));
+    if layer == 27 { return g27.get_map(a); }
+    let mut g28 = MapAddIsland::new(3, world_seed);
+    g28.parent = Some(Rc::new(g27));
+    if layer == 28 { return g28.get_map(a); }
+    let mut g29 = MapZoom::new(1001, world_seed);
+    g29.parent = Some(Rc::new(g28));
+    if layer == 29 { return g29.get_map(a); }
+    let mut g30 = MapShore::new(1000, world_seed);
+    g30.parent = Some(Rc::new(g29));
+    if layer == 30 { return g30.get_map(a); }
+    let mut g31 = MapZoom::new(1002, world_seed);
+    g31.parent = Some(Rc::new(g30));
+    if layer == 31 { return g31.get_map(a); }
+    let mut g32 = MapZoom::new(1003, world_seed);
+    g32.parent = Some(Rc::new(g31));
+    if layer == 32 { return g32.get_map(a); }
+    let mut g33 = MapSmooth::new(1000, world_seed);
+    g33.parent = Some(Rc::new(g32));
+    if layer == 33 { return g33.get_map(a); }
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(g22.clone());
+    if layer == 34 { return MapMap { parent: Rc::new(g34), f: reduce_id }.get_map(a); }
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    if layer == 35 { return MapMap { parent: Rc::new(g35), f: reduce_id }.get_map(a); }
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    if layer == 36 { return MapMap { parent: Rc::new(g36), f: reduce_id }.get_map(a); }
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    if layer == 37 { return MapMap { parent: Rc::new(g37), f: reduce_id }.get_map(a); }
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    if layer == 38 { return MapMap { parent: Rc::new(g38), f: reduce_id }.get_map(a); }
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    if layer == 39 { return MapMap { parent: Rc::new(g39), f: reduce_id }.get_map(a); }
+    let mut g40 = MapRiver::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    if layer == 40 { return g40.get_map(a); }
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+    if layer == 41 { return g41.get_map(a); }
+    let mut g42 = MapRiverMix::new(100, world_seed);
+    g42.parent1 = Some(Rc::new(g33));
+    g42.parent2 = Some(Rc::new(g41));
+    if layer == 42 { return g42.get_map(a); }
+
+    // 1.13 ocean layers
+    let g43 = MapOceanTemp::new(2, world_seed);
+    if layer == 43 { return g43.get_map(a); }
+    let mut g44 = MapZoom::new(2001, world_seed);
+    g44.parent = Some(Rc::new(g43));
+    if layer == 44 { return g44.get_map(a); }
+    let mut g45 = MapZoom::new(2002, world_seed);
+    g45.parent = Some(Rc::new(g44));
+    if layer == 45 { return g45.get_map(a); }
+    let mut g46 = MapZoom::new(2003, world_seed);
+    g46.parent = Some(Rc::new(g45));
+    if layer == 46 { return g46.get_map(a); }
+    let mut g47 = MapZoom::new(2004, world_seed);
+    g47.parent = Some(Rc::new(g46));
+    if layer == 47 { return g47.get_map(a); }
+    let mut g48 = MapZoom::new(2005, world_seed);
+    g48.parent = Some(Rc::new(g47));
+    if layer == 48 { return g48.get_map(a); }
+    let mut g49 = MapZoom::new(2006, world_seed);
+    g49.parent = Some(Rc::new(g48));
+    if layer == 49 { return g49.get_map(a); }
+
+    let mut g50 = MapOceanMix::new(100, world_seed);
+    g50.parent1 = Some(Rc::new(g42)); // MapRiverMix
+    g50.parent2 = Some(Rc::new(g49)); // MapZoom <- MapOceanTemp
+    if layer == 50 { return g50.get_map(a); }
+
+    let mut g51 = MapVoronoiZoom::new(10, world_seed);
+    g51.parent = Some(Rc::new(g50));
+
+    let m1 = g51.get_map(a);
     m1
 }
 
@@ -3745,6 +4437,8 @@ mod tests {
 #[allow(non_upper_case_globals)]
 pub mod biome_id {
 pub type BiomeID = i32;
+pub const bambooJungleHills: BiomeID = 169;
+pub const bambooJungle: BiomeID = 168;
 pub const BIOME_NUM: BiomeID = 51;
 pub const frozenDeepOcean: BiomeID = 50;
 // 40-49
@@ -3839,5 +4533,5 @@ pub static BIOME_COLORS: [[u8; 3]; 256] =
 ;
 
 pub static BIOME_INFO: [Biome; 256] = 
-[Biome { id: 0, type_0: 0, height: -1.0, temp: 0.5, tempCat: 0 }, Biome { id: 1, type_0: 1, height: 0.10000000149011612, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 2, type_0: 2, height: 0.125, temp: 2.0, tempCat: 1 }, Biome { id: 3, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 4, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 5, type_0: 5, height: 0.20000000298023224, temp: 0.25, tempCat: 2 }, Biome { id: 6, type_0: 6, height: -0.20000000298023224, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 7, type_0: 7, height: -0.5, temp: 0.5, tempCat: 2 }, Biome { id: 8, type_0: 8, height: 0.10000000149011612, temp: 2.0, tempCat: 1 }, Biome { id: 9, type_0: 9, height: 0.10000000149011612, temp: 0.5, tempCat: 2 }, Biome { id: 10, type_0: 0, height: -1.0, temp: 0.0, tempCat: 0 }, Biome { id: 11, type_0: 7, height: -0.5, temp: 0.0, tempCat: 3 }, Biome { id: 12, type_0: 10, height: 0.125, temp: 0.0, tempCat: 3 }, Biome { id: 13, type_0: 10, height: 0.44999998807907104, temp: 0.0, tempCat: 3 }, Biome { id: 14, type_0: 11, height: 0.20000000298023224, temp: 0.8999999761581421, tempCat: 2 }, Biome { id: 15, type_0: 11, height: 0.0, temp: 0.8999999761581421, tempCat: 2 }, Biome { id: 16, type_0: 12, height: 0.0, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 17, type_0: 2, height: 0.44999998807907104, temp: 2.0, tempCat: 1 }, Biome { id: 18, type_0: 4, height: 0.44999998807907104, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 19, type_0: 5, height: 0.44999998807907104, temp: 0.25, tempCat: 2 }, Biome { id: 20, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 21, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 22, type_0: 13, height: 0.44999998807907104, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 23, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 24, type_0: 0, height: -1.7999999523162842, temp: 0.5, tempCat: 0 }, Biome { id: 25, type_0: 14, height: 0.10000000149011612, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 26, type_0: 12, height: 0.0, temp: 0.05000000074505806, tempCat: 3 }, Biome { id: 27, type_0: 4, height: 0.10000000149011612, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 28, type_0: 4, height: 0.44999998807907104, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 29, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 30, type_0: 5, height: 0.20000000298023224, temp: -0.5, tempCat: 3 }, Biome { id: 31, type_0: 5, height: 0.44999998807907104, temp: -0.5, tempCat: 3 }, Biome { id: 32, type_0: 5, height: 0.20000000298023224, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 33, type_0: 5, height: 0.44999998807907104, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 34, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 35, type_0: 15, height: 0.125, temp: 1.2000000476837158, tempCat: 1 }, Biome { id: 36, type_0: 15, height: 1.5, temp: 1.0, tempCat: 1 }, Biome { id: 37, type_0: 16, height: 0.10000000149011612, temp: 2.0, tempCat: 1 }, Biome { id: 38, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 39, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 40, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 41, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 42, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 43, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 44, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 45, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 46, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 47, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 48, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 49, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 50, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 129, type_0: 1, height: 0.10000000149011612, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 130, type_0: 2, height: 0.125, temp: 2.0, tempCat: 1 }, Biome { id: 131, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 132, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 133, type_0: 5, height: 0.20000000298023224, temp: 0.25, tempCat: 2 }, Biome { id: 134, type_0: 6, height: -0.20000000298023224, temp: 0.800000011920929, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 140, type_0: 10, height: 0.125, temp: 0.0, tempCat: 3 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 149, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 151, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 155, type_0: 4, height: 0.10000000149011612, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 156, type_0: 4, height: 0.44999998807907104, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 157, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 158, type_0: 5, height: 0.20000000298023224, temp: -0.5, tempCat: 3 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 160, type_0: 5, height: 0.20000000298023224, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 161, type_0: 5, height: 0.44999998807907104, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 162, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 163, type_0: 15, height: 0.125, temp: 1.2000000476837158, tempCat: 1 }, Biome { id: 164, type_0: 15, height: 1.5, temp: 1.0, tempCat: 1 }, Biome { id: 165, type_0: 16, height: 0.10000000149011612, temp: 2.0, tempCat: 1 }, Biome { id: 166, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 167, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }]
+[Biome { id: 0, type_0: 0, height: -1.0, temp: 0.5, tempCat: 0 }, Biome { id: 1, type_0: 1, height: 0.10000000149011612, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 2, type_0: 2, height: 0.125, temp: 2.0, tempCat: 1 }, Biome { id: 3, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 4, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 5, type_0: 5, height: 0.20000000298023224, temp: 0.25, tempCat: 2 }, Biome { id: 6, type_0: 6, height: -0.20000000298023224, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 7, type_0: 7, height: -0.5, temp: 0.5, tempCat: 2 }, Biome { id: 8, type_0: 8, height: 0.10000000149011612, temp: 2.0, tempCat: 1 }, Biome { id: 9, type_0: 9, height: 0.10000000149011612, temp: 0.5, tempCat: 2 }, Biome { id: 10, type_0: 0, height: -1.0, temp: 0.0, tempCat: 0 }, Biome { id: 11, type_0: 7, height: -0.5, temp: 0.0, tempCat: 3 }, Biome { id: 12, type_0: 10, height: 0.125, temp: 0.0, tempCat: 3 }, Biome { id: 13, type_0: 10, height: 0.44999998807907104, temp: 0.0, tempCat: 3 }, Biome { id: 14, type_0: 11, height: 0.20000000298023224, temp: 0.8999999761581421, tempCat: 2 }, Biome { id: 15, type_0: 11, height: 0.0, temp: 0.8999999761581421, tempCat: 2 }, Biome { id: 16, type_0: 12, height: 0.0, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 17, type_0: 2, height: 0.44999998807907104, temp: 2.0, tempCat: 1 }, Biome { id: 18, type_0: 4, height: 0.44999998807907104, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 19, type_0: 5, height: 0.44999998807907104, temp: 0.25, tempCat: 2 }, Biome { id: 20, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 21, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 22, type_0: 13, height: 0.44999998807907104, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 23, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 24, type_0: 0, height: -1.7999999523162842, temp: 0.5, tempCat: 0 }, Biome { id: 25, type_0: 14, height: 0.10000000149011612, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 26, type_0: 12, height: 0.0, temp: 0.05000000074505806, tempCat: 3 }, Biome { id: 27, type_0: 4, height: 0.10000000149011612, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 28, type_0: 4, height: 0.44999998807907104, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 29, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 30, type_0: 5, height: 0.20000000298023224, temp: -0.5, tempCat: 3 }, Biome { id: 31, type_0: 5, height: 0.44999998807907104, temp: -0.5, tempCat: 3 }, Biome { id: 32, type_0: 5, height: 0.20000000298023224, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 33, type_0: 5, height: 0.44999998807907104, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 34, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 35, type_0: 15, height: 0.125, temp: 1.2000000476837158, tempCat: 1 }, Biome { id: 36, type_0: 15, height: 1.5, temp: 1.0, tempCat: 1 }, Biome { id: 37, type_0: 16, height: 0.10000000149011612, temp: 2.0, tempCat: 1 }, Biome { id: 38, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 39, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 40, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 41, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 42, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 43, type_0: 9, height: 0.0, temp: 0.0, tempCat: 2 }, Biome { id: 44, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 45, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 46, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 47, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 48, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 49, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 50, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 129, type_0: 1, height: 0.10000000149011612, temp: 0.800000011920929, tempCat: 2 }, Biome { id: 130, type_0: 2, height: 0.125, temp: 2.0, tempCat: 1 }, Biome { id: 131, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 132, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 133, type_0: 5, height: 0.20000000298023224, temp: 0.25, tempCat: 2 }, Biome { id: 134, type_0: 6, height: -0.20000000298023224, temp: 0.800000011920929, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 140, type_0: 10, height: 0.125, temp: 0.0, tempCat: 3 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 149, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 151, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 155, type_0: 4, height: 0.10000000149011612, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 156, type_0: 4, height: 0.44999998807907104, temp: 0.6000000238418579, tempCat: 2 }, Biome { id: 157, type_0: 4, height: 0.10000000149011612, temp: 0.699999988079071, tempCat: 2 }, Biome { id: 158, type_0: 5, height: 0.20000000298023224, temp: -0.5, tempCat: 3 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: 160, type_0: 5, height: 0.20000000298023224, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 161, type_0: 5, height: 0.44999998807907104, temp: 0.30000001192092896, tempCat: 2 }, Biome { id: 162, type_0: 3, height: 1.0, temp: 0.20000000298023224, tempCat: 2 }, Biome { id: 163, type_0: 15, height: 0.125, temp: 1.2000000476837158, tempCat: 1 }, Biome { id: 164, type_0: 15, height: 1.5, temp: 1.0, tempCat: 1 }, Biome { id: 165, type_0: 16, height: 0.10000000149011612, temp: 2.0, tempCat: 1 }, Biome { id: 166, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 167, type_0: 16, height: 1.5, temp: 2.0, tempCat: 1 }, Biome { id: 168, type_0: 13, height: 0.10000000149011612, temp: 0.949999988079071, tempCat: 2 }, Biome { id: 169, type_0: 13, height: 0.44999998807907104, temp: 0.949999988079071, tempCat: 2 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }, Biome { id: -1, type_0: 0, height: 0.0, temp: 0.0, tempCat: 0 }]
 ;

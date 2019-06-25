@@ -86,6 +86,8 @@ pub struct _IO_FILE {
 pub type _IO_lock_t = ();
 //#warning "Using no SIMD extensions."
 pub type BiomeID = libc::c_int;
+pub const bambooJungleHills: BiomeID = 169;
+pub const bambooJungle: BiomeID = 168;
 pub const BIOME_NUM: BiomeID = 51;
 pub const frozenDeepOcean: BiomeID = 50;
 // 40-49
@@ -717,6 +719,21 @@ pub unsafe extern "C" fn initBiomes() -> () {
     createMutation(mesa as libc::c_int);
     createMutation(mesaPlateau_F as libc::c_int);
     createMutation(mesaPlateau as libc::c_int);
+
+    initAddBiome(
+        bambooJungle as libc::c_int,
+        Lush as libc::c_int,
+        Jungle as libc::c_int,
+        0.95f64 as libc::c_float,
+        0.1f64 as libc::c_float,
+    );
+    initAddBiome(
+        bambooJungleHills as libc::c_int,
+        Lush as libc::c_int,
+        Jungle as libc::c_int,
+        0.95f64 as libc::c_float,
+        0.45f64 as libc::c_float,
+    );
 }
 #[no_mangle]
 pub unsafe extern "C" fn createMutation(mut id: libc::c_int) -> () {

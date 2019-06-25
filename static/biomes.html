@@ -58,6 +58,9 @@
                     <option value="1.13">Java 1.13</option>
                     <option value="1.14">Java 1.14</option>
                 </select>
+                <a id="download" download="biome_map.png">
+                        <button type="button" onClick="download()">DOWNLOAD MAP</button>
+                </a>
             </div>
             <div id="position_info" class="controlPanel"></div>
         </div>
@@ -97,9 +100,30 @@
                 }
             }
 
-            let scales = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 1];
+            // Download canvas as named image
+            // https://stackoverflow.com/a/42546234
+            function download() {
+                var download = document.getElementById("download");
+                var image = document.getElementById("demo")
+                    .toDataURL("image/png")
+                    .replace("image/png", "image/octet-stream");
+                download.setAttribute("href", image);
+                download.setAttribute("download","seed_" + document.getElementById("worldSeed").value + ".png");
+            }
+
+            let scales17 = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 1];
+            let scales113 = [4096, 2048, 2048, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 1024, 512, 256, 256, 256, 256, 256, 128, 64, 64, 256, 128, 64, 64, 64, 32, 32, 16, 16, 8, 4, 4, 128, 64, 32, 16, 8, 4, 4, 4, 4, 256, 128, 64, 32, 16, 8, 4, 4, 1];
             let layerScale = 1;
+            let minecraft_version = document.getElementById('minecraftVersion').value;
             {
+                let scales;
+                if (minecraft_version == "1.7") {
+                    scales = scales17;
+                } else if (minecraft_version == "1.13" || minecraft_version == "1.14") {
+                    scales = scales113;
+                } else {
+                    console.error("Unknown Minecraft version: " + minecraft_version);
+                }
                 //let i = document.getElementById("lastLayer").value|0;
                 let i = 43;
                 document.getElementById("lastLayer").value = i;
@@ -144,12 +168,51 @@
                 updateWithLayerPlus(0);
             });
             document.getElementById('minecraftVersion').addEventListener("input", function(event) {
+                // Try to be clever about changing the layer
+                let old_v = minecraft_version;
+                let new_v = document.getElementById('minecraftVersion').value;
+
+                let lastLayer = document.getElementById("lastLayer").value|0;
+                if (old_v == "1.7" && (new_v == "1.13" || new_v == "1.14")) {
+                    if (lastLayer == 42) {
+                        document.getElementById("lastLayer").value = 50;
+                    }
+                    if (lastLayer == 43) {
+                        document.getElementById("lastLayer").value = 51;
+                    }
+                }
+                if ((old_v == "1.13" || old_v == "1.14") && new_v == "1.7") {
+                    if (lastLayer == 51) {
+                        document.getElementById("lastLayer").value = 43;
+                    }
+                    if (lastLayer == 50) {
+                        document.getElementById("lastLayer").value = 42;
+                    }
+                    if (lastLayer >= 43 && lastLayer <= 49) {
+                        // Sadly this will change layer resolution
+                        document.getElementById("lastLayer").value = 42;
+                    }
+                }
+                minecraft_version = new_v;
+
                 Game.clear();
             });
             function updateWithLayerPlus(x) {
                 let i = document.getElementById("lastLayer").value|0;
                 i += x;
-                if(i >= 0 && i <= 43) {
+                let minecraft_version = document.getElementById('minecraftVersion').value;
+                let scales;
+                let num_layers;
+                if (minecraft_version == "1.7") {
+                    scales = scales17;
+                    num_layers = 43;
+                } else if (minecraft_version == "1.13" || minecraft_version == "1.14") {
+                    scales = scales113;
+                    num_layers = 51;
+                } else {
+                    console.error("Unknown Minecraft version: " + minecraft_version);
+                }
+                if(i >= 0 && i <= num_layers) {
                     let newScale = scales[i];
                     Game.camera.resolutionChange(newScale / layerScale);
                     layerScale = newScale;
