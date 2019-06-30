@@ -126,7 +126,7 @@
             // Generate fragment
             // This function should return a promise, which is interpreted as
             // a HTML canvas
-            function generateFragmentB(fx, fy) {
+            function generateFragmentB(layer, fx, fy) {
                 if (window.Worker) {
                     let ws = document.getElementById('worldSeed');
                     // Since js doesnt support 64 bit ints, we just pass
