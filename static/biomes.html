@@ -136,6 +136,8 @@
                 if(i >= 200 && i <= 243) {
                     layerScale = scales[i - 200];
                 }
+
+                map.currentScale = layerScale;
             }
             function randomSeed() {
                 // Return a random 17-digit integer as a string
@@ -236,6 +238,7 @@
                     Game.setActiveLayer(i);
                     document.getElementById("lastLayer").value = i;
                 }
+                map.currentScale = layerScale;
             }
             function seedPlus2ToThe48(add_not_sub) {
                 let ws = document.getElementById('worldSeed');

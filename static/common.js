@@ -134,7 +134,7 @@ window.onload = function () {
             let ty = txty[1];
             if (map.getFragment) {
                 pos_div.innerHTML = "Fragment x: " + Math.floor(tx) + ", z: " + Math.floor(ty);
-                pos_div.innerHTML += " --- Block x: " + Math.floor(tx*FRAG_SIZE) + ", z: " + Math.floor(ty*FRAG_SIZE);
+                pos_div.innerHTML += " --- Block x: " + Math.floor(tx*FRAG_SIZE*map.currentScale) + ", z: " + Math.floor(ty*FRAG_SIZE*map.currentScale);
             } else {
                 pos_div.innerHTML = "Chunk x: " + Math.floor(tx) + ", z: " + Math.floor(ty);
                 pos_div.innerHTML += " --- Block x: " + Math.floor(tx*16) + ", z: " + Math.floor(ty*16);

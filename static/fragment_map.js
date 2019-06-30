@@ -57,6 +57,7 @@ let map = {
         return frag;
     },
     generateFragment: null,
+    currentScale: 1,
 };
 
 function Camera(map, width, height) {
