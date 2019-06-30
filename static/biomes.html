@@ -66,7 +66,6 @@
         </div>
 
         <div style="clear: both;"></div>
-          
         <script src="common.js"></script>
         <script src="fragment_map.js"></script>
         <script type="text/javascript" src="wasm_gui.js"></script>
@@ -138,6 +137,7 @@
                 }
 
                 map.currentScale = layerScale;
+                Game.setActiveLayer(i);
             }
             function randomSeed() {
                 // Return a random 17-digit integer as a string
@@ -216,7 +216,9 @@
                 }
                 if(i >= 0 && i <= num_layers) {
                     let newScale = scales[i];
-                    Game.camera.resolutionChange(newScale / layerScale);
+                    if(Game.camera) {
+                        Game.camera.resolutionChange(newScale / layerScale);
+                    }
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
@@ -224,7 +226,9 @@
                 }
                 if(i >= 100 && i <= 143) {
                     let newScale = scales[i - 100];
-                    Game.camera.resolutionChange(newScale / layerScale);
+                    if(Game.camera) {
+                        Game.camera.resolutionChange(newScale / layerScale);
+                    }
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
@@ -232,7 +236,9 @@
                 }
                 if(i >= 200 && i <= 243) {
                     let newScale = scales[i - 200];
-                    Game.camera.resolutionChange(newScale / layerScale);
+                    if(Game.camera) {
+                        Game.camera.resolutionChange(newScale / layerScale);
+                    }
                     layerScale = newScale;
                     //Game.clear();
                     Game.setActiveLayer(i);
@@ -357,7 +363,11 @@
                     // Since js doesnt support 64 bit ints, we just pass
                     // the string to the Rust code, it will be parsed there
                     let seed = ws.value;
-                    let lastLayer = document.getElementById('lastLayer').value|0;
+                    let actualLastLayer = document.getElementById('lastLayer').value|0;
+                    let lastLayer = layer;
+                    if (lastLayer != actualLastLayer) {
+                        return Promise.reject(new Error("Asked to generate layer " + lastLayer + " when last layer is " + actualLastLayer));
+                    }
                     let minecraft_version = document.getElementById('minecraftVersion').value;
                     return work1.sendMsg({ version: minecraft_version, fx: fx, fy: fy, seed: seed, FRAG_SIZE: FRAG_SIZE, lastLayer: lastLayer }).then(function(e) {
                         /*
@@ -426,6 +436,8 @@
             }
 
             window.addEventListener('resize', resize, false); resize();
+            let lastLayer = document.getElementById('lastLayer').value|0;
+            startGame(lastLayer);
         </script>
     </body>
 </html>

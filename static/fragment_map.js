@@ -44,12 +44,15 @@ let map = {
             if (!this.generating[layer].has(k)) {
                 this.generating[layer].add(k);
                 let this_layers_layer = this.layers[layer];
+                let this_generating_layer = this.generating[layer];
                 this.generateFragment(layer, fx, fy).then(function(value) {
                     //console.log(value); // Success!
                     //console.log("Finished generating fragment: " + fx + ", " + fy);
                     this_layers_layer.set(k, value);
                     Game.dirty = true;
                 }, function(reason) {
+                    this_generating_layer.delete(k);
+                    //Game.dirty = true;
                     console.error(reason); // Error!
                 });
             }
@@ -124,7 +127,7 @@ Game.load = function () {
     ];
 };
 
-Game.init = function (tsize, canvasH, canvasW) {
+Game.init = function (tsize, canvasH, canvasW, activeLayer) {
     map.tsize = tsize;
     this.tileAtlas = Loader.getImage('tiles');
     this.camera = new Camera(map, CANVAS_W, CANVAS_H);
@@ -150,7 +153,7 @@ Game.init = function (tsize, canvasH, canvasW) {
     this.ctx.imageSmoothingEnabled = false;
     // Dirty flag: only render if true, remember to set it when changing state
     this.dirty = true;
-    this.activeLayer = 0;
+    this.activeLayer = activeLayer;
 };
 
 Game.update = function (delta) {

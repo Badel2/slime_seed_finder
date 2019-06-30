@@ -158,7 +158,7 @@ window.onload = function () {
     let tsize = 256;
     let canvasW = elem.width;
     let canvasH = elem.height;
-    Game.run(context, tsize, canvasW, canvasH);
+    Game.run(context, tsize, canvasW, canvasH, 0);
 };
 
 // end common.js

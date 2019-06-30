@@ -43,13 +43,13 @@ Loader.getImage = function (key) {
 
 let Game = {};
 
-Game.run = function (context, tsize, canvasW, canvasH) {
+Game.run = function (context, tsize, canvasW, canvasH, activeLayer) {
     this.ctx = context;
     this._previousElapsed = 0;
 
     let p = this.load();
     Promise.all(p).then(function (loaded) {
-        this.init(tsize, canvasW, canvasH);
+        this.init(tsize, canvasW, canvasH, activeLayer);
         window.requestAnimationFrame(this.tick);
     }.bind(this));
 };
@@ -74,7 +74,8 @@ Game.render = function () {};
 // start up function
 //
 
-window.onload = function () {
+//window.onload = function () {
+function startGame(lastLayer) {
     let pos_div = document.getElementById('position_info');
     let center_butt = document.getElementById('center_button');
     center_butt.onclick = function() {
@@ -219,7 +220,7 @@ window.onload = function () {
     let tsize = 256;
     let canvasW = elem.style.width;
     let canvasH = elem.style.height;
-    Game.run(context, tsize, canvasW, canvasH);
+    Game.run(context, tsize, canvasW, canvasH, lastLayer);
 };
 
 function load_selection() {
