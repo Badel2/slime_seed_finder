@@ -174,28 +174,27 @@
                 let old_v = minecraft_version;
                 let new_v = document.getElementById('minecraftVersion').value;
 
+                minecraft_version = new_v;
                 let lastLayer = document.getElementById("lastLayer").value|0;
                 if (old_v == "1.7" && (new_v == "1.13" || new_v == "1.14")) {
                     if (lastLayer == 42) {
-                        document.getElementById("lastLayer").value = 50;
+                        updateWithLayerPlus(50 - 42);
                     }
                     if (lastLayer == 43) {
-                        document.getElementById("lastLayer").value = 51;
+                        updateWithLayerPlus(51 - 43);
                     }
                 }
                 if ((old_v == "1.13" || old_v == "1.14") && new_v == "1.7") {
                     if (lastLayer == 51) {
-                        document.getElementById("lastLayer").value = 43;
+                        updateWithLayerPlus(43 - 51);
                     }
                     if (lastLayer == 50) {
-                        document.getElementById("lastLayer").value = 42;
+                        updateWithLayerPlus(42 - 50);
                     }
                     if (lastLayer >= 43 && lastLayer <= 49) {
-                        // Sadly this will change layer resolution
-                        document.getElementById("lastLayer").value = 42;
+                        updateWithLayerPlus(42 - lastLayer);
                     }
                 }
-                minecraft_version = new_v;
 
                 Game.clear();
             });
