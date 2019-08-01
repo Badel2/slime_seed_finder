@@ -3,6 +3,7 @@ use crate::biome_layers::Area;
 use crate::biome_layers::Map;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::path::Path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer };
 use serde_json;
 
@@ -40,6 +41,21 @@ impl FromStr for MinecraftVersion {
     }
 }
 
+// Options not necesarly related to the seed or the minecraft world
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Options {
+    // Indicates that the seed was not generated using the nextLong method from
+    // Java Random. That method has a flaw of using only 48 bits of entropy, so
+    // we can use extend48 to find the full 64 bit seed given only 48 bits.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub not_from_java_next_long: bool,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub error_margin_slime_chunks: u8,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub error_margin_slime_chunks_negative: u8,
+}
+
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SeedStructures {
@@ -64,6 +80,9 @@ pub struct SeedStructures {
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct SeedInfo {
     pub version: String,
+    // Extra settings for optimizing the search: error margin, use extend48
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub options: Options,
     #[serde(default, skip_serializing_if = "is_default")]
     pub biomes: HashMap<BiomeId, Vec<Point>>,
     #[serde(flatten)]
@@ -77,7 +96,7 @@ pub struct SeedInfo {
 }
 
 impl SeedInfo {
-    pub fn read(filename: &str) -> Result<SeedInfo, ReadError> {
+    pub fn read<P: AsRef<Path>>(filename: P) -> Result<SeedInfo, ReadError> {
         use std::fs::File;
         let file = File::open(filename)?;
         let seed_info = serde_json::from_reader(file)?;
