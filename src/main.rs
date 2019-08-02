@@ -1,6 +1,8 @@
 use structopt::StructOpt;
 use std::path::PathBuf;
 use slime_seed_finder::*;
+use slime_seed_finder::biome_layers;
+use slime_seed_finder::biome_layers::biome_id;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::java_rng::Rng as JavaRng;
@@ -8,6 +10,7 @@ use std::fs::File;
 use std::path::Path;
 use std::io::Write;
 use rand::{thread_rng, Rng as _};
+use log::*;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "slime_seed_finder", rename_all = "kebab-case")]
@@ -60,6 +63,17 @@ enum Opt {
         output_file: Option<PathBuf>,
     },
 
+    /// Use rivers and biomes to find the seed
+    #[structopt(name = "rivers")]
+    Rivers {
+        /// File containing the SeedInfo
+        #[structopt(short = "i", long, parse(from_os_str))]
+        input_file: PathBuf,
+        /// Where to write the found seeds as a JSON array
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
+    },
+
     #[structopt(name = "extend48")]
     Extend48 {
         /// File containing the list of 48-bit seeds as a JSON array
@@ -72,6 +86,8 @@ enum Opt {
 }
 
 fn main() {
+    pretty_env_logger::init();
+
     match Opt::from_args() {
         Opt::Generate {
             seed,
@@ -168,6 +184,36 @@ fn main() {
                 }
             }
         }
+
+        Opt::Rivers {
+            input_file,
+            output_file,
+        } => {
+            let seed_info = SeedInfo::read(input_file).expect("Error reading seed info");
+            // TODO: integrate the river seed finder into the "find" subcommand
+            let extra_biomes: Vec<_> = seed_info.biomes.iter().flat_map(|(id, vec_xz)| {
+                if *id == biome_id::river {
+                    vec![]
+                } else {
+                    vec_xz.iter().map(|(x, z)| (*id, *x, *z)).collect()
+                }
+            }).collect();
+
+            // All possible 64 bit seeds
+            let seeds = if let Some(rivers) = seed_info.biomes.get(&biome_id::river) {
+                biome_layers::river_seed_finder(rivers, &extra_biomes)
+            } else {
+                error!("No rivers in seedInfo");
+                vec![]
+            };
+
+            println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+            if let Some(of) = output_file {
+                write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
+            }
+        }
+
         Opt::Extend48 {
             input_file,
             output_file,
