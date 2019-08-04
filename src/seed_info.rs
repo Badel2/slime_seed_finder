@@ -24,6 +24,8 @@ impl MinecraftVersion {
     pub fn num_layers(&self) -> u32 {
         match self {
             MinecraftVersion::Java1_7 => 43,
+            MinecraftVersion::Java1_13 => 51,
+            MinecraftVersion::Java1_14 => 51, // actually 52 but bamboo jungle is inlined...
             _ => 0,
         }
     }
@@ -166,6 +168,20 @@ where
         m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id;
     }
     m
+}
+
+pub fn biomes_from_map(map: &Map) -> HashMap<BiomeId, Vec<Point>> {
+    let mut biomes: HashMap<BiomeId, Vec<Point>> = HashMap::new();
+
+    let area = map.area();
+    for z in 0..area.h as usize {
+        for x in 0..area.w as usize {
+            let biome = map.a[(x, z)];
+            biomes.entry(biome).or_default().push((x as i64 + area.x, z as i64 + area.z))
+        }
+    }
+
+    biomes
 }
 
 #[derive(Debug)]

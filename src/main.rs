@@ -2,8 +2,10 @@ use structopt::StructOpt;
 use std::path::PathBuf;
 use slime_seed_finder::*;
 use slime_seed_finder::biome_layers;
+use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::biome_id;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
+use slime_seed_finder::seed_info::biomes_from_map;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::java_rng::Rng as JavaRng;
 use std::fs::File;
@@ -39,6 +41,21 @@ enum Opt {
         /// this program can be saved into a file.
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
+        /// Add biome information to generated SeedInfo.
+        /// This option controls the size of the map. The top-left corner of
+        /// the map will be 0,0 unless changed by using the biome_map_x and
+        /// biome_map_z options.
+        #[structopt(long, default_value = "0")]
+        biome_map_size: u64,
+        /// Lowest x coordinate in the biome map.
+        #[structopt(long, default_value = "0")]
+        biome_map_x: i64,
+        /// Lowest z coordinate in the biome map.
+        #[structopt(long, default_value = "0")]
+        biome_map_z: i64,
+        /// Minecraft Version to use.
+        #[structopt(long, default_value = "1.14")]
+        mc_version: String,
     },
 
     #[structopt(name = "interactive")]
@@ -95,6 +112,10 @@ fn main() {
             num_slime_chunks,
             num_non_slime_chunks,
             output_file,
+            biome_map_size,
+            biome_map_x,
+            biome_map_z,
+            mc_version,
         } => {
             if let Some(seed) = seed {
                 // Sorry for the double negation here
@@ -116,12 +137,15 @@ fn main() {
             eprintln!("Seed: {}", seed);
 
             let (c, nc) = generate_slime_chunks_and_not(seed, num_slime_chunks, num_non_slime_chunks);
+            let area = Area { x: biome_map_x, z: biome_map_z, w: biome_map_size, h: biome_map_size };
+            let biome_map = biome_layers::generate(mc_version.parse().unwrap(), area, seed);
 
             let mut seed_info = SeedInfo::default();
-            seed_info.version = "1.7".to_string();
+            seed_info.version = mc_version.to_string();
             seed_info.options.not_from_java_next_long = seed_not_from_java_next_long;
             seed_info.positive.slime_chunks = c;
             seed_info.negative.slime_chunks = nc;
+            seed_info.biomes = biomes_from_map(&biome_map);
 
             let buf = serde_json::to_string(&seed_info).expect("Serialization fail");
 
