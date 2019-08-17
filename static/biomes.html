@@ -33,6 +33,7 @@
             <a href="https://github.com/Badel2/slime_seed_finder">SLIME SEED FINDER</a>
             <strong>Under construction.</strong>
             <button id="randomSeedButton" onClick="setSeed(randomSeed())">RANDOM</button>
+            <button id="buttonSimilarBiomeSeed" onClick="similarBiomeSeed()">Similar Biome Seed</button>
             ENTER SEED:
             <input type="text" id="worldSeed" placeholder="Enter world seed">
             <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">-2^48</button>
@@ -262,6 +263,18 @@
                         } else {
                             new_value = wasmgui.sub_2_n(ws.value, n.value|0);
                         }
+                        setSeed(new_value);
+                    }, function( err ) {
+                        console.error(err);
+                    });
+                }
+            }
+            function similarBiomeSeed() {
+                let ws = document.getElementById('worldSeed');
+                if(ws) {
+                    // Ok, I'll just implement it in Rust
+                    return Rust.wasm_gui.then( function( wasmgui ) {
+                        let new_value = wasmgui.similar_biome_seed(ws.value);
                         setSeed(new_value);
                     }, function( err ) {
                         console.error(err);

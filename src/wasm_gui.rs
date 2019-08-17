@@ -18,6 +18,7 @@ use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::biome_id;
+use slime_seed_finder::mc_rng::McRng;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 
@@ -383,3 +384,14 @@ pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> Strin
 
     s
 }
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn similar_biome_seed(seed: String) -> String {
+    if let Ok(s) = seed.parse::<i64>() {
+        format!("{}", McRng::similar_biome_seed(s))
+    } else {
+        seed
+    }
+}
+
