@@ -1,12 +1,22 @@
 use std::num::Wrapping;
+use std::ops::RangeInclusive;
 
-// The constants used by the Linear Congruential Generator
-pub mod mc_lcg_const {
+// The constants used by the Quadratic Congruential Generator
+pub mod mc_qcg_const {
     pub const A: i64 = 6364136223846793005;
     pub const C: i64 = 1442695040888963407;
 }
 
-fn mask_up_to_bit(i: u8) -> i64 {
+// Constants used to do magic operations
+pub mod mc_qcg_const_extra {
+    // TODO: explain these constants, and add a test to calculate them
+    // (ss_constants test)
+    pub const SS_MIN: i64 = -3689896310264453109;
+    pub const SS_MAX: i64 = 5533475726590322698;
+    pub const SS_DIFF: i64 = -7379792620528906219;
+}
+
+pub fn mask_up_to_bit(i: u8) -> i64 {
     (!0u64 >> (63 - i)) as i64
 }
 
@@ -69,7 +79,7 @@ impl McRng {
         let s: Wrapping<i64> = Wrapping(s);
         let k: Wrapping<i64> = Wrapping(k);
 
-        (s * (s * Wrapping(mc_lcg_const::A) + Wrapping(mc_lcg_const::C)) + k).0
+        (s * (s * Wrapping(mc_qcg_const::A) + Wrapping(mc_qcg_const::C)) + k).0
     }
     pub fn next_int_n(&mut self, n: i32) -> i32 {
         let mut ret = ((self.chunk_seed >> 24) % (n as i64)) as i32;
@@ -127,6 +137,8 @@ impl McRng {
         }
     }
     // Reversed functions
+    // This will always return a vector with 2 elements for existing states,
+    // and a vector with 0 elements for impossible states.
     pub fn previous_state(s: i64, k: i64) -> Vec<i64> {
         let s = Wrapping(s);
         let k = Wrapping(k);
@@ -143,8 +155,8 @@ impl McRng {
     }
     pub fn bruteforce_state(ass_cs: i64, start_x: i64, start_bit: u8, total_bits: u8) -> Vec<i64> {
         let ass_cs = Wrapping(ass_cs);
-        let a = Wrapping(mc_lcg_const::A);
-        let c = Wrapping(mc_lcg_const::C);
+        let a = Wrapping(mc_qcg_const::A);
+        let c = Wrapping(mc_qcg_const::C);
         // Bitwise bruteforce
         let mut sols = vec![];
         let mask = mask_up_to_bit(start_bit);
@@ -258,6 +270,36 @@ impl McRng {
     /// This function returns around 2^14 candidates.
     pub fn world_seed_from_2_next_int_1024(x: i32, z: i32, chunk_x: i64, chunk_z: i64) -> Vec<i64> {
         Self::world_seed_from_2_next_int_1024_uncertain(x, x, z, z, chunk_x, chunk_z)
+    }
+
+    /// Similar biome seed
+    pub fn similar_biome_seed(seed: i64) -> i64 {
+        let magical_constant = mc_qcg_const_extra::SS_DIFF;
+
+        magical_constant.wrapping_sub(seed)
+    }
+
+    /// Returns an iterator which visits the lowest of any two similar biome seeds
+    pub fn similar_biome_seed_iterator() -> RangeInclusive<i64> {
+        let min = mc_qcg_const_extra::SS_MIN;
+        let max = mc_qcg_const_extra::SS_MAX;
+
+        min ..= max
+    }
+
+    /// Returns an iterator which visits the lowest of any two similar n-bit biome seeds
+    /// Will only iterate half of the space, so for n bits it will return 2**(n - 1) candidates
+    pub fn similar_biome_seed_iterator_bits(bits: u8) -> RangeInclusive<i64> {
+        if bits == 0 {
+            return 0 ..= 0;
+        }
+        // bits = 1 will return 1 seed, and the other one can be obtained with
+        // similar_biome_seed(x) & mask_up_to_bit(0)
+        let min = mc_qcg_const_extra::SS_MIN & mask_up_to_bit(bits - 1);
+        // max = min + 2**(bits - 1) - 1
+        let max = min + (1 << (bits - 1)) - 1;
+
+        min ..= max
     }
 }
 
@@ -557,5 +599,167 @@ thread 'mc_rng::tests::seed_from_next_int_ffas' panicked at 'success', src/mc_rn
         let zz = McRng::state_unchanged(seed);
         assert_eq!(zz, seed - z);
         assert_eq!(McRng::next_state(seed, zz), seed);
+    }
+
+    #[test]
+    fn similar_river_seeds() {
+        // These two 26-bit seeds result in the same rivers.
+        // That should only be possible if the lowest 26 bits of the world seed
+        // are the same.
+        let a = 1133184;
+        let b = 21104021;
+        let base_seed = 10;
+        let ra = McRng::new(base_seed, a);
+        let rb = McRng::new(base_seed, b);
+        let mask26 = mask_up_to_bit(26);
+        assert_eq!(ra.world_seed() & mask26, rb.world_seed() & mask26);
+
+        // Maybe we can optimize the bruteforcing process by only checking half
+        // of the seeds? If these two are actually equivalent we only need to
+        // check one of them. But does that mean that some 26-bit seeds are
+        // unobtainable?
+        // Well, yes, it turns out 26-bit seeds have only 25 bits of entropy.
+        // We can find the similar seeds by using original_world_seed_lower_bits:
+        let seeds_a = McRng::original_world_seed_lower_bits(base_seed, ra.world_seed(), 26);
+        let seeds_b = McRng::original_world_seed_lower_bits(base_seed, rb.world_seed(), 26);
+        assert_eq!(seeds_a, seeds_b);
+
+        let limit = 1; // Set to 2^26 in production
+        for internal_world_seed in 0..limit {
+            let similar_seeds = McRng::original_world_seed_lower_bits(0, internal_world_seed, 26);
+            println!("{:08X} {:08X?}", internal_world_seed, similar_seeds);
+            if similar_seeds.is_empty() {
+                continue;
+            } else {
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn internal_world_seed_iteration_optimization() {
+        // This is the perfect use case for a BitSet, but it's just a test so
+        // use a HashSet anyway.
+        use std::collections::HashSet;
+        // Verify that all the 26-bit world seeds can be generated using this
+        // optimization.
+        let mut full_set = HashSet::with_capacity(1 << 26);
+        for internal_world_seed in 0..1 << 25 {
+            // All internal world seeds must be even
+            let internal_world_seed = internal_world_seed << 1;
+            let similar_seeds = McRng::original_world_seed_lower_bits(0, internal_world_seed, 26);
+            assert_eq!(similar_seeds.len(), 2);
+            full_set.extend(similar_seeds);
+
+            // Check if similar_seeds[0] generates the expected world.
+            // And add similar_seeds[0] and similar_seeds[1] as candidates,
+            // since they both will generate the same rivers.
+            // Actually, since we only care about one of the seeds, we could
+            // use a specialized method that always finds one seed, and later
+            // duplicate the candidate seeds by using the full algorithm.
+            // That "specialized" method is just the bruteforce_state
+            // function with the line `sols.extend(bruteforce_state(...`
+            // commented out.
+        }
+
+        assert_eq!(full_set.len(), 1 << 26);
+    }
+
+    #[test]
+    #[ignore]
+    fn similar_biome_seed_iterator_all_seeds() {
+        let iter = McRng::similar_biome_seed_iterator();
+        assert!(iter.contains(&0));
+        let min = *iter.start();
+        let max = *iter.end();
+        assert_eq!(min, McRng::similar_biome_seed(min) + 1);
+        assert_eq!(min + 1, McRng::similar_biome_seed(min) + 2);
+        assert_eq!(max, McRng::similar_biome_seed(max) - 1);
+        assert_eq!(max - 1, McRng::similar_biome_seed(max) - 2);
+
+        // In other words, the iterator contains all the similar biome seeds
+        // below min and above max
+        assert!(iter.contains(&McRng::similar_biome_seed(min - 1)));
+        assert!(iter.contains(&McRng::similar_biome_seed(max + 1)));
+
+        // But does it work for 25 bits?
+        use std::collections::HashSet;
+        let range_lo = 0;
+        let range_hi = 1 << 24;
+        let iter25 = McRng::similar_biome_seed_iterator().map(|x| x & mask_up_to_bit(24)).skip(range_lo as usize).take((range_hi - range_lo) as usize);
+        let mut all25 = HashSet::with_capacity(1 << 25);
+        let mut cnt = 0;
+        for x in iter25 {
+            cnt += 1;
+            all25.insert(x);
+            all25.insert(McRng::similar_biome_seed(x) & mask_up_to_bit(24));
+        }
+
+        assert_eq!(cnt, 1 << 24);
+        assert_eq!(all25.len(), 1 << 25);
+
+        let iter25 = McRng::similar_biome_seed_iterator_bits(25);
+        let mut all25 = HashSet::with_capacity(1 << 25);
+        let mut cnt = 0;
+        for x in iter25 {
+            cnt += 1;
+            all25.insert(x);
+            all25.insert(McRng::similar_biome_seed(x) & mask_up_to_bit(24));
+        }
+
+        assert_eq!(cnt, 1 << 24);
+        assert_eq!(all25.len(), 1 << 25);
+
+        // This ensures the candidate_river_map_bit_25_undefined optimization
+        // is valid
+        let iter25 = McRng::similar_biome_seed_iterator_bits(25);
+        let mut all25 = HashSet::with_capacity(1 << 26);
+        let mut cnt = 0;
+        for x in iter25 {
+            cnt += 1;
+            all25.insert(x);
+            all25.insert(McRng::similar_biome_seed(x) & mask_up_to_bit(25));
+            all25.insert(x ^ (1 << 25));
+            all25.insert((McRng::similar_biome_seed(x ^ (1 << 25))) & mask_up_to_bit(25));
+        }
+
+        assert_eq!(cnt, 1 << 24);
+        assert_eq!(all25.len(), 1 << 26);
+    }
+
+    #[test]
+    fn ss_constants() {
+        use mc_qcg_const_extra::*;
+        // SS_DIFF
+        // What pattern do the similar biome seeds follow?
+        // They add up to:
+        // 0x9995b5b621535015
+        // One result in google :D
+        // http://facta.junis.ni.ac.rs/aace/aace201301/aace201301-09.pdf
+        // d = magical_constant, a and c: McRng constants
+        // da = -c mod m
+        // So basically, given a next function
+        // s = s*a + c
+        // d is the constant that satisfies the prev function
+        // s = s*b + d
+        // where b is the modular multiplicative inverse of a mod m
+        // (d is not needed because you can just substract c)
+        // s = (s - c)*b
+        // s = sb - cb
+        // So d = -cb
+        // But why does it appear here?
+        // TODO: explain SS_DIFF
+
+        // SS_MIN:
+        // similar(seed) = SS_DIFF - seed
+        // similar(min) = min - 1
+        // SS_DIFF - min = min - 1
+        // SS_DIFF + 1 = 2 * min
+        // min = (SS_DIFF + 1) / 2
+        assert_eq!(SS_MIN, (SS_DIFF + 1) / 2);
+        // SS_MAX:
+        // max = min + 2**63 - 1
+        // Because the range of this iterator must be half of 2**64
+        assert_eq!(SS_MAX, SS_MIN + mask_up_to_bit(62));
     }
 }
