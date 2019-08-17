@@ -291,8 +291,29 @@ impl GetMap for MapMap {
     }
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         let mut m = pmap.clone();
-        m.a = m.a.mapv(self.f);
+        m.a.mapv_inplace(self.f);
         m
+    }
+}
+
+// A map which applies a function to its two parent maps
+pub struct MapMap2 {
+    pub parent1: Rc<dyn GetMap>,
+    pub parent2: Rc<dyn GetMap>,
+    pub f: fn(i32, i32) -> i32,
+}
+
+impl GetMap for MapMap2 {
+    fn get_map(&self, area: Area) -> Map {
+        let mut pmap1 = self.parent1.get_map(area);
+        let pmap2 = self.parent2.get_map(area);
+
+        pmap1.a.zip_mut_with(&pmap2.a, |a, b| *a = (self.f)(*a, *b));
+
+        pmap1
+    }
+    fn get_map_from_pmap(&self, _pmap: &Map) -> Map {
+        panic!("MapMap2 requires 2 pmaps!");
     }
 }
 
@@ -2883,7 +2904,91 @@ pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i
     river_seed_finder_range(river_coords_voronoi, extra_biomes, 0, 1 << 25)
 }
 
+pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32, range_hi: u32) -> Vec<i64> {
+    // This iterator has 2**24 elements
+    let iter25 = McRng::similar_biome_seed_iterator_bits(25).skip(range_lo as usize).take((range_hi - range_lo) as usize);
+    // prevoronoi_coords are used to find the first 26 bits
+    // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
+    let area_voronoi = area_from_coords(&river_coords_voronoi);
+    let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
+    let target_map_derived = match reverse_map_voronoi_zoom(&target_map_voronoi) {
+        Ok(x) => x,
+        Err(()) => {
+            debug!("Too few rivers, minimum map size is 8x8");
+            return vec![];
+        },
+    };
+
+    let (prevoronoi_coords, _hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
+    // If the area is large, do a few quick 1x1 checks
+    // TODO: do it even if the area is not large?
+    let check_coords: Vec<_> = [prevoronoi_coords[0], prevoronoi_coords[prevoronoi_coords.len() / 2], prevoronoi_coords[prevoronoi_coords.len() - 1]].into_iter().map(|(x, z)| {
+        let x = (x - 2) / 4;
+        let z = (z - 2) / 4;
+        Area { x, z, w: 1, h: 1, }
+    }).collect();
+
+    let target_map = target_map_derived;
+    let area = target_map.area();
+    let target_score = count_rivers(&target_map);
+
+    debug!("{}", draw_map(&target_map));
+    debug!("Target score: {}", target_score);
+    let mut candidates_26 = vec![];
+
+    for world_seed in iter25 {
+        // Do a quick check for 2 seeds at once: with the bit 25 undefined
+        if check_coords.iter().all(|area| {
+            let candidate_map = candidate_river_map_bit_25_undefined(*area, world_seed);
+            candidate_map.a[(0, 0)] != biome_id::river
+        }) {
+            // Skip this candidate if none of the check_coords are river
+            continue;
+        }
+
+        // Check with bit 25 set to 0
+        let candidate_map = candidate_river_map(area, world_seed);
+        //debug!("{}", draw_map(&candidate_map));
+
+        let and_map = map_river_and(candidate_map, &target_map);
+        let candidate_score = count_rivers(&and_map);
+        if candidate_score >= target_score * 90 / 100 {
+            let similar_biome_seed = McRng::similar_biome_seed(world_seed) & ((1 << 26) - 1);
+            debug!("{:08X}: {}", world_seed, candidate_score);
+            debug!("{:08X}: {}", similar_biome_seed, candidate_score);
+            candidates_26.push(world_seed);
+            candidates_26.push(similar_biome_seed);
+        }
+
+        // Check with bit 25 set to 1
+        // If the area is large enough, we could skip this check if the map
+        // with bit 25 set to 0 had very few matches, as the two maps are
+        // usually pretty similar at large scales
+        let world_seed = world_seed ^ (1 << 25);
+        let candidate_map = candidate_river_map(area, world_seed);
+        //debug!("{}", draw_map(&candidate_map));
+
+        let and_map = map_river_and(candidate_map, &target_map);
+        let candidate_score = count_rivers(&and_map);
+        if candidate_score >= target_score * 90 / 100 {
+            let similar_biome_seed = McRng::similar_biome_seed(world_seed) & ((1 << 26) - 1);
+            debug!("{:08X}: {}", world_seed, candidate_score);
+            debug!("{:08X}: {}", similar_biome_seed, candidate_score);
+            candidates_26.push(world_seed);
+            candidates_26.push(similar_biome_seed);
+        }
+    }
+    debug!("{:08X?}", candidates_26);
+    debug!("26 bit candidates: {}", candidates_26.len());
+
+    candidates_26
+}
+
 /// River Seed Finder
+///
+/// range_lo: 0
+/// range_hi: 1 << 24
+/// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
 pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], range_lo: u32, range_hi: u32) -> Vec<i64> {
     // prevoronoi_coords are used to find the first 26 bits
     // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
@@ -2902,14 +3007,14 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     let target_score = count_rivers(&target_map);
 
     // For the 34-bit voronoi phase we only want to compare hd_coords
-    let (prevoronoi_coords, hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
+    let (_prevoronoi_coords, hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
     let hd_area = area_from_coords(&hd_coords);
     let target_map_voronoi_hd = map_with_river_at(&hd_coords, hd_area);
     let target_map_derived_hd = match reverse_map_voronoi_zoom(&target_map_voronoi_hd) {
         Ok(x) => x,
         Err(()) => {
             debug!("Too few high resolution river borders!");
-            return vec![];
+            return river_seed_finder_26_range(river_coords_voronoi, range_lo, range_hi);
         },
     };
 
@@ -2926,58 +3031,8 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     let target_score_voronoi_sliced = count_rivers(&target_map_voronoi_sliced);
 
     // Ok, begin bruteforce!
-    
-    // If the area is large, do a few quick 1x1 checks
-    // TODO: do it even if the area is not large?
-    let check_coords: Vec<_> = [prevoronoi_coords[0], prevoronoi_coords[prevoronoi_coords.len() / 2], prevoronoi_coords[prevoronoi_coords.len() - 1]].into_iter().map(|(x, z)| {
-        let x = (x - 2) / 4;
-        let z = (z - 2) / 4;
-        Area { x, z, w: 1, h: 1, }
-    }).collect();
 
-    debug!("{}", draw_map(&target_map));
-    debug!("Target score: {}", target_score);
-    let mut candidates_26 = vec![];
-
-    for world_seed in range_lo..range_hi {
-        let world_seed = world_seed as i64;
-
-        if check_coords.iter().all(|area| {
-            let candidate_map = candidate_river_map(*area, world_seed);
-            candidate_map.a[(0, 0)] != biome_id::river
-        }) {
-            // Skip this candidate if none of the check_coords are river
-            continue;
-        }
-
-        let candidate_map = candidate_river_map(area, world_seed);
-        //debug!("{}", draw_map(&candidate_map));
-
-        let and_map = map_river_and(candidate_map, &target_map);
-        let candidate_score = count_rivers(&and_map);
-        if candidate_score >= target_score * 90 / 100 {
-            debug!("{:08X}: {}", world_seed, candidate_score);
-            candidates_26.push(world_seed);
-        }
-        if candidate_score >= target_score * 0 / 100 {
-            // Always check equivalent 26-bit seed
-            // This may change when we implement multi-region river seed finding:
-            // The bit 25 has very little effect on the rivers, most sections
-            // do not change.
-            let world_seed = world_seed | (1 << 25);
-            let candidate_map = candidate_river_map(area, world_seed);
-            //debug!("{}", draw_map(&candidate_map));
-
-            let and_map = map_river_and(candidate_map, &target_map);
-            let candidate_score = count_rivers(&and_map);
-            if candidate_score >= target_score * 90 / 100 {
-                debug!("{:08X}: {}", world_seed, candidate_score);
-                candidates_26.push(world_seed);
-            }
-        }
-    }
-    debug!("{:08X?}", candidates_26);
-    debug!("26 bit candidates: {}", candidates_26.len());
+    let candidates_26 = river_seed_finder_26_range(river_coords_voronoi, range_lo, range_hi);
 
     debug!("Target voronoi score: {}", target_score_voronoi_sliced);
     // Now use voronoi zoom to bruteforce the remaining (34-26 = 8 bits)
@@ -3142,8 +3197,7 @@ pub fn map_with_river_at(c: &[(i64, i64)], area: Area) -> Map {
 }
 
 
-pub fn candidate_river_map_generator() -> impl GetMap {
-    let world_seed = 0;
+pub fn candidate_river_map_generator(world_seed: i64) -> impl GetMap {
     let g22 = TestMapCheckers;
     let mut g34 = MapZoom::new(1000, world_seed);
     g34.parent = Some(Rc::new(g22));
@@ -3166,25 +3220,20 @@ pub fn candidate_river_map_generator() -> impl GetMap {
 }
 
 pub fn candidate_river_map(a: Area, world_seed: i64) -> Map {
-    let g22 = TestMapCheckers;
-    let mut g34 = MapZoom::new(1000, world_seed);
-    g34.parent = Some(Rc::new(g22));
-    let mut g35 = MapZoom::new(1001, world_seed);
-    g35.parent = Some(Rc::new(g34));
-    let mut g36 = MapZoom::new(1000, world_seed);
-    g36.parent = Some(Rc::new(g35));
-    let mut g37 = MapZoom::new(1001, world_seed);
-    g37.parent = Some(Rc::new(g36));
-    let mut g38 = MapZoom::new(1002, world_seed);
-    g38.parent = Some(Rc::new(g37));
-    let mut g39 = MapZoom::new(1003, world_seed);
-    g39.parent = Some(Rc::new(g38));
-    let mut g40 = HelperMapRiverAll::new(1, world_seed);
-    g40.parent = Some(Rc::new(g39));
-    let mut g41 = MapSmooth::new(1000, world_seed);
-    g41.parent = Some(Rc::new(g40));
+    candidate_river_map_generator(world_seed).get_map(a)
+}
 
-    g41.get_map(a)
+/// Check two similar seeds at once
+pub fn candidate_river_map_bit_25_undefined(a: Area, world_seed: i64) -> Map {
+    let gm1 = candidate_river_map_generator(world_seed);
+    let gm2 = candidate_river_map_generator(world_seed ^ (1 << 25));
+    let map_or = MapMap2 {
+        f: |a, b| a | b,
+        parent1: Rc::new(gm1),
+        parent2: Rc::new(gm2),
+    };
+
+    map_or.get_map(a)
 }
 
 pub fn draw_map(map: &Map) -> String {
