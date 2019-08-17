@@ -65,6 +65,8 @@ enum Opt {
         input_file: Option<PathBuf>,
     },
 
+    /// Use slime chunks to find the seed. In the future this will use a
+    /// combination of all the methods, but not yet.
     #[structopt(name = "find")]
     Find {
         /// File containing the SeedInfo
@@ -174,6 +176,12 @@ fn main() {
             let nc = seed_info.negative.slime_chunks;
             let false_c = seed_info.options.error_margin_slime_chunks as usize;
             let false_nc = seed_info.options.error_margin_slime_chunks_negative as usize;
+
+            if c.is_empty() && nc.is_empty() {
+                // Can't find seed without slime chunks
+                println!("Not enough slime chunks");
+                return;
+            }
 
             // All possible 48 bit seeds
             let seeds = if let Some(path) = candidate_seeds {
