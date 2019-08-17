@@ -21,26 +21,26 @@ fn mask(n: usize) -> u64 {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Rng {
+pub struct JavaRng {
     // Actually only 48 bits of seed are used in java
     // but we use 64 internally, masking only when needed
     seed: u64,
 }
 
-impl Rng {
-    pub fn new() -> Rng {
+impl JavaRng {
+    pub fn new() -> JavaRng {
         let seed = 0; // TODO: let this be random
-        Rng { seed }
+        JavaRng { seed }
     }
 
-    pub fn with_seed(s: u64) -> Rng {
-        let mut r = Rng { seed: 0 };
+    pub fn with_seed(s: u64) -> JavaRng {
+        let mut r = JavaRng { seed: 0 };
         r.set_seed(s);
         r
     }
 
-    pub fn with_raw_seed(s: u64) -> Rng {
-        let mut r = Rng { seed: 0 };
+    pub fn with_raw_seed(s: u64) -> JavaRng {
+        let mut r = JavaRng { seed: 0 };
         r.set_raw_seed(s);
         r
     }
@@ -113,7 +113,7 @@ impl Rng {
             return self.next_int_n_10();
         }
         if !(n > 0) {
-            panic!("In Rng::next_int_n, n should be greater than zero.");
+            panic!("In JavaRng::next_int_n, n should be greater than zero.");
         }
         // If n is a power of 2
         if (n & -n) == n {
@@ -187,7 +187,7 @@ impl Rng {
         self.previous();
         self.previous();
         */
-        //self.seed = Rng::previous_state(Rng::previous_state(self.seed));
+        //self.seed = JavaRng::previous_state(JavaRng::previous_state(self.seed));
         self.seed = (((self.seed.wrapping_sub(lcg_const::C))
             .wrapping_mul(lcg_const_extra::INV_A))
             .wrapping_sub(lcg_const::C))
@@ -282,13 +282,13 @@ impl Rng {
         None
     }
 
-    // Returns a Rng r such that r.next_long() will return l
-    pub fn create_from_long(l: u64) -> Option<Rng> {
+    // Returns a JavaRng r such that r.next_long() will return l
+    pub fn create_from_long(l: u64) -> Option<JavaRng> {
         let (i0, i1) = Self::ints_from_long(l as i64);
         let (i0, i1) = (i0 as u32, i1 as u32);
         let front = (i0 as u64) << 16;
         if let Some(back) = Self::low_16_for_next_int(i0, i1) {
-            let mut r = Rng::with_raw_seed(front | (back as u64));
+            let mut r = JavaRng::with_raw_seed(front | (back as u64));
             r.previous();
             Some(r)
         } else {
@@ -300,7 +300,7 @@ impl Rng {
     // This function can return more than one number! Sometimes 0, sometimes 2
     pub fn extend_long_48(l: u64) -> Vec<u64> {
         let l = l & MASK48;
-        let (i0, i1) = Rng::ints_from_long(l as i64);
+        let (i0, i1) = JavaRng::ints_from_long(l as i64);
         let i0 = i0 as u16;
         let seed = ((i1 as u32 as u64) << 16) & MASK48;
 
@@ -309,7 +309,7 @@ impl Rng {
             .map(|k0| {
                 let s = seed | (k0 as u64);
 
-                Rng::with_raw_seed(s)
+                JavaRng::with_raw_seed(s)
             })
             .filter(|r| r.previous_verify_16(i0) == 0)
             .map(|mut r| {
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn seed_set_get() {
-        let mut r = Rng { seed: 1234 };
+        let mut r = JavaRng { seed: 1234 };
         assert_eq!(r.get_seed(), 1234 ^ lcg_const::A);
         r.set_seed(lcg_const::A);
         assert_eq!(r.get_seed(), lcg_const::A);
@@ -368,14 +368,14 @@ mod tests {
 
     #[test]
     fn next_test() {
-        let mut r = Rng::with_seed(12345);
+        let mut r = JavaRng::with_seed(12345);
         let i = r.next(32);
         assert_eq!(i, r.last_next(32));
     }
 
     #[test]
     fn previous() {
-        let mut r = Rng::with_seed(12345);
+        let mut r = JavaRng::with_seed(12345);
         r.set_seed(12345);
         r.next_int();
         r.previous();
@@ -384,30 +384,30 @@ mod tests {
 
     #[test]
     fn long_from_ints() {
-        let mut r = Rng::with_seed(12345);
+        let mut r = JavaRng::with_seed(12345);
         let l = r.next_long();
         r.set_seed(12345);
         let i0 = r.next_int();
         let i1 = r.next_int();
-        let i = Rng::long_from_i0_i1(i0, i1);
+        let i = JavaRng::long_from_i0_i1(i0, i1);
         assert_eq!(l, i);
-        let (j0, j1) = Rng::ints_from_long(l);
+        let (j0, j1) = JavaRng::ints_from_long(l);
         assert_eq!(i0, j0);
         assert_eq!(i1, j1);
     }
 
     #[test]
     fn create_from_long() {
-        let mut r = Rng::new();
+        let mut r = JavaRng::new();
         r.set_raw_seed(12345);
         let l = r.next_long();
-        let rs = Rng::create_from_long(l as u64);
+        let rs = JavaRng::create_from_long(l as u64);
         assert_eq!(rs.unwrap().get_raw_seed(), 12345);
     }
 
     #[test]
     fn same_as_java() {
-        let mut r = Rng::with_seed(12345);
+        let mut r = JavaRng::with_seed(12345);
         let l = r.next_long();
         assert_eq!(l, 6674089274190705457);
         r.set_seed(12345);
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn previous_calls_black_magic() {
-        let mut r = Rng::with_seed(12345);
+        let mut r = JavaRng::with_seed(12345);
         r.previous();
         let c0 = r.get_seed();
         r.previous();
@@ -462,7 +462,7 @@ mod tests {
 
     #[test]
     fn next_calls_black_magic() {
-        let mut r = Rng::with_seed(12345);
+        let mut r = JavaRng::with_seed(12345);
         r.next_int();
         let c0 = r.get_seed();
         r.next_int();
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn modulo_bias_next_int_n() {
-        let mut r = Rng::with_seed(12345678);
+        let mut r = JavaRng::with_seed(12345678);
         let x = r.next_int_n((1 << 30) + 1);
         assert_eq!(x, 677997345);
     }
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn next_int_n_10() {
         let s = 1_356_836_617;
-        let mut r0 = Rng::with_seed(s);
+        let mut r0 = JavaRng::with_seed(s);
         let mut r1 = r0.clone();
         let x0 = r0.next_int_n(10);
         let x1 = r1.next_int_n_10();
@@ -518,7 +518,7 @@ mod tests {
         assert_eq!(x0, x1);
         
         for target in 2147483630..2147483648 {
-            let mut rt = Rng::with_raw_seed(target << 17);
+            let mut rt = JavaRng::with_raw_seed(target << 17);
             rt.previous();
             let mut rtc = rt.clone();
             assert_eq!((target, rt.next_int_n(10)),
@@ -529,11 +529,11 @@ mod tests {
     
     #[test]
     fn extend_48_to_64() {
-        assert_eq!(&Rng::extend_long_48(132607203138509), &[4400149443144113101]);
-        assert_eq!(&Rng::extend_long_48(113453751637441), &[6895687433209288129, 955720999684314561]);
-        assert_eq!(&Rng::extend_long_48(18021957452394), &[3640896845709787754]);
-        assert_eq!(&Rng::extend_long_48(131291916928825), &[-1095369317440944327i64 as u64]);
-        assert_eq!(&Rng::extend_long_48(249127199878301), &[5773582374512143517, -166384059012830051i64 as u64]);
-        assert_eq!(&Rng::extend_long_48(186701866325681), &[3353398099420370609, -2586568334104602959i64 as u64]);
+        assert_eq!(&JavaRng::extend_long_48(132607203138509), &[4400149443144113101]);
+        assert_eq!(&JavaRng::extend_long_48(113453751637441), &[6895687433209288129, 955720999684314561]);
+        assert_eq!(&JavaRng::extend_long_48(18021957452394), &[3640896845709787754]);
+        assert_eq!(&JavaRng::extend_long_48(131291916928825), &[-1095369317440944327i64 as u64]);
+        assert_eq!(&JavaRng::extend_long_48(249127199878301), &[5773582374512143517, -166384059012830051i64 as u64]);
+        assert_eq!(&JavaRng::extend_long_48(186701866325681), &[3353398099420370609, -2586568334104602959i64 as u64]);
     }
 }

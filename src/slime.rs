@@ -1,4 +1,4 @@
-use crate::java_rng::Rng;
+use crate::java_rng::JavaRng;
 use crate::chunk::Chunk;
 use crate::biome_layers::{Area, Map};
 use std::num::Wrapping;
@@ -154,10 +154,10 @@ fn is_slime_data(seed: u64, x: u64) -> bool {
     r.next_int_n(10) == 0
 }
 
-fn rng_with_slime_data(seed: u64, x: u64) -> Rng {
+fn rng_with_slime_data(seed: u64, x: u64) -> JavaRng {
     // new Random(seed + x ^ e)
     let s = seed.wrapping_add(x) ^ slime_const::E;
-    Rng::with_seed(s)
+    JavaRng::with_seed(s)
 }
 
 fn slime_candidates_18(slimedata: &[u64], max_errors: usize) -> Vec<u32> {

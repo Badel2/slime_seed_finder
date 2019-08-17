@@ -19,10 +19,9 @@ pub mod cubiomes_rs;
 pub mod voronoi;
 pub mod seed_info;
 pub mod noise_generator;
-pub use crate::java_rng::Rng;
-pub use crate::chunk::Chunk;
-pub use crate::slime::is_slime_chunk;
-pub use crate::slime::seed_from_slime_chunks;
+
+use crate::slime::is_slime_chunk;
+use crate::chunk::Chunk;
 
 pub fn generate_slime_chunks_and_not(seed: i64, limit_yes: usize, limit_no: usize) -> (Vec<Chunk>, Vec<Chunk>) {
     let mut vy = Vec::with_capacity(limit_yes);

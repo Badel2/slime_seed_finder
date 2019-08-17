@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use crate::java_rng::Rng;
+use crate::java_rng::JavaRng;
 use crate::seed_info::Point;
 
 // The different Map* layers are copied from
@@ -2975,7 +2975,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         let mut v = vec![];
         for seed in 0..(1 << (48 - 34)) {
             let world_seed = x | (seed << 34);
-            v.extend(Rng::extend_long_48(world_seed as u64));
+            v.extend(JavaRng::extend_long_48(world_seed as u64));
         }
 
         v
