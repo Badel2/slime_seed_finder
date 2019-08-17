@@ -18,6 +18,7 @@ pub mod cubiomes_test;
 pub mod cubiomes_rs;
 pub mod voronoi;
 pub mod seed_info;
+pub mod noise_generator;
 pub use crate::java_rng::Rng;
 pub use crate::chunk::Chunk;
 pub use crate::slime::is_slime_chunk;

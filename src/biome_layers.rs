@@ -1,4 +1,5 @@
 use crate::mc_rng::McRng;
+use crate::noise_generator::NoiseGeneratorPerlin;
 use crate::seed_info::MinecraftVersion;
 // TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
@@ -2286,107 +2287,15 @@ impl GetMap for MapRiverMix {
     }
 }
 
-struct OceanRnd {
-    a: f64,
-    b: f64,
-    c: f64,
-    d: [i32; 512],
-}
-
-impl OceanRnd {
-    fn new(seed: i64) -> Self {
-        let mut r = Rng::with_seed(seed as u64);
-        let a = r.next_double() * 256.0;
-        let b = r.next_double() * 256.0;
-        let c = r.next_double() * 256.0;
-        let mut d = [0; 512];
-
-        for i in 0..256 {
-            d[i] = i as i32;
-        }
-        for i in 0..256 {
-            // TODO: is this a mersenne twister?
-            // Anyway, it will be a really bad one if it is initialized using
-            // the Java PRNG
-            let n3 = r.next_int_n(256 - i as i32) + i as i32;
-            let n4 = d[i];
-            d[i] = d[n3 as usize];
-			d[n3 as usize] = n4;
-            d[i + 256] = d[i];
-        }
-        OceanRnd { a, b, c, d }
-    }
-
-    fn get_ocean_temp(&self, mut d1: f64, mut d2: f64, mut d3: f64) -> f64 {
-        d1 += self.a;
-        d2 += self.b;
-        d3 += self.c;
-        let mut i1 = d1 as i32 - if d1 < 0.0 { 1 } else { 0 };
-        let mut i2 = d2 as i32 - if d2 < 0.0 { 1 } else { 0 };
-        let mut i3 = d3 as i32 - if d3 < 0.0 { 1 } else { 0 };
-        d1 -= i1 as f64;
-        d2 -= i2 as f64;
-        d3 -= i3 as f64;
-        let t1 = d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0);
-        let t2 = d2*d2*d2 * (d2 * (d2*6.0-15.0) + 10.0);
-        let t3 = d3*d3*d3 * (d3 * (d3*6.0-15.0) + 10.0);
-
-        i1 &= 0xFF;
-        i2 &= 0xFF;
-        i3 &= 0xFF;
-
-        let a1 = self.d[i1 as usize] + i2;
-        let a2 = self.d[a1 as usize] + i3;
-        let a3 = self.d[(a1 + 1) as usize] + i3;
-        let b1 = self.d[(i1 + 1) as usize] + i2;
-        let b2 = self.d[b1 as usize] + i3;
-        let b3 = self.d[(b1 + 1) as usize] + i3;
-
-        let mut l1 = indexed_lerp(self.d[(a2    ) as usize], d1      , d2      , d3);
-        let     l2 = indexed_lerp(self.d[(b2    ) as usize], d1 - 1.0, d2      , d3);
-        let mut l3 = indexed_lerp(self.d[(a3    ) as usize], d1      , d2 - 1.0, d3);
-        let     l4 = indexed_lerp(self.d[(b3    ) as usize], d1 - 1.0, d2 - 1.0, d3);
-        let mut l5 = indexed_lerp(self.d[(a2 + 1) as usize], d1      , d2      , d3 - 1.0);
-        let     l6 = indexed_lerp(self.d[(b2 + 1) as usize], d1 - 1.0, d2      , d3 - 1.0);
-        let mut l7 = indexed_lerp(self.d[(a3 + 1) as usize], d1      , d2 - 1.0, d3 - 1.0);
-        let     l8 = indexed_lerp(self.d[(b3 + 1) as usize], d1 - 1.0, d2 - 1.0, d3 - 1.0);
-
-        l1 = lerp(t1, l1, l2);
-        l3 = lerp(t1, l3, l4);
-        l5 = lerp(t1, l5, l6);
-        l7 = lerp(t1, l7, l8);
-
-        l1 = lerp(t2, l1, l3);
-        l5 = lerp(t2, l5, l7);
-
-        lerp(t3, l1, l5)
-    }
-}
-
-fn lerp(part: f64, from: f64, to: f64) -> f64 {
-	from + part * (to - from)
-}
-
-fn indexed_lerp(idx: i32, d1: f64, d2: f64, d3: f64) -> f64 {
-	/* Table of vectors to cube edge centres (12 + 4 extra), used for ocean PRNG */
-	let c_edge_x = [1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0];
-	let c_edge_y = [1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0];
-	let c_edge_z = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0];
-
-	let idx = (idx & 0xF) as usize;
-
-	c_edge_x[idx] * d1 + c_edge_y[idx] * d2 + c_edge_z[idx] * d3
-}
-
 pub struct MapOceanTemp {
     base_seed: i64,
     world_seed: i64,
-    ocean_rnd: OceanRnd,
+    perlin: NoiseGeneratorPerlin,
 }
 
 impl MapOceanTemp {
     pub fn new(base_seed: i64, world_seed: i64) -> Self {
-        Self { base_seed, world_seed, ocean_rnd: OceanRnd::new(world_seed) }
+        Self { base_seed, world_seed, perlin: NoiseGeneratorPerlin::new(world_seed) }
     }
 }
 
@@ -2397,7 +2306,7 @@ impl GetMap for MapOceanTemp {
 
         for z in 0..area.h {
             for x in 0..area.w {
-                let tmp = self.ocean_rnd.get_ocean_temp((x as i64 + area.x) as f64 / 8.0, (z as i64 + area.z) as f64 / 8.0, 0.0);
+                let tmp = self.perlin.get_ocean_temp((x as i64 + area.x) as f64 / 8.0, (z as i64 + area.z) as f64 / 8.0, 0.0);
                 m.a[(x as usize, z as usize)] = if tmp > 0.4 {
                     warmOcean
                 } else if tmp > 0.2 {
