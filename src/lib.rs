@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-#![cfg_attr(feature = "cubiomes_rs", feature(extern_types))]
 #[macro_use]
 extern crate ndarray;
 #[cfg(feature = "cubiomes_rs")]

@@ -1,5 +1,3 @@
-#![feature(custom_attribute)]
-
 extern crate slime_seed_finder;
 #[macro_use]
 extern crate stdweb;
