@@ -12,12 +12,13 @@ lto = true
 
 [features]
 cubiomes_rs = ["libc"]
-main = ["structopt", "rand"]
+main = ["structopt", "rand", "image"]
 wasm = ["stdweb", "palette"]
 
 [dependencies]
 ansi_term = "0.12.0"
 structopt = { version = "0.2.18", optional = true }
+image = { version = "0.22.1", optional = true }
 libc = { version = "0.2.62", optional = true }
 log = { version = "0.4.8", features = ["std"] }
 stdweb = { version = "0.4.18", optional = true }

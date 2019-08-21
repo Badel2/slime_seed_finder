@@ -2642,6 +2642,92 @@ fn is_land_biome(biome_id: i32) -> bool {
     BIOME_INFO[biome_id as usize].height >= 0.0
 }
 
+pub fn treasure_map_at(fragment_x: i64, fragment_z: i64, pmap: &Map) -> Map {
+    // 0: -64
+    // 1: 192
+    // pmap must be 256x256, but the treasure map is always 128x128
+    // with 1 pixel missing on each border, so in practice it is 126x126
+    // TODO: only 1:1 maps are implemented
+    // Since layer 50 is 1:4 scale, we would need to modify the indexing of
+    // pmap, and the x and z coordinates in parea, but for testing it is easier
+    // to just scale the map.
+    //let pmap = MapSkip::new(Rc::from(generator_up_to_layer_1_14(seed, 50)), 2).get_map(parea);
+    let corner_x = fragment_x * 256 - 64;
+    let corner_z = fragment_z * 256 - 64;
+    // TODO: x and z are unused here, but since this map is 1:2 scale, maybe we
+    // should take that into account and divide x and z by 2?
+    let area = Area {
+        x: corner_x,
+        z: corner_z,
+        w: 128,
+        h: 128,
+    };
+    let mut m = Map::new(area);
+
+    for z in 1..(area.h - 1) as usize {
+        for x in 1..(area.w - 1) as usize {
+            let mut num_water_neighbors = 8;
+
+            for i in 0..3 {
+                for j in 0..3 {
+                    if i == 1 && j == 1 {
+                        continue;
+                    }
+                    if is_land_biome(pmap.a[((x-1+i)*2, (z-1+j)*2)]) {
+                        num_water_neighbors -= 1;
+                    }
+                }
+            }
+
+            // Land color. Default: black (transparent).
+            let color_land = 0;
+            // Water color.
+            let color_water = 15;
+            // Land-water border color.
+            let color_shore = 26;
+            let mut color = color_land;
+            let mut color_variant = 3;
+
+            let v11 = pmap.a[((x+0)*2, (z+0)*2)];
+
+            if !is_land_biome(v11) {
+                color = color_water;
+                if num_water_neighbors > 7 && z % 2 == 0 {
+                    color_variant = ((x % 128) as i32 + (fast_sin(((z % 128) as f32) + 0.0) * 7.0) as i32) / 8 % 5;
+                    // Map color_variant from (0, 1, 2, 3, 4) to (0, 1, 2, 1, 0)
+                    if color_variant == 3 {
+                        color_variant = 1;
+                    } else if color_variant == 4 {
+                        color_variant = 0;
+                    }
+                } else if num_water_neighbors > 7 {
+                    color = color_land;
+                } else if num_water_neighbors > 5 {
+                    color_variant = 1;
+                } else if num_water_neighbors > 3 {
+                    color_variant = 0;
+                } else if num_water_neighbors > 1 {
+                    color_variant = 0;
+                }
+            } else if num_water_neighbors > 0 {
+                color = color_shore;
+                if num_water_neighbors > 3 {
+                    color_variant = 1;
+                } else {
+                    color_variant = 3;
+                }
+            }
+
+            if color != color_land {
+                // color_variant is always in [0, 3]
+                m.a[(x, z)] = color * 4 + color_variant;
+            }
+        }
+    }
+
+    m
+}
+
 /// Apply the unexplored treasure map filter
 // This is not a world generation layer
 // The output of this Map is not biome_id, but color_id.
@@ -3406,14 +3492,33 @@ pub fn draw_treasure_map_image(map: &Map) -> Vec<u8> {
     v
 }
 
+/// Generate terrain with the same style as unexplored treasure maps.
 pub fn generate_image_treasure_map(area: Area, seed: i64) -> Vec<u8> {
     let map = generate_fragment_treasure_map(area, seed);
 
     draw_treasure_map_image(&map)
 }
 
+/// Generate a treasure map with the same scale and aligment as ingame maps.
+pub fn generate_image_treasure_map_at(seed: i64, fragment_x: i64, fragment_z: i64) -> Vec<u8> {
+    let corner_x = fragment_x * 256 - 64;
+    let corner_z = fragment_z * 256 - 64;
+    let parea = Area {
+        x: corner_x,
+        z: corner_z,
+        w: 256,
+        h: 256,
+    };
+    let pmap = generator_up_to_layer_1_14(seed, 51).get_map(parea);
+    let map = treasure_map_at(fragment_x, fragment_z, &pmap);
+
+    draw_treasure_map_image(&map)
+}
+
 pub fn generate_fragment_treasure_map(area: Area, seed: i64) -> Map {
     // Parent: right before VoronoiZoom
+    // TODO: this is incorrect, the parent is VoronoiZoom but the scale
+    // is 1:2 instead of 1:1
     let mt = MapTreasure {
         parent: Rc::from(generator_up_to_layer_1_14(seed, 50)),
     };

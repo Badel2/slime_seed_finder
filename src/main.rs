@@ -102,6 +102,31 @@ enum Opt {
         /// Where to write the extended seeds as a JSON array
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
+    },
+
+    /// Generate an unexplored treasure map, but without the treasure marker.
+    #[structopt(name = "treasure")]
+    Treasure {
+        /// The seed for which to generate the treasure map.
+        /// To avoid problems with negative seeds, use the following syntax:
+        /// -s=-1234 or --seed=-1234
+        #[structopt(short = "s", long)]
+        seed: i64,
+        /// x position of the map as "fragment" coordinate.
+        /// The formula to convert between fragment coordinates and
+        /// top-left-corner-of-the-map coordinates is:
+        /// x = fragment_x * 256 - 64
+        /// To avoid problems with negative coordinates, use the following
+        /// syntax: -x=-2 or --fragment-x=-2
+        #[structopt(short = "x", long)]
+        fragment_x: i64,
+        /// z position of the map as "fragment" coordinate.
+        #[structopt(short = "z", long)]
+        fragment_z: i64,
+        /// Output filename. Defaults to treasure_map_<seed>_x_z.png.
+        /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
     }
 }
 
@@ -267,6 +292,20 @@ fn main() {
             if let Some(output_file) = output_file {
                 write_seeds_to_file(&r, output_file).expect("Error writing seeds to file");
             }
+        }
+
+        Opt::Treasure {
+            seed,
+            fragment_x,
+            fragment_z,
+            output_file,
+        } => {
+            let output_file = output_file.unwrap_or_else(|| {
+                format!("treasure_map_{}_{}_{}.png", seed, fragment_x, fragment_z).into()
+            });
+            let vec_rgba = biome_layers::generate_image_treasure_map_at(seed, fragment_x, fragment_z);
+            assert_eq!(vec_rgba.len(), 128 * 128 * 4);
+            image::save_buffer(output_file, &vec_rgba, 128, 128, image::ColorType::RGBA(8)).unwrap();
         }
     }
 }
