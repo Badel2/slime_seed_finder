@@ -7,6 +7,7 @@ use slime_seed_finder::biome_layers::biome_id;
 use slime_seed_finder::slime::seed_from_slime_chunks;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
 use slime_seed_finder::seed_info::biomes_from_map;
+use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::java_rng::JavaRng;
 use std::fs::File;
@@ -54,7 +55,8 @@ enum Opt {
         /// Lowest z coordinate in the biome map.
         #[structopt(long, default_value = "0")]
         biome_map_z: i64,
-        /// Minecraft Version to use.
+        /// Minecraft version to use (Java edition).
+        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
         #[structopt(long, default_value = "1.14")]
         mc_version: String,
     },
@@ -104,6 +106,42 @@ enum Opt {
         output_file: Option<PathBuf>,
     },
 
+    /// Generate a biome map
+    #[structopt(name = "rendermap")]
+    RenderMap {
+        /// The seed for which to generate the biome map.
+        /// To avoid problems with negative seeds, use the following syntax:
+        /// -s=-1234 or --seed=-1234
+        #[structopt(short = "s", long)]
+        seed: i64,
+        /// x position of the top-left coordinate of the map
+        /// To avoid problems with negative coordinates, use the following
+        /// syntax: -x=-2
+        #[structopt(short = "x", default_value = "0")]
+        x: i64,
+        /// z position of the top-left coordinate of the map
+        #[structopt(short = "z", default_value = "0")]
+        z: i64,
+        /// width
+        #[structopt(short = "w", long, default_value = "1024")]
+        width: u32,
+        /// height
+        #[structopt(short = "h", long, default_value = "640")]
+        height: u32,
+        /// Output filename. Defaults to biome_map_<seed>_x_z_wxh.png.
+        /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
+        /// Minecraft version to use (Java edition).
+        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
+        #[structopt(long, default_value = "1.14")]
+        mc_version: String,
+        /// The last layer to generate. Defaults to the latest one (full
+        /// resolution biome map).
+        #[structopt(long)]
+        last_layer: Option<u32>,
+    },
+
     /// Generate an unexplored treasure map, but without the treasure marker.
     #[structopt(name = "treasure")]
     Treasure {
@@ -127,7 +165,7 @@ enum Opt {
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
-    }
+    },
 }
 
 fn main() {
@@ -294,6 +332,28 @@ fn main() {
             }
         }
 
+        Opt::RenderMap {
+            seed,
+            x,
+            z,
+            width,
+            height,
+            output_file,
+            mc_version,
+            last_layer,
+        } => {
+            let output_file = output_file.unwrap_or_else(|| {
+                format!("biome_map_{}_{}_{}_{}_{}x{}.png", mc_version, seed, x, z, width, height).into()
+            });
+            let version: MinecraftVersion = mc_version.parse().unwrap();
+            let last_layer = last_layer.unwrap_or_else(|| version.num_layers());
+            let area = Area { x, z, w: width as u64, h: height as u64 };
+            let vec_rgba = biome_layers::generate_image_up_to_layer(version, area, seed, last_layer);
+            assert_eq!(vec_rgba.len(), (width * height * 4) as usize);
+            image::save_buffer(output_file.clone(), &vec_rgba, width, height, image::ColorType::RGBA(8)).unwrap();
+            println!("Saved image to {}", output_file.to_string_lossy());
+        }
+
         Opt::Treasure {
             seed,
             fragment_x,
@@ -305,7 +365,8 @@ fn main() {
             });
             let vec_rgba = biome_layers::generate_image_treasure_map_at(seed, fragment_x, fragment_z);
             assert_eq!(vec_rgba.len(), 128 * 128 * 4);
-            image::save_buffer(output_file, &vec_rgba, 128, 128, image::ColorType::RGBA(8)).unwrap();
+            image::save_buffer(output_file.clone(), &vec_rgba, 128, 128, image::ColorType::RGBA(8)).unwrap();
+            println!("Saved image to {}", output_file.to_string_lossy());
         }
     }
 }
