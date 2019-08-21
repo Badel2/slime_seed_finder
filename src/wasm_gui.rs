@@ -83,11 +83,11 @@ pub fn draw_rivers(o: String) -> DrawRivers {
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
     let (_prevoronoi_coords, hd_coords) = biome_layers::segregate_coords_prevoronoi_hd(o.seed_info.biomes[&biome_id::river].clone());
-    let area_rivers = biome_layers::area_from_coords(&o.seed_info.biomes[&biome_id::river]);
+    let area_rivers = Area::from_coords(&o.seed_info.biomes[&biome_id::river]);
     let target_map = biome_layers::map_with_river_at(&o.seed_info.biomes[&biome_id::river], area_rivers);
     let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
 
-    let area_hd = biome_layers::area_from_coords(&hd_coords);
+    let area_hd = Area::from_coords(&hd_coords);
     let target_map_hd = biome_layers::map_with_river_at(&hd_coords, area_hd);
 
     DrawRivers {
@@ -238,8 +238,20 @@ pub fn generate_fragment(version: String, fx: i32, fy: i32, seed: String, frag_s
     let version1: MinecraftVersion = match version.parse() {
         Ok(s) => s,
         Err(_) => {
-            console!(error, format!("{} is not a valid version", version));
-            return vec![0; frag_size*frag_size*4];
+            if version == "TreasureMap" {
+                let seed = if let Ok(s) = seed.parse() {
+                    s
+                } else {
+                    console!(error, format!("{} is not a valid seed", seed));
+                    return vec![0; frag_size*frag_size*4];
+                };
+                let frag_size = frag_size as u64;
+                let area = Area { x: fx as i64 * frag_size as i64, z: fy as i64 * frag_size as i64, w: frag_size, h: frag_size};
+                return biome_layers::generate_image_treasure_map(area, seed);
+            } else {
+                console!(error, format!("{} is not a valid version", version));
+                return vec![0; frag_size*frag_size*4];
+            }
         }
     };
     let num_layers = version1.num_layers();
@@ -253,8 +265,20 @@ pub fn generate_fragment_up_to_layer(version: String, fx: i32, fy: i32, seed: St
     let version = match version.parse() {
         Ok(s) => s,
         Err(_) => {
-            console!(error, format!("{} is not a valid version", version));
-            return vec![0; frag_size*frag_size*4];
+            if version == "TreasureMap" {
+                let seed = if let Ok(s) = seed.parse() {
+                    s
+                } else {
+                    console!(error, format!("{} is not a valid seed", seed));
+                    return vec![0; frag_size*frag_size*4];
+                };
+                let frag_size = frag_size as u64;
+                let area = Area { x: fx as i64 * frag_size as i64, z: fy as i64 * frag_size as i64, w: frag_size, h: frag_size};
+                return biome_layers::generate_image_treasure_map(area, seed);
+            } else {
+                console!(error, format!("{} is not a valid version", version));
+                return vec![0; frag_size*frag_size*4];
+            }
         }
     };
     let seed = if let Ok(s) = seed.parse() {

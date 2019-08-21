@@ -58,6 +58,7 @@
                     <option value="1.7">Java 1.7 - 1.12</option>
                     <option value="1.13">Java 1.13</option>
                     <option value="1.14">Java 1.14</option>
+                    <option value="TreasureMap">Java 1.13+ Treasure Map</option>
                 </select>
                 <a id="download" download="biome_map.png">
                         <button type="button" onClick="download()">DOWNLOAD MAP</button>
@@ -119,7 +120,7 @@
                 let scales;
                 if (minecraft_version == "1.7") {
                     scales = scales17;
-                } else if (minecraft_version == "1.13" || minecraft_version == "1.14") {
+                } else if (minecraft_version == "1.13" || minecraft_version == "1.14" || minecraft_version == "TreasureMap") {
                     scales = scales113;
                 } else {
                     console.error("Unknown Minecraft version: " + minecraft_version);
@@ -177,7 +178,7 @@
 
                 minecraft_version = new_v;
                 let lastLayer = document.getElementById("lastLayer").value|0;
-                if (old_v == "1.7" && (new_v == "1.13" || new_v == "1.14")) {
+                if (old_v == "1.7" && (new_v == "1.13" || new_v == "1.14" || new_v == "TreasureMap")) {
                     if (lastLayer == 42) {
                         updateWithLayerPlus(50 - 42);
                     }
@@ -185,7 +186,7 @@
                         updateWithLayerPlus(51 - 43);
                     }
                 }
-                if ((old_v == "1.13" || old_v == "1.14") && new_v == "1.7") {
+                if ((old_v == "1.13" || old_v == "1.14" || old_v == "TreasureMap") && new_v == "1.7") {
                     if (lastLayer == 51) {
                         updateWithLayerPlus(43 - 51);
                     }
@@ -208,7 +209,7 @@
                 if (minecraft_version == "1.7") {
                     scales = scales17;
                     num_layers = 43;
-                } else if (minecraft_version == "1.13" || minecraft_version == "1.14") {
+                } else if (minecraft_version == "1.13" || minecraft_version == "1.14" || minecraft_version == "TreasureMap") {
                     scales = scales113;
                     num_layers = 51;
                 } else {
