@@ -3,7 +3,7 @@
 This program finds minecraft world generation seeds given enough slime chunks.
 Since slime chunks are 10% of all the chunks and there are 2^64 minecraft
 seeds, one would think that with 20 chunks you can find the seed, however
-thinks get interesting...
+things get interesting...
 
 ### Web demo
 There is a work in progress WebAssembly demo available at:
