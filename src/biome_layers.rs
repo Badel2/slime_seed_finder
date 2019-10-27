@@ -3253,24 +3253,6 @@ fn count_rivers_exact(a: &Map, b: &Map) -> u32 {
     if acc < 0 { 0 } else { acc as u32 }
 }
 
-fn all_candidate_river_maps() {
-    let area = Area { x: 250, z: 50, w: 20, h: 20 };
-    let world_seed = 0x00ABCDEF;
-    let target_map = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
-    let target_score = count_rivers(&target_map);
-    println!("Target score: {}", target_score);
-    // Bruteforcing 2^25 should be enough: there will be a very high similarity
-    // So we need to store the most similar seeds
-    for world_seed in 0..(1 << 25) {
-        let candidate_map = candidate_river_map(area, world_seed);
-        let and_map = map_river_and(candidate_map, &target_map);
-        let candidate_score = count_rivers(&and_map);
-        if candidate_score >= target_score * 9 / 10 {
-            println!("{:08X}: {}", world_seed, candidate_score);
-        }
-    }
-}
-
 pub fn map_with_river_at(c: &[(i64, i64)], area: Area) -> Map {
     let mut m = Map::new(area);
     for (x, z) in c {
