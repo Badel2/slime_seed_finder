@@ -12,11 +12,12 @@ lto = true
 
 [features]
 cubiomes_rs = ["libc"]
+main = ["structopt", "rand"]
 wasm = ["stdweb", "palette"]
 
 [dependencies]
 ansi_term = "0.11"
-clap = { version = "2", optional = true }
+structopt = { version = "0.2", optional = true }
 libc = { version = "0.2", optional = true }
 log = { version = "0.4", features = ["std"] }
 stdweb = { version = "0.4", optional = true }
@@ -24,6 +25,7 @@ serde = { version = "1.0", optional = false, features = ["derive"] }
 serde_json = { version = "1.0", optional = false }
 ndarray = "0.12.1"
 palette = { version = "0.4", optional = true }
+rand = { version = "0.7", optional = true }
 
 [dev-dependencies]
 pretty_env_logger = "0.3"
@@ -31,7 +33,7 @@ pretty_env_logger = "0.3"
 [[bin]]
 name = "slime_seed_finder"
 path = "src/main.rs"
-required-features = ["clap"]
+required-features = ["main"]
 
 [[bin]]
 name = "wasm_gui"

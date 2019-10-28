@@ -23,30 +23,29 @@ pub use crate::chunk::Chunk;
 pub use crate::slime::is_slime_chunk;
 pub use crate::slime::seed_from_slime_chunks;
 
-pub fn generate_slime_chunks(seed: i64, limit: usize) -> Vec<Chunk> {
-    generate_slime_chunks_or_not(true, seed, limit)
-}
-
-pub fn generate_no_slime_chunks(seed: i64, limit: usize) -> Vec<Chunk> {
-    generate_slime_chunks_or_not(false, seed, limit)
-}
-
-pub fn generate_slime_chunks_or_not(slime: bool, seed: i64, limit: usize) -> Vec<Chunk> {
-    let mut v = Vec::with_capacity(limit);
+pub fn generate_slime_chunks_and_not(seed: i64, limit_yes: usize, limit_no: usize) -> (Vec<Chunk>, Vec<Chunk>) {
+    let mut vy = Vec::with_capacity(limit_yes);
+    let mut vn = Vec::with_capacity(limit_no);
     for x in 0.. { // yeah just go on forever
         for z in -99..100 {
             let c = Chunk::new(x, z);
-            if is_slime_chunk(seed as u64, &c) ^ (!slime) {
-                v.push(c);
-                if v.len() >= limit {
-                    return v;
+            if is_slime_chunk(seed as u64, &c) {
+                if vy.len() < limit_yes {
+                    vy.push(c);
                 }
+            } else {
+                if vn.len() < limit_no {
+                    vn.push(c);
+                }
+            }
+            if vy.len() == limit_yes && vn.len() == limit_no {
+                return (vy, vn);
             }
         }
     }
 
     // unreachable
-    vec![]
+    (vec![], vec![])
 }
 
 #[cfg(test)]

@@ -22,47 +22,87 @@ Then, run the following commands
 ```
 git clone https://github.com/badel2/slime_seed_finder
 cd slime_seed_finder
-cargo install --features="clap"
+cargo install --path . --features="main"
 ```
 
 Now you should have the `slime_seed_finder` executable in your $PATH.
 
 ### Usage
-Put the slime chunks in a text file, one chunk per line, with the x and z chunk coordinates separated by a comma, and then run the following command to save the found seeds in the file seeds.txt
 ```
-slime_seed_finder -c chunks_file.txt -o seeds.txt
-```
-
-If you don't have a list of slime chunks and want to try this program, use the generate option to generate slime chunks, just choose a numerical seed:
-```
-slime_seed_finder -s 1234 -o 1234.txt
-slime_seed_finder -c 1234.txt -o 1234_and_some_more.txt
+slime_seed_finder find -i seedinfo.json -o seeds.json
 ```
 
-Ideally the program should only output one seed, but we can see this is not the case. To improve it, we can also specify non slime chunks: chunks that can't spawn slimes, with the -n flag. Since it is easy to miss one chunk, there are also options to leave an error margin: -f for slime chunks and -m for non slime chunks.
+Run `slime_seed_finder --help` for full details about the usage,
+and `slime_seed_finder <subcommand> --help` for detailed help about a
+subcommand.
 
-If you already have a list of possible 48-bit seeds, put them in a file one seed per line:
+
+If you don't have a list of slime chunks and want to try this program, use the generate option to generate slime chunks.
+You can choose a numerical seed, or leave it blank to generate a random seed.
+You can specify how many slime chunks to generate with `--num-slime-chunks` (the default is 0):
+```
+# Seed 1234
+slime_seed_finder generate -s 1234 -o seedinfo_1234.json --num-slime-chunks 40
+# Random seed
+slime_seed_finder generate -o seedinfo_random_seed.json --num-slime-chunks 40
+# Finding seed 1234
+slime_seed_finder find -i seedinfo_1234.json -o 1234_and_some_more.json
+```
+
+If you already have a list of possible 48-bit seeds, put them in a file as a JSON array:
 
 ```
-slime_seed_finder --candidate-seeds candidates.txt -c chunks.txt
+slime_seed_finder find --candidate-seeds candidates.json -i seedinfo.json
 ```
 
-To convert 48-bit seeds into 64-bit seeds (-j flag), put the 48-bit seeds in candidates.txt
-and run the program with an empty chunks.txt file:
+#### extend48
+
+To convert 48-bit seeds into 64-bit seeds (by assuming that the seed was generated
+using Java Random nextLong), put the 48-bit seeds in candidates.json as a JSON array
+and run the extend48 subcommand. For example, to extend the seeds 1 and 2:
 
 ```
-slime_seed_finder --candidate-seeds candidates.txt -c empty_chunks.txt -j
+echo '[1, 2]' > candidates.json
+slime_seed_finder extend48 -i candidates.json
 ```
 
-Run `slime_seed_finder --help` for full details about the usage.
+Output:
 
-### Building WebAssemblyy demo
+```
+[
+  8897424013823836161,
+  -651896046061879294
+]
+```
 
-```sh
+It will become more clear if we convert those seeds to hexadecimal:
+
+```
+0x7b7a000000000001
+0xf6f4000000000002
+```
+
+In this case each 48-bit seed has 1 corresponding 64-bit seed, but it can be 0, 1 or 2 seeds.
+This has the implications that it is impossible to create a new Minecraft world with seed
+1 or 2 unless you manually set the seed to that number.
+
+### Building WebAssembly demo
+
+In order to locally test the web demos:
+
+```
+# Install cargo web
 cargo install cargo-web
-cargo +nightly web build --target=wasm32-unknown-unknown --bin wasm_gui --features="stdweb serde1"
-cp target/wasm32-unknown-unknown/release/wasm_gui.* static/
-# and just open static/index.html with a web browser
+# And run this after each change
+./ci/build_demo.sh
+```
+
+You need to run a local web server at the `static/` dir. You can use the provided
+`server.py` file, which starts a server at http://localhost:8000
+
+```
+cd static
+python2 server.py
 ```
 
 ### Theory
