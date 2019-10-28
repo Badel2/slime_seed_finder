@@ -36,6 +36,8 @@ Run `slime_seed_finder --help` for full details about the usage,
 and `slime_seed_finder <subcommand> --help` for detailed help about a
 subcommand.
 
+The [SeedInfo](https://github.com/Badel2/slime_seed_finder/blob/master/docs/seedinfo.md)
+is a JSON with information about the world that can be useful to find the seed.
 
 If you don't have a list of slime chunks and want to try this program, use the generate option to generate slime chunks.
 You can choose a numerical seed, or leave it blank to generate a random seed.

@@ -66,18 +66,35 @@ pub struct SeedStructures {
     #[serde(default, skip_serializing_if = "is_default")]
     pub nether_forts: Vec<Chunk>,
     #[serde(default, skip_serializing_if = "is_default")]
+    pub strongholds: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub desert_temples: Vec<Chunk>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub jungle_temples: Vec<Chunk>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub witch_huts: Vec<Chunk>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub strongholds: Vec<Chunk>,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub villages: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub ocean_monuments: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub igloos: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub woodland_mansions: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub end_cities: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub ocean_ruins: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub shipwrecks: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub buried_treasures: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub pillager_outposts: Vec<Chunk>,
 }
 
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SeedInfo {
     pub version: String,
     // Extra settings for optimizing the search: error margin, use extend48
@@ -85,6 +102,8 @@ pub struct SeedInfo {
     pub options: Options,
     #[serde(default, skip_serializing_if = "is_default")]
     pub biomes: HashMap<BiomeId, Vec<Point>>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub end_pillars: Vec<u8>,
     #[serde(flatten)]
     pub positive: SeedStructures,
     // Coords of structures that do not exist, useful to remove duplicates
