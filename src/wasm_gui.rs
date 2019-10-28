@@ -16,6 +16,7 @@ use slime_seed_finder::*;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::biome_id;
+use slime_seed_finder::biome_layers::Map;
 use slime_seed_finder::java_rng::JavaRng;
 use slime_seed_finder::mc_rng::McRng;
 use slime_seed_finder::seed_info::MinecraftVersion;
@@ -418,3 +419,56 @@ pub fn similar_biome_seed(seed: String) -> String {
     }
 }
 
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn draw_treasure_map(o: String) -> Vec<u8> {
+    console!(log, format!("Parsing options: {}", o));
+    let o: Result<Options, _> = serde_json::from_str(&o);
+    let o = o.unwrap();
+    let first_treasure_map = &o.seed_info.treasure_maps[0];
+    let mut pmap = Map::new(Area { x: 0, z: 0, w: 128, h: 128 });
+    assert_eq!(first_treasure_map.map.len(), 128 * 128);
+    for (i, v) in first_treasure_map.map.iter().enumerate() {
+        let (x, z) = (i % 128, i / 128);
+        pmap.a[(x, z)] = match v {
+            0 => biome_id::ocean,
+            1 => biome_id::plains,
+            2 => biome_id::river,
+            _ => panic!("Invalid id: {}", v),
+        };
+    }
+    // Double map size from 128x128 to 256x256
+    let mut pmap2 = Map::new(Area { x: 0, z: 0, w: 256, h: 256 });
+    for x in 0..256 {
+        for z in 0..256 {
+            pmap2.a[(x, z)] = pmap.a[(x/2, z/2)];
+        }
+    }
+    let tmap = biome_layers::treasure_map_at(first_treasure_map.fragment_x, first_treasure_map.fragment_z, &pmap2);
+
+    biome_layers::draw_treasure_map_image(&tmap)
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
+    console!(log, format!("Parsing options: {}", o));
+    let o: Result<Options, _> = serde_json::from_str(&o);
+    let o = o.unwrap();
+    let first_treasure_map = &o.seed_info.treasure_maps[0];
+    let mut pmap = Map::new(Area { x: 0, z: 0, w: 128, h: 128 });
+    console!(log, format!("First treasure map len: {}", first_treasure_map.map.len()));
+    assert_eq!(first_treasure_map.map.len(), 128 * 128);
+    for (i, v) in first_treasure_map.map.iter().enumerate() {
+        let (x, z) = (i % 128, i / 128);
+        pmap.a[(x, z)] = match v {
+            0 => biome_id::ocean,
+            1 => biome_id::plains,
+            2 => biome_id::river,
+            _ => panic!("Invalid id: {}", v),
+        };
+    }
+    let r = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 25);
+
+    r.into_iter().map(|seed| format!("{}", seed)).collect()
+}

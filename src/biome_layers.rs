@@ -393,6 +393,46 @@ impl GetMap for MapMap2 {
     }
 }
 
+pub struct MapHalfVoronoiZoom {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapHalfVoronoiZoom {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+// TODO: tests
+impl GetMap for MapHalfVoronoiZoom {
+    fn get_map(&self, _area: Area) -> Map {
+        unimplemented!()
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        // Naive implementation: apply MapVoronoiZoom and rescale
+        let vmap = MapVoronoiZoom::new(self.base_seed, self.world_seed).get_map_from_pmap(pmap);
+        // Scale from 1:1 to 1:2
+        let varea = vmap.area();
+        let marea = Area {
+            x: varea.x >> 1,
+            z: varea.z >> 1,
+            w: varea.w >> 1,
+            h: varea.h >> 1,
+        };
+        let mut m = Map::new(marea);
+        for x in 0..marea.w as usize {
+            for z in 0..marea.h as usize {
+                // TODO: check if we need offset here
+                m.a[(x, z)] = vmap.a[(x * 2, z * 2)];
+            }
+        }
+
+        m
+    }
+}
+
 pub struct MapVoronoiZoom {
     base_seed: i64,
     world_seed: i64,
@@ -2652,10 +2692,8 @@ pub fn treasure_map_at(fragment_x: i64, fragment_z: i64, pmap: &Map) -> Map {
     // pmap, and the x and z coordinates in parea, but for testing it is easier
     // to just scale the map.
     //let pmap = MapSkip::new(Rc::from(generator_up_to_layer_1_14(seed, 50)), 2).get_map(parea);
-    let corner_x = fragment_x * 256 - 64;
-    let corner_z = fragment_z * 256 - 64;
-    // TODO: x and z are unused here, but since this map is 1:2 scale, maybe we
-    // should take that into account and divide x and z by 2?
+    let corner_x = (fragment_x * 256 - 64) / 2;
+    let corner_z = (fragment_z * 256 - 64) / 2;
     let area = Area {
         x: corner_x,
         z: corner_z,
@@ -2859,6 +2897,24 @@ pub fn reverse_map_zoom(m: &Map) -> Map {
     let (p_w, p_h) = (p_w as u64, p_h as u64);
     let mut pmap = Map::new(Area { x: m.x >> 1, z: m.z >> 1, w: p_w, h: p_h });
     let (fx, fz) = ((m.x & 1) as usize, (m.z & 1) as usize);
+
+    for z in 0..p_h {
+        for x in 0..p_w {
+            let (x, z) = (x as usize, z as usize);
+            pmap.a[(x, z)] = m.a[(fx + (x << 1), fz + (z << 1))];
+        }
+    }
+
+    pmap
+}
+
+pub fn reverse_map_half_voronoi(m: &Map) -> Map {
+    // Same as reverse_map_zoom, but we keep odd coordinates instead
+    let (w, h) = m.a.dim();
+    let (p_w, p_h) = (w >> 1, h >> 1);
+    let (p_w, p_h) = (p_w as u64, p_h as u64);
+    let mut pmap = Map::new(Area { x: m.x >> 1, z: m.z >> 1, w: p_w, h: p_h });
+    let (fx, fz) = ((!m.x & 1) as usize, (!m.z & 1) as usize);
 
     for z in 0..p_h {
         for x in 0..p_w {
@@ -3091,7 +3147,7 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
 /// River Seed Finder
 ///
 /// range_lo: 0
-/// range_hi: 1 << 24
+/// range_hi: 1 << 25
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
 pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], range_lo: u32, range_hi: u32) -> Vec<i64> {
     // prevoronoi_coords are used to find the first 26 bits
@@ -3159,7 +3215,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
 
         v
     }).collect::<Vec<_>>();
-    debug!("{:08X?}", candidates_34);
+    debug!("{:09X?}", candidates_34);
     debug!("34 bit candidates: {}", candidates_34.len());
 
     // Can't use rivers to find 48 bits because rivers use 64 bits
@@ -3208,6 +3264,85 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     debug!("64 bit candidates: {}", candidates_64.len());
 
     candidates_64
+}
+
+/// Treasure Map River Seed Finder
+///
+/// range_lo: 0
+/// range_hi: 1 << 25
+/// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
+pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_hi: u32) -> Vec<i64> {
+    // Naming
+    // _tm: treasure_map, indicates 1:2 scale
+    // _pm: previous_map, indicates 1:4 scale, obtained as ReverseMapZoom(treasure_map)
+    // _hv: half_voronoi, indicates 1:2 scale sliced as MapZoom(ReverseMapZoom(treasure_map))
+    // _hd: indicates 1:1 scale
+
+    let mut river_coords_hd = vec![];
+    let mut river_coords_tm = vec![];
+    let tarea = treasure_map.area();
+    debug!("Treasure map area: {:?}", tarea);
+    for x in 0..tarea.w as usize {
+        for z in 0..tarea.h as usize {
+            if treasure_map.a[(x, z)] == biome_id::river {
+                let p = ((tarea.x + x as i64) * 2, (tarea.z + z as i64) * 2);
+                river_coords_hd.push(p);
+                let p = ((tarea.x + x as i64) * 1, (tarea.z + z as i64) * 1);
+                river_coords_tm.push(p);
+            }
+        }
+    }
+
+    let candidates_26 = river_seed_finder_26_range(&river_coords_hd, range_lo, range_hi);
+
+    let area_tm = Area::from_coords(&river_coords_tm);
+    let target_map_tm = map_with_river_at(&river_coords_tm, area_tm);
+    // Reversing from a HalfVoronoiZoom is more or less equivalent to reversing a MapZoom
+    let target_map_pm = reverse_map_half_voronoi(&target_map_tm);
+
+    // Compare resolution of original and reverse-voronoi + voronoi
+    let g43 = MapHalfVoronoiZoom::new(10, 1234);
+    let target_rv_voronoi = g43.get_map_from_pmap(&target_map_pm);
+
+    let target_map_hv = slice_to_area(target_map_tm.clone(), target_rv_voronoi.area());
+
+    debug!("{}", draw_map(&target_map_tm));
+    debug!("{}", draw_map(&target_map_pm));
+    //debug!("{}", draw_map(&target_map_hv));
+
+    // Actually, we only want to compare borders, so use HelperMapRiverAll, which is actually an
+    // edge detector
+    let target_map_hv_borders = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&target_map_hv);
+    //debug!("area_hv_borders: {:?}", area_hv_borders);
+    let target_score_hv = count_rivers(&target_map_hv_borders);
+
+    debug!("Target voronoi score: {}", target_score_hv);
+    // Now use voronoi zoom to bruteforce the remaining (34-26 = 8 bits)
+    let candidates_34 = candidates_26.into_iter().flat_map(|x| {
+        let mut v = vec![];
+        for seed in 0..(1 << (34 - 26)) {
+            let world_seed = x | (seed << 26);
+            let g43 = MapHalfVoronoiZoom::new(10, world_seed);
+            let candidate_voronoi = g43.get_map_from_pmap(&target_map_pm);
+            //debug!("{}", draw_map(&candidate_voronoi));
+            let candidate_voronoi_borders = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
+            //debug!("expected, found");
+            //debug!("{}", draw_map(&target_map_hv_borders));
+            //debug!("{}", draw_map(&candidate_voronoi_borders));
+            let and_map = map_river_and(candidate_voronoi_borders, &target_map_hv_borders);
+            let candidate_score = count_rivers(&and_map);
+            if candidate_score >= target_score_hv * 90 / 100 {
+                debug!("{:09X}: {}", world_seed, candidate_score);
+                v.push(world_seed);
+            }
+        }
+
+        v
+    }).collect::<Vec<_>>();
+    debug!("{:09X?}", candidates_34);
+    debug!("34 bit candidates: {}", candidates_34.len());
+
+    return candidates_34;
 }
 
 fn map_river_and(mut a: Map, b: &Map) -> Map {

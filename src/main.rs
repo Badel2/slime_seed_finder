@@ -4,6 +4,7 @@ use slime_seed_finder::*;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::biome_id;
+use slime_seed_finder::biome_layers::Map;
 use slime_seed_finder::slime::seed_from_slime_chunks;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
 use slime_seed_finder::seed_info::biomes_from_map;
@@ -88,6 +89,17 @@ enum Opt {
     /// Use rivers and biomes to find the seed
     #[structopt(name = "rivers")]
     Rivers {
+        /// File containing the SeedInfo
+        #[structopt(short = "i", long, parse(from_os_str))]
+        input_file: PathBuf,
+        /// Where to write the found seeds as a JSON array
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
+    },
+
+    /// Use rivers from an unexplored treasure map to find the seed
+    #[structopt(name = "treasure-rivers")]
+    TreasureRivers {
         /// File containing the SeedInfo
         #[structopt(short = "i", long, parse(from_os_str))]
         input_file: PathBuf,
@@ -304,6 +316,34 @@ fn main() {
             };
 
             println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+            if let Some(of) = output_file {
+                write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
+            }
+        }
+
+        Opt::TreasureRivers {
+            input_file,
+            output_file,
+        } => {
+            let seed_info = SeedInfo::read(input_file).expect("Error reading seed info");
+            // TODO: integrate the treasure map river seed finder into the "find" subcommand
+            let first_treasure_map = &seed_info.treasure_maps[0];
+
+            let mut pmap = Map::new(Area { x: (-64 + 256 * first_treasure_map.fragment_x) / 2, z: (-64 + 256 * first_treasure_map.fragment_z) / 2, w: 128, h: 128 });
+            for (i, v) in first_treasure_map.map.iter().enumerate() {
+                let (x, z) = (i % 128, i / 128);
+                pmap.a[(x, z)] = match v {
+                    0 => biome_id::ocean,
+                    1 => biome_id::plains,
+                    2 => biome_id::river,
+                    _ => panic!("Invalid id: {}", v),
+                };
+            }
+
+            // All possible 26 bit seeds
+            let seeds = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 25);
+            println!("Found {} 26-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
 
             if let Some(of) = output_file {
                 write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");

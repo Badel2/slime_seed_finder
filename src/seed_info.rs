@@ -60,6 +60,15 @@ pub struct Options {
 
 #[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TreasureMap {
+    pub fragment_x: i64,
+    pub fragment_z: i64,
+    //pub map: [u8; 128*128],
+    pub map: Vec<u8>,
+}
+
+#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SeedStructures {
     #[serde(default, skip_serializing_if = "is_default")]
     pub slime_chunks: Vec<Chunk>,
@@ -106,6 +115,8 @@ pub struct SeedInfo {
     pub biomes: HashMap<BiomeId, Vec<Point>>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub end_pillars: Vec<u8>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub treasure_maps: Vec<TreasureMap>,
     #[serde(flatten)]
     pub positive: SeedStructures,
     // Coords of structures that do not exist, useful to remove duplicates
