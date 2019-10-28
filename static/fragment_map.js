@@ -19,13 +19,13 @@ function mod(x, m) {
 
 //let FRAG_SIZE = 256;
 let canvas = document.getElementById("demo");
-let CANVAS_W = canvas.width|0;
-let CANVAS_H = canvas.height|0;
+let CANVAS_W = canvas.width | 0;
+let CANVAS_H = canvas.height | 0;
 let NUM_LAYERS = 244;
 
 function array_filled_with(length, what) {
     let a = Array(length);
-    for(let i=0; i<length; i++) {
+    for (let i = 0; i < length; i++) {
         a[i] = what();
     }
     return a;
@@ -34,9 +34,13 @@ function array_filled_with(length, what) {
 let map = {
     tsize: null,
     // 2 layers
-    layers: array_filled_with(NUM_LAYERS, function() { return new Map(); }),
-    generating: array_filled_with(NUM_LAYERS, function() { return new Set(); }),
-    getFragment: function (layer, fx, fy) {
+    layers: array_filled_with(NUM_LAYERS, function() {
+        return new Map();
+    }),
+    generating: array_filled_with(NUM_LAYERS, function() {
+        return new Set();
+    }),
+    getFragment: function(layer, fx, fy) {
         let k = fx + "," + fy;
         let frag = this.layers[layer].get(k);
         if (frag == undefined) {
@@ -45,16 +49,19 @@ let map = {
                 this.generating[layer].add(k);
                 let this_layers_layer = this.layers[layer];
                 let this_generating_layer = this.generating[layer];
-                this.generateFragment(layer, fx, fy).then(function(value) {
-                    //console.log(value); // Success!
-                    //console.log("Finished generating fragment: " + fx + ", " + fy);
-                    this_layers_layer.set(k, value);
-                    Game.dirty = true;
-                }, function(reason) {
-                    this_generating_layer.delete(k);
-                    //Game.dirty = true;
-                    console.error(reason); // Error!
-                });
+                this.generateFragment(layer, fx, fy).then(
+                    function(value) {
+                        //console.log(value); // Success!
+                        //console.log("Finished generating fragment: " + fx + ", " + fy);
+                        this_layers_layer.set(k, value);
+                        Game.dirty = true;
+                    },
+                    function(reason) {
+                        this_generating_layer.delete(k);
+                        //Game.dirty = true;
+                        console.error(reason); // Error!
+                    }
+                );
             }
         }
         return frag;
@@ -75,19 +82,19 @@ function Camera(map, width, height) {
 
 Camera.SPEED = 256; // pixels per second
 
-Camera.prototype.move = function (delta, dirx, diry) {
+Camera.prototype.move = function(delta, dirx, diry) {
     // move camera
-    this.x += (dirx * Camera.SPEED * delta) * this.scale;
-    this.y += (diry * Camera.SPEED * delta) * this.scale;
+    this.x += dirx * Camera.SPEED * delta * this.scale;
+    this.y += diry * Camera.SPEED * delta * this.scale;
 };
 
-Camera.prototype.moveRaw = function (dirx, diry) {
+Camera.prototype.moveRaw = function(dirx, diry) {
     // move camera
     this.x += dirx;
     this.y += diry;
 };
 
-Camera.prototype.zoom = function (newF) {
+Camera.prototype.zoom = function(newF) {
     let old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
     let old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
     this.scale *= newF;
@@ -97,54 +104,57 @@ Camera.prototype.zoom = function (newF) {
     this.centerAt(old_center_x, old_center_y);
 };
 
-Camera.prototype.centerAt = function (x, y) {
+Camera.prototype.centerAt = function(x, y) {
     this.x = (x + 0.5) * this.tsize - this.width / 2;
     this.y = (y + 0.5) * this.tsize - this.height / 2;
-}
+};
 
-Camera.prototype.centerAtBlock = function (x, y) {
+Camera.prototype.centerAtBlock = function(x, y) {
     this.x = ((x + 0.5) / map.tsize) * this.tsize - this.width / 2;
     this.y = ((y + 0.5) / map.tsize) * this.tsize - this.height / 2;
-}
+};
 
-Camera.prototype.blockAtCenter = function () {
-    let x = (((this.x + this.width / 2) / this.tsize) * map.tsize) - 0.5;
-    let y = (((this.y + this.height / 2) / this.tsize) * map.tsize) - 0.5;
+Camera.prototype.blockAtCenter = function() {
+    let x = ((this.x + this.width / 2) / this.tsize) * map.tsize - 0.5;
+    let y = ((this.y + this.height / 2) / this.tsize) * map.tsize - 0.5;
     return [x, y];
-}
+};
 
-Camera.prototype.resolutionChange = function (f) {
+Camera.prototype.resolutionChange = function(f) {
     // The map resolution changes by factor f, meaning 0,0 is still 0,0
     // but 100,100 becomes 100*f,100*f
     let old_xy = this.blockAtCenter();
     this.zoom(f);
-    this.centerAtBlock((old_xy[0] + 0.5) / f - 0.5, (old_xy[1] + 0.5) / f - 0.5);
-}
+    this.centerAtBlock(
+        (old_xy[0] + 0.5) / f - 0.5,
+        (old_xy[1] + 0.5) / f - 0.5
+    );
+};
 
-Game.load = function () {
+Game.load = function() {
     return [
         //Loader.loadImage('tiles', '../assets/tiles.png'),
     ];
 };
 
-Game.init = function (tsize, canvasH, canvasW, activeLayer) {
+Game.init = function(tsize, canvasH, canvasW, activeLayer) {
     map.tsize = tsize;
-    this.tileAtlas = Loader.getImage('tiles');
+    this.tileAtlas = Loader.getImage("tiles");
     this.camera = new Camera(map, CANVAS_W, CANVAS_H);
     this.showGrid = true;
-    let gs = document.getElementById('gridSize');
+    let gs = document.getElementById("gridSize");
     if (gs) {
         this.gridSize = Math.round(Math.pow(2, gs.value));
         gs.oninput = function() {
             Game.gridSize = Math.round(Math.pow(2, gs.value));
             Game.dirty = true;
-        }
+        };
     } else {
         this.gridSize = map.tsize;
     }
     this.centerAtBlock(0, 0);
     this.layerCanvas = map.layers.map(function() {
-        let c = document.createElement('canvas');
+        let c = document.createElement("canvas");
         c.width = CANVAS_W;
         c.height = CANVAS_H;
         return c;
@@ -156,16 +166,16 @@ Game.init = function (tsize, canvasH, canvasW, activeLayer) {
     this.activeLayer = activeLayer;
 };
 
-Game.update = function (delta) {
+Game.update = function(delta) {
     // maybe scroll here?
 };
 
-Game._drawLayer = function (layer) {
+Game._drawLayer = function(layer) {
     // + 1 because when the width is not a multiple of tsize things get weird
     let startCol = Math.floor(this.camera.x / this.camera.tsize);
-    let endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
+    let endCol = startCol + this.camera.width / this.camera.tsize + 1;
     let startRow = Math.floor(this.camera.y / this.camera.tsize);
-    let endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
+    let endRow = startRow + this.camera.height / this.camera.tsize + 1;
     let offsetX = -this.camera.x + startCol * this.camera.tsize;
     let offsetY = -this.camera.y + startRow * this.camera.tsize;
 
@@ -178,7 +188,11 @@ Game._drawLayer = function (layer) {
             //console.log(tile);
             let x = (c - startCol) * this.camera.tsize + offsetX;
             let y = (r - startRow) * this.camera.tsize + offsetY;
-            let fragmentImage = map.getFragment(layer, Math.round(c), Math.round(r));
+            let fragmentImage = map.getFragment(
+                layer,
+                Math.round(c),
+                Math.round(r)
+            );
             if (fragmentImage != undefined) {
                 this.ctx.drawImage(
                     fragmentImage, // image
@@ -186,7 +200,7 @@ Game._drawLayer = function (layer) {
                     0, // source y
                     map.tsize, // source width
                     map.tsize, // source height
-                    Math.round(x),  // target x
+                    Math.round(x), // target x
                     Math.round(y), // target y
                     this.camera.tsize, // target width
                     this.camera.tsize // target height
@@ -206,8 +220,8 @@ Game._drawLayer = function (layer) {
         let startCol = Math.floor(xyf[0]) * mtsize;
         let startRow = Math.floor(xyf[1]) * mtsize;
         let xy = this.mouse_coords_to_game_coords_float(CANVAS_W, CANVAS_H);
-        let endCol= Math.floor(xy[0] + 1) * mtsize;
-        let endRow = Math.floor(xy[1] + 1) * mtsize
+        let endCol = Math.floor(xy[0] + 1) * mtsize;
+        let endRow = Math.floor(xy[1] + 1) * mtsize;
 
         this.ctx.strokeStyle = "#AAA";
         this.ctx.lineWidth = 1;
@@ -232,11 +246,13 @@ Game._drawLayer = function (layer) {
     }
 };
 
-Game.render = function () {
-    if (!this.dirty) { return; }
+Game.render = function() {
+    if (!this.dirty) {
+        return;
+    }
     this.dirty = false;
-    CANVAS_W = canvas.width|0;
-    CANVAS_H = canvas.height|0;
+    CANVAS_W = canvas.width | 0;
+    CANVAS_H = canvas.height | 0;
     this.camera.width = CANVAS_W;
     this.camera.height = CANVAS_H;
     // Disable smoothing, we want a sharp pixelated image
@@ -255,8 +271,8 @@ Game.mouse_coords_to_game_coords_float = function(x, y) {
 };
 
 Game.game_coords_to_mouse_coords_float = function(tx, ty) {
-    let x = (tx * this.camera.tsize) - this.camera.x;
-    let y = (ty * this.camera.tsize) - this.camera.y;
+    let x = tx * this.camera.tsize - this.camera.x;
+    let y = ty * this.camera.tsize - this.camera.y;
     return [x, y];
 };
 
@@ -269,21 +285,22 @@ Game.mouse_coords_to_game_coords = function(x, y) {
     return [tx, ty];
 };
 
-Game.clickTile = function(x, y) {
-};
+Game.clickTile = function(x, y) {};
 
 // Get all the (x, y) pairs from a layer with the given value
-Game.getSelection = function(layer, value) {
-};
+Game.getSelection = function(layer, value) {};
 
 Game.clear = function(layer) {
-    map.layers = array_filled_with(NUM_LAYERS, function() { return new Map(); });
-    map.generating = array_filled_with(NUM_LAYERS, function() { return new Set(); });
+    map.layers = array_filled_with(NUM_LAYERS, function() {
+        return new Map();
+    });
+    map.generating = array_filled_with(NUM_LAYERS, function() {
+        return new Set();
+    });
     this.dirty = true;
 };
 
-Game.setSelection = function(layer, value, keys) {
-};
+Game.setSelection = function(layer, value, keys) {};
 
 Game.scrollBy = function(x, y) {
     this.dirty = true;
@@ -303,10 +320,9 @@ Game.centerAt = function(x, y) {
 Game.centerAtBlock = function(x, y) {
     this.dirty = true;
     this.camera.centerAtBlock(Number.parseInt(x), Number.parseInt(y));
-}
+};
 
 Game.setActiveLayer = function(layer) {
     this.dirty = true;
     this.activeLayer = layer;
-}
-
+};

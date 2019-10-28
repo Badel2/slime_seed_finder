@@ -11,14 +11,14 @@ let map = {
     tsize: 1,
     // 1 layer
     layers: Array(1).fill(new Map()),
-    getTile: function (layer, col, row) {
+    getTile: function(layer, col, row) {
         // We must use a string as a key because two arrays
         // with are same elements are not equal according to js
         // [0, 0] != [0, 0]
         let k = col + "," + row;
         return this.layers[layer].get(k);
     },
-    setTile: function (layer, col, row, value) {
+    setTile: function(layer, col, row, value) {
         let k = col + "," + row;
         if (value == 0) {
             // No need to store "empty" tiles
@@ -26,7 +26,7 @@ let map = {
         } else {
             this.layers[layer].set(k, value);
         }
-    }
+    },
 };
 
 function Camera(map, width, height) {
@@ -40,19 +40,19 @@ function Camera(map, width, height) {
 
 Camera.SPEED = 256; // pixels per second
 
-Camera.prototype.move = function (delta, dirx, diry) {
+Camera.prototype.move = function(delta, dirx, diry) {
     // move camera
-    this.x += (dirx * Camera.SPEED * delta) * this.scale;
-    this.y += (diry * Camera.SPEED * delta) * this.scale;
+    this.x += dirx * Camera.SPEED * delta * this.scale;
+    this.y += diry * Camera.SPEED * delta * this.scale;
 };
 
-Camera.prototype.moveRaw = function (dirx, diry) {
+Camera.prototype.moveRaw = function(dirx, diry) {
     // move camera
     this.x += dirx;
     this.y += diry;
 };
 
-Camera.prototype.zoom = function (newF) {
+Camera.prototype.zoom = function(newF) {
     let old_center_x = (this.x + this.width / 2) / this.tsize - 0.5;
     let old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
     this.scale *= newF;
@@ -62,22 +62,22 @@ Camera.prototype.zoom = function (newF) {
     this.centerAt(old_center_x, old_center_y);
 };
 
-Camera.prototype.centerAt = function (x, y) {
+Camera.prototype.centerAt = function(x, y) {
     this.x = (x + 0.5) * this.tsize - this.width / 2;
     this.y = (y + 0.5) * this.tsize - this.height / 2;
-}
+};
 
-Game.load = function () {
+Game.load = function() {
     return [
         //Loader.loadImage('tiles', '../assets/tiles.png'),
     ];
 };
 
 // args are currently ignored
-Game.init = function (tsize, canvasW, canvasH) {
+Game.init = function(tsize, canvasW, canvasH) {
     console.log("Init game with w:" + canvasW + ", h:" + canvasH);
     map.tsize = 1;
-    this.tileAtlas = Loader.getImage('tiles');
+    this.tileAtlas = Loader.getImage("tiles");
     this.camera = new Camera(map, canvasW, canvasH);
     this.showGrid = true;
     this.centerAt(0, 0);
@@ -85,16 +85,16 @@ Game.init = function (tsize, canvasW, canvasH) {
     this.dirty = true;
 };
 
-Game.update = function (delta) {
+Game.update = function(delta) {
     // maybe scroll here?
 };
 
-Game._drawTile = function (x, y, v) {
-    let colors = ["white", "#0000FF",];
+Game._drawTile = function(x, y, v) {
+    let colors = ["white", "#0000FF"];
     if (v < 2) {
         this.ctx.fillStyle = colors[v];
         this.ctx.fillRect(
-            Math.round(x),  // target x
+            Math.round(x), // target x
             Math.round(y), // target y
             this.camera.tsize, // target width
             this.camera.tsize // target height
@@ -102,12 +102,12 @@ Game._drawTile = function (x, y, v) {
     }
 };
 
-Game._drawLayer = function (layer) {
+Game._drawLayer = function(layer) {
     // + 1 because when the width is not a multiple of tsize things get weird
     let startCol = Math.floor(this.camera.x / this.camera.tsize);
-    let endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
+    let endCol = startCol + this.camera.width / this.camera.tsize + 1;
     let startRow = Math.floor(this.camera.y / this.camera.tsize);
-    let endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
+    let endRow = startRow + this.camera.height / this.camera.tsize + 1;
     let offsetX = -this.camera.x + startCol * this.camera.tsize;
     let offsetY = -this.camera.y + startRow * this.camera.tsize;
 
@@ -134,7 +134,8 @@ Game._drawLayer = function (layer) {
                 //console.log(tile);
                 let x = (c - startCol) * this.camera.tsize + offsetX;
                 let y = (r - startRow) * this.camera.tsize + offsetY;
-                if (v != undefined) { // undefined => empty tile
+                if (v != undefined) {
+                    // undefined => empty tile
                     this._drawTile(x, y, v);
                 }
             }
@@ -164,12 +165,12 @@ Game._drawLayer = function (layer) {
     }
 };
 
-Game._drawVoronoiTiles = function () {
+Game._drawVoronoiTiles = function() {
     // + 1 because when the width is not a multiple of tsize things get weird
     let startCol = Math.floor(this.camera.x / this.camera.tsize);
-    let endCol = startCol + (this.camera.width / this.camera.tsize) + 1;
+    let endCol = startCol + this.camera.width / this.camera.tsize + 1;
     let startRow = Math.floor(this.camera.y / this.camera.tsize);
-    let endRow = startRow + (this.camera.height / this.camera.tsize) + 1;
+    let endRow = startRow + this.camera.height / this.camera.tsize + 1;
     let offsetX = -this.camera.x + startCol * this.camera.tsize;
     let offsetY = -this.camera.y + startRow * this.camera.tsize;
 
@@ -177,18 +178,18 @@ Game._drawVoronoiTiles = function () {
 
     for (let c = startCol; c <= endCol; c++) {
         for (let r = startRow; r <= endRow; r++) {
-                function mod(n, m) {
-                          return ((n % m) + m) % m;
-                }
+            function mod(n, m) {
+                return ((n % m) + m) % m;
+            }
             let v = mod(c, 4) == 2 && mod(r, 4) == 2;
             //console.log(tile);
             let x = (c - startCol) * this.camera.tsize + offsetX;
             let y = (r - startRow) * this.camera.tsize + offsetY;
             if (v) {
                 //this._drawTile(x, y, v);
-                this.ctx.fillStyle = '#ddffdd'
+                this.ctx.fillStyle = "#ddffdd";
                 this.ctx.fillRect(
-                    Math.round(x),  // target x
+                    Math.round(x), // target x
                     Math.round(y), // target y
                     this.camera.tsize, // target width
                     this.camera.tsize // target height
@@ -198,8 +199,10 @@ Game._drawVoronoiTiles = function () {
     }
 };
 
-Game.render = function () {
-    if (!this.dirty) { return; }
+Game.render = function() {
+    if (!this.dirty) {
+        return;
+    }
     this.dirty = false;
     // clear previous frame
     this.ctx.fillStyle = "white";
@@ -236,9 +239,13 @@ Game.clickTile = function(x, y) {
     console.log(this.camera);
     */
     let a = map.getTile(0, tx, ty);
-    if (a == undefined) { a = 0; }
+    if (a == undefined) {
+        a = 0;
+    }
     a += 1;
-    if (a >= 2) { a = 0; }
+    if (a >= 2) {
+        a = 0;
+    }
     map.setTile(0, tx, ty, a);
 };
 
@@ -248,27 +255,29 @@ Game.setTile = function(x, y, value) {
     let tx = txty[0];
     let ty = txty[1];
     map.setTile(0, tx, ty, value);
-}
+};
 
 Game._recursiveBucketTool = function(targetValue, recursionCounter, stack) {
     let newStack = [];
-    stack.forEach((xy) => {
+    stack.forEach(xy => {
         let x = xy[0];
         let y = xy[1];
-            let a = map.getTile(0, x, y);
-            if (a == undefined) { a = 0; }
-            if (a != targetValue) {
-                map.setTile(0, x, y, targetValue);
-                newStack.push([x+0, y+1]);
-                newStack.push([x+0, y-1]);
-                newStack.push([x+1, y+0]);
-                newStack.push([x-1, y+0]);
-            }
+        let a = map.getTile(0, x, y);
+        if (a == undefined) {
+            a = 0;
+        }
+        if (a != targetValue) {
+            map.setTile(0, x, y, targetValue);
+            newStack.push([x + 0, y + 1]);
+            newStack.push([x + 0, y - 1]);
+            newStack.push([x + 1, y + 0]);
+            newStack.push([x - 1, y + 0]);
+        }
     });
     if (recursionCounter > 0) {
         this._recursiveBucketTool(targetValue, recursionCounter - 1, newStack);
     }
-}
+};
 
 Game.bucketTool = function(x, y, targetValue) {
     this.dirty = true;

@@ -12,29 +12,31 @@
 //
 
 let Loader = {
-    images: {}
+    images: {},
 };
 
-Loader.loadImage = function (key, src) {
+Loader.loadImage = function(key, src) {
     let img = new Image();
 
-    let d = new Promise(function (resolve, reject) {
-        img.onload = function () {
-            this.images[key] = img;
-            resolve(img);
-        }.bind(this);
+    let d = new Promise(
+        function(resolve, reject) {
+            img.onload = function() {
+                this.images[key] = img;
+                resolve(img);
+            }.bind(this);
 
-        img.onerror = function () {
-            reject('Could not load image: ' + src);
-        };
-    }.bind(this));
+            img.onerror = function() {
+                reject("Could not load image: " + src);
+            };
+        }.bind(this)
+    );
 
     img.src = src;
     return d;
 };
 
-Loader.getImage = function (key) {
-    return (key in this.images) ? this.images[key] : null;
+Loader.getImage = function(key) {
+    return key in this.images ? this.images[key] : null;
 };
 
 //
@@ -43,18 +45,20 @@ Loader.getImage = function (key) {
 
 let Game = {};
 
-Game.run = function (context, tsize, canvasW, canvasH) {
+Game.run = function(context, tsize, canvasW, canvasH) {
     this.ctx = context;
     this._previousElapsed = 0;
 
     let p = this.load();
-    Promise.all(p).then(function (loaded) {
-        this.init(tsize, canvasW, canvasH);
-        window.requestAnimationFrame(this.tick);
-    }.bind(this));
+    Promise.all(p).then(
+        function(loaded) {
+            this.init(tsize, canvasW, canvasH);
+            window.requestAnimationFrame(this.tick);
+        }.bind(this)
+    );
 };
 
-Game.tick = function (elapsed) {
+Game.tick = function(elapsed) {
     window.requestAnimationFrame(this.tick);
     // compute delta time in seconds -- also cap it
     let delta = (elapsed - this._previousElapsed) / 1000.0;
@@ -66,7 +70,6 @@ Game.tick = function (elapsed) {
 }.bind(Game);
 
 // override these methods to create the demo
-Game.init = function () {};
-Game.update = function (delta) {};
-Game.render = function () {};
-
+Game.init = function() {};
+Game.update = function(delta) {};
+Game.render = function() {};
