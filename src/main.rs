@@ -30,9 +30,9 @@ enum Opt {
         /// If left blank, will generate a random seed and print it on stderr.
         #[structopt(short = "s", long)]
         seed: Option<i64>,
-        /// If the seed flag is omitted, it will be generated randomly using
-        /// the same method as a default Minecraft server, which has a flaw
-        /// and uses only 48 bits of entropy. With this flag, 64 bits of
+        /// When creating a Minecraft world, if the seed field is left blank,
+        /// the seed will be generated randomly using (new Random()).nextLong(),
+        /// which uses only 48 bits of entropy. With this flag, 64 bits of
         /// entropy will be used, allowing to explore the complete seed space.
         #[structopt(long, conflicts_with = "seed")]
         seed_not_from_java_next_long: bool,
@@ -186,7 +186,7 @@ fn main() {
     match Opt::from_args() {
         Opt::Generate {
             seed,
-            seed_not_from_java_next_long,
+            mut seed_not_from_java_next_long,
             num_slime_chunks,
             num_non_slime_chunks,
             output_file,
@@ -200,6 +200,7 @@ fn main() {
                 if !seed_not_from_java_next_long {
                     if JavaRng::create_from_long(seed as u64).is_none() {
                         eprintln!("Warning: this seed cannot be generated with Java Random nextLong");
+                        seed_not_from_java_next_long = true;
                     }
                 }
             }
