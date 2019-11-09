@@ -176,7 +176,7 @@ pub struct Biome {
 }
 
 fn get_biome_type(id: i32) -> i32 {
-    BIOME_INFO[id as usize & 0xff].type_0
+    BIOME_INFO[id as usize].type_0
 }
 fn biome_exists(id: i32) -> bool {
     if id <= 0xFF {
@@ -521,12 +521,12 @@ impl GetMap for MapVoronoiZoom {
         // 4x4 => 12x12
 
         for z in 0..p_h - 1 {
-            let mut v00 = pmap.a[(0, z)] & 0xFF;
-            let mut v01 = pmap.a[(0, z+1)] & 0xFF;
+            let mut v00 = pmap.a[(0, z)];
+            let mut v01 = pmap.a[(0, z+1)];
 
             for x in 0..p_w - 1 {
-                let v10 = pmap.a[(x+1, z)] & 0xFF;
-                let v11 = pmap.a[(x+1, z+1)] & 0xFF;
+                let v10 = pmap.a[(x+1, z)]; //& 0xFF;
+                let v11 = pmap.a[(x+1, z+1)]; //& 0xFF;
 
                 // Missed optimization (not present in Java):
                 // if v00 == v01 == v10 == v11,
@@ -4609,7 +4609,7 @@ mod tests {
         //a[(0, 0)] = 1;
         for z in 0..h {
             for x in 0..w {
-                m.a[(x as usize, z as usize)] = (x * h + z) as i32 & 0xFF;
+                m.a[(x as usize, z as usize)] = (x * h + z) as i32;
             }
         }
 
