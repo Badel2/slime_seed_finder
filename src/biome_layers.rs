@@ -179,7 +179,11 @@ fn get_biome_type(id: i32) -> i32 {
     BIOME_INFO[id as usize & 0xff].type_0
 }
 fn biome_exists(id: i32) -> bool {
-    BIOME_INFO[(id & 0xff) as usize].id & (!0xff) == 0
+    if id <= 0xFF {
+        BIOME_INFO[id as usize].id & (!0xFF) == 0
+    } else {
+        false
+    }
 }
 fn is_oceanic(id: i32) -> bool {
     use self::biome_id::*;
@@ -4746,6 +4750,15 @@ mod tests {
     fn generate_t() {
         let a = Area { x: 0, z: 0, w: 100, h: 100 };
         generate(MinecraftVersion::Java1_7, a, 1234);
+    }
+
+    #[test]
+    fn bamboo_jungle() {
+        // This is a regression test for
+        // https://github.com/Cubitect/cubiomes/issues/23
+        let a = Area { x: -3000, z: -3000, w: 1, h: 1 };
+        let m = generate(MinecraftVersion::Java1_14, a, 5010);
+        assert_eq!(m.a[(0, 0)], biome_id::bambooJungle);
     }
 
     #[test]
