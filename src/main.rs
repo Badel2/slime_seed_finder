@@ -14,6 +14,7 @@ use slime_seed_finder::java_rng::JavaRng;
 use std::fs::File;
 use std::path::Path;
 use std::io::Write;
+use std::ffi::OsStr;
 use rand::{thread_rng, Rng as _};
 use log::*;
 
@@ -175,6 +176,17 @@ enum Opt {
         fragment_z: i64,
         /// Output filename. Defaults to treasure_map_<seed>_x_z.png.
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
+    },
+
+    /// Read a minecraft region file and try to find its seed
+    #[structopt(name = "anvil")]
+    Anvil {
+        /// Path to "minecraft_saved_world/region"
+        #[structopt(short = "i", long, parse(from_os_str))]
+        input_dir: PathBuf,
+        /// Where to write the found seeds as a JSON array
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
@@ -408,6 +420,24 @@ fn main() {
             assert_eq!(vec_rgba.len(), 128 * 128 * 4);
             image::save_buffer(output_file.clone(), &vec_rgba, 128, 128, image::ColorType::RGBA(8)).unwrap();
             println!("Saved image to {}", output_file.to_string_lossy());
+        }
+
+        Opt::Anvil {
+            input_dir,
+            output_file,
+        } => {
+            if input_dir.file_name() != Some(OsStr::new("region")) {
+                println!(r#"Error: input dir must end with "/region""#);
+                return;
+            }
+
+            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&input_dir);
+            let seeds = biome_layers::river_seed_finder(&rivers, &extra_biomes);
+            println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+            if let Some(of) = output_file {
+                write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
+            }
         }
     }
 }

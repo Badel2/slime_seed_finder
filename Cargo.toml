@@ -17,6 +17,8 @@ wasm = ["stdweb", "palette"]
 
 [dependencies]
 ansi_term = "0.12.0"
+anvil-region = "0.3"
+named-binary-tag = "0.2"
 structopt = { version = "0.2.18", optional = true }
 image = { version = "0.22.1", optional = true }
 libc = { version = "0.2.62", optional = true }
