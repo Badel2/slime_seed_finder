@@ -3065,7 +3065,7 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
 
 /// River Seed Finder
 pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)]) -> Vec<i64> {
-    river_seed_finder_range(river_coords_voronoi, extra_biomes, 0, 1 << 25)
+    river_seed_finder_range(river_coords_voronoi, extra_biomes, 0, 1 << 24)
 }
 
 pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32, range_hi: u32) -> Vec<i64> {
@@ -3151,7 +3151,7 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
 /// River Seed Finder
 ///
 /// range_lo: 0
-/// range_hi: 1 << 25
+/// range_hi: 1 << 24
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
 pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], range_lo: u32, range_hi: u32) -> Vec<i64> {
     // prevoronoi_coords are used to find the first 26 bits
@@ -3273,7 +3273,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
 /// Treasure Map River Seed Finder
 ///
 /// range_lo: 0
-/// range_hi: 1 << 25
+/// range_hi: 1 << 24
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
 pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_hi: u32) -> Vec<i64> {
     // Naming

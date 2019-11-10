@@ -355,7 +355,7 @@ fn main() {
             }
 
             // All possible 26 bit seeds
-            let seeds = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 25);
+            let seeds = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 24);
             println!("Found {} 26-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
 
             if let Some(of) = output_file {

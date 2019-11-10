@@ -308,7 +308,7 @@ function runWorkers(numWorkers, seedInfo) {
     outta.value = "Calculating...";
     let startedX = 0;
     let x = 0;
-    let limit = 1 << 25;
+    let limit = 1 << 24;
     let range = 1 << 17;
     //let range = (limit / numWorkers);
     for (let workerId = 0; workerId < numWorkers; workerId++) {

@@ -468,7 +468,7 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
             _ => panic!("Invalid id: {}", v),
         };
     }
-    let r = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 25);
+    let r = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 24);
 
     r.into_iter().map(|seed| format!("{}", seed)).collect()
 }
