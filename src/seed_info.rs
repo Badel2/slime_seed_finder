@@ -11,7 +11,7 @@ use serde_json;
 pub type Point = (i64, i64);
 pub type BiomeId = i32;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MinecraftVersion {
     Java1_6, // From Beta 1.7 to 1.6
     Java1_7, // From 1.7 to 1.12

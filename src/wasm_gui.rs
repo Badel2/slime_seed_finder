@@ -251,11 +251,12 @@ pub fn find_seed_rivers(o: Options) -> Vec<i64> {
             vec_xz.iter().map(|(x, z)| (*id, *x, *z)).collect()
         }
     }).collect();
+    let version = o.seed_info.version.parse().unwrap();
     if let Some(rivers) = o.seed_info.biomes.get(&biome_id::river) {
         if let Some((range_lo, range_hi)) = o.range {
-            biome_layers::river_seed_finder_range(rivers, &extra_biomes, range_lo, range_hi)
+            biome_layers::river_seed_finder_range(rivers, &extra_biomes, version, range_lo, range_hi)
         } else {
-            biome_layers::river_seed_finder(rivers, &extra_biomes)
+            biome_layers::river_seed_finder(rivers, &extra_biomes, version)
         }
     } else {
         console!(error, "Can't find seed without rivers");
@@ -516,11 +517,12 @@ pub fn anvil_region_seed_finder(region: TypedArray<u8>, o: String) -> Vec<String
     let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_from_region(Cursor::new(region.to_vec()));
     console!(log, format!("Rivers: {:?}", rivers));
     console!(log, format!("Extra biomes: {:?}", extra_biomes));
+    let version = o.version.parse().unwrap();
 
     let r = if let Some((range_lo, range_hi)) = o.range {
-        biome_layers::river_seed_finder_range_version(&rivers, &extra_biomes, range_lo, range_hi, o.version.parse().unwrap())
+        biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi)
     } else {
-        biome_layers::river_seed_finder(&rivers, &extra_biomes)
+        biome_layers::river_seed_finder(&rivers, &extra_biomes, version)
     };
 
     r.into_iter().map(|seed| format!("{}", seed)).collect()

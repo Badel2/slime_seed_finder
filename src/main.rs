@@ -181,6 +181,10 @@ enum Opt {
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
+        /// Minecraft version to use (Java edition).
+        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
+        #[structopt(long, default_value = "1.14")]
+        mc_version: String,
     },
 
     /// Read a minecraft region file and try to find its seed
@@ -201,6 +205,10 @@ enum Opt {
         /// Center z coordinate around which to look for rivers
         #[structopt(long, default_value = "0")]
         center_z: i64,
+        /// Minecraft version to use (Java edition).
+        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
+        #[structopt(long, default_value = "1.14")]
+        mc_version: String,
     },
 }
 
@@ -323,6 +331,7 @@ fn main() {
             output_file,
         } => {
             let seed_info = SeedInfo::read(input_file).expect("Error reading seed info");
+            let version = seed_info.version.parse().unwrap();
             // TODO: integrate the river seed finder into the "find" subcommand
             let extra_biomes: Vec<_> = seed_info.biomes.iter().flat_map(|(id, vec_xz)| {
                 if *id == biome_id::river {
@@ -334,7 +343,7 @@ fn main() {
 
             // All possible 64 bit seeds
             let seeds = if let Some(rivers) = seed_info.biomes.get(&biome_id::river) {
-                biome_layers::river_seed_finder(rivers, &extra_biomes)
+                biome_layers::river_seed_finder(rivers, &extra_biomes, version)
             } else {
                 error!("No rivers in seedInfo");
                 vec![]
@@ -424,7 +433,10 @@ fn main() {
             fragment_x,
             fragment_z,
             output_file,
+            mc_version,
         } => {
+            // TODO: implement minecraft version selection
+            let _version: MinecraftVersion = mc_version.parse().unwrap();
             let output_file = output_file.unwrap_or_else(|| {
                 format!("treasure_map_{}_{}_{}.png", seed, fragment_x, fragment_z).into()
             });
@@ -440,11 +452,13 @@ fn main() {
             threads,
             center_x,
             center_z,
+            mc_version,
         } => {
             if input_dir.file_name() != Some(OsStr::new("region")) {
                 println!(r#"Error: input dir must end with "/region""#);
                 return;
             }
+            let version = mc_version.parse().unwrap();
 
             let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&input_dir, (center_x, center_z));
             let rivers = Arc::new(rivers);
@@ -467,7 +481,7 @@ fn main() {
 
                 debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
                 let handle = thread::spawn(move || {
-                    let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, range_lo, range_hi);
+                    let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
                     debug!("Thread {} finished", thread_id);
 
                     r

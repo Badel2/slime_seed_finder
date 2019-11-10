@@ -3064,8 +3064,8 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
 }
 
 /// River Seed Finder
-pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)]) -> Vec<i64> {
-    river_seed_finder_range(river_coords_voronoi, extra_biomes, 0, 1 << 24)
+pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], version: MinecraftVersion) -> Vec<i64> {
+    river_seed_finder_range(river_coords_voronoi, extra_biomes, version, 0, 1 << 24)
 }
 
 pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32, range_hi: u32) -> Vec<i64> {
@@ -3153,7 +3153,7 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
 /// range_lo: 0
 /// range_hi: 1 << 24
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
-pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], range_lo: u32, range_hi: u32) -> Vec<i64> {
+pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], version: MinecraftVersion, range_lo: u32, range_hi: u32) -> Vec<i64> {
     // prevoronoi_coords are used to find the first 26 bits
     // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
     let area_voronoi = Area::from_coords(river_coords_voronoi);
@@ -3239,7 +3239,8 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         // Compare only rivers
         //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
         // Compare all biomes (slower)
-        let g42 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 42);
+        let last_layer = version.num_layers();
+        let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1);
 
         let candidate_score = count_rivers_exact(&g42, &target_map);
         if candidate_score >= target_score * 90 / 100 {
@@ -3250,7 +3251,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             let max_misses = extra_biomes.len() - target;
             for (biome, x, z) in extra_biomes.iter().cloned() {
                 let area = Area { x, z, w: 1, h: 1 };
-                let g43 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 43);
+                let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
                 if g43.a[(0, 0)] == biome {
                     hits += 1;
                 } else {
