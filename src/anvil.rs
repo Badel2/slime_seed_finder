@@ -5,6 +5,7 @@
 
 use anvil_region::AnvilChunkProvider;
 use anvil_region::ChunkLoadError;
+use anvil_region::AnvilRegion;
 use nbt::CompoundTag;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -21,6 +22,28 @@ pub fn read_area_around(chunk_provider: &AnvilChunkProvider, area_size: u64, (bl
     for chunk_x in -ahc..=ahc {
         for chunk_z in -ahc..=ahc {
             match chunk_provider.load_chunk(start_x + chunk_x, start_z + chunk_z) {
+                Ok(c) => r.push(c),
+                // Expected errors: region or chunk do not exist
+                Err(ChunkLoadError::RegionNotFound { .. }) => {}
+                Err(ChunkLoadError::ChunkNotFound { .. }) => {}
+                // Unexpected errors:
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    Ok(r)
+}
+
+use std::io::{Seek, Read, Write};
+/// Read all the chunks in region file
+/// 32*32 chunks
+pub fn read_from_region_file<F: Seek+Read+Write>(region: &mut AnvilRegion<F>) -> Result<Vec<CompoundTag>, ChunkLoadError> {
+    let mut r = vec![];
+
+    for x in 0..32 {
+        for z in 0..32 {
+            match region.read_chunk(x, z) {
                 Ok(c) => r.push(c),
                 // Expected errors: region or chunk do not exist
                 Err(ChunkLoadError::RegionNotFound { .. }) => {}
@@ -173,4 +196,93 @@ pub fn get_rivers_and_some_extra_biomes(input_dir: &PathBuf, center_block_arg: (
     error!("Found zero valid chunks. Is this even a minecraft save?");
 
     (vec![], vec![])
+}
+
+/// Given a path to "saved_minecraft_world/region", read the region files and
+///
+/// * Find a 3x3 chunk area with many river blocks
+/// * Return a few extra biomes
+///
+/// This is meant to be used together with river_seed_finder.
+pub fn get_rivers_and_some_extra_biomes_from_region<F: Seek+Read+Write>(region_file: F) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+    debug!("Hey!");
+    let mut region = AnvilRegion::new(region_file).unwrap();
+    // TODO: unimplemented
+    // How to get center block from region?
+    let center_block = (-123123122, -123132131);
+    let chunks = read_from_region_file(&mut region).unwrap();
+    if chunks.is_empty() {
+        debug!("Area around {:?} is not present in the saved world", center_block);
+        return (vec![], vec![]);
+    }
+
+    let mut biome_data = HashMap::new();
+    let mut river_chunks: HashMap<(i32, i32), u8> = HashMap::new();
+    for c in chunks {
+        let level_compound_tag = c.get_compound_tag("Level").unwrap();
+        let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
+        let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
+        let biomes_array = level_compound_tag.get_i32_vec("Biomes").unwrap();
+        match biomes_array.len() {
+            0 => {}
+            256 => {}
+            n => panic!("Unexpected biomes_array len: {}", n),
+        }
+
+        for (i_b, b) in biomes_array.into_iter().enumerate() {
+            let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
+            let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
+            let b = b.clone();
+
+            match b {
+                127 => {
+                    // Ignore void biome (set by WorldDownloader for unknown biomes)
+                }
+                b => {
+                    if b == 7 {
+                        // River: store as potential river_seed_finder starting point
+                        let a = river_chunks.entry((chunk_x, chunk_z)).or_default();
+                        *a = a.saturating_add(1);
+                    }
+                    biome_data.insert((block_x, block_z), b);
+                }
+            }
+        }
+    }
+
+    if biome_data.is_empty() {
+        debug!("No chunks found around {:?}. Maybe that part of the map is not generated?", center_block);
+        return (vec![], vec![]);
+    }
+
+    if river_chunks.is_empty() {
+        debug!("No rivers found around {:?}. Please try again with different coords.", center_block);
+        return (vec![], vec![]);
+    }
+
+    debug!("biome_data.len(): {}", biome_data.len());
+    debug!("river_chunks: {:?}", river_chunks);
+    let (brc_x, brc_z) = best_river_chunk(&river_chunks).unwrap();
+
+    let mut rivers = vec![];
+    {
+        let start_x = i64::from((brc_x - 1) * 16);
+        let start_z = i64::from((brc_z - 1) * 16);
+
+        for x in 0..16*3 {
+            for z in 0..16*3 {
+                if biome_data.get(&(start_x+x, start_z+z)) == Some(&7) {
+                    rivers.push((start_x+x, start_z+z));
+                }
+            }
+        }
+    }
+    debug!("rivers: {:?}", rivers);
+
+    let mut extra_biomes = vec![];
+    // Hashmap iteration follows a random order, so take some random biomes
+    extra_biomes.extend(biome_data.iter().map(|((x, z), b)| (*b, *x, *z)).take(30));
+    debug!("extra_biomes: {:?}", extra_biomes);
+
+    (rivers, extra_biomes)
 }
