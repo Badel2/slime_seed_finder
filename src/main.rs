@@ -446,7 +446,7 @@ fn main() {
                 return;
             }
 
-            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&input_dir, Some((center_x, center_z)));
+            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&input_dir, (center_x, center_z));
             let rivers = Arc::new(rivers);
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
