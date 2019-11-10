@@ -17,7 +17,7 @@ wasm = ["stdweb", "palette"]
 
 [dependencies]
 ansi_term = "0.12.0"
-anvil-region = "0.3"
+anvil-region = { git = "https://github.com/Badel2/anvil-region", branch = "generic-anvil-region" }
 named-binary-tag = "0.2"
 spiral = "0.1"
 num_cpus = { version = "1.0", optional = true }
@@ -25,7 +25,7 @@ structopt = { version = "0.2.18", optional = true }
 image = { version = "0.22.1", optional = true }
 libc = { version = "0.2.62", optional = true }
 log = { version = "0.4.8", features = ["std"] }
-stdweb = { version = "0.4.18", optional = true }
+stdweb = { version = "0.4.20", optional = true, features = ["futures-support"] }
 serde = { version = "1.0.99", optional = false, features = ["derive"] }
 serde_json = { version = "1.0.40", optional = false }
 ndarray = "0.12.1"
