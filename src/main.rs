@@ -15,6 +15,9 @@ use std::fs::File;
 use std::path::Path;
 use std::io::Write;
 use std::ffi::OsStr;
+use std::thread;
+use std::convert::TryFrom;
+use std::sync::Arc;
 use rand::{thread_rng, Rng as _};
 use log::*;
 
@@ -189,6 +192,9 @@ enum Opt {
         /// Where to write the found seeds as a JSON array
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
+        /// Number of threads to use. By default, same as number of CPUs
+        #[structopt(short = "j", long, default_value = "0")]
+        threads: usize,
     },
 }
 
@@ -425,6 +431,7 @@ fn main() {
         Opt::Anvil {
             input_dir,
             output_file,
+            threads,
         } => {
             if input_dir.file_name() != Some(OsStr::new("region")) {
                 println!(r#"Error: input dir must end with "/region""#);
@@ -432,7 +439,35 @@ fn main() {
             }
 
             let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&input_dir);
-            let seeds = biome_layers::river_seed_finder(&rivers, &extra_biomes);
+            let rivers = Arc::new(rivers);
+            let extra_biomes = Arc::new(extra_biomes);
+            let num_threads = if threads == 0 { num_cpus::get() } else { threads };
+
+            let mut threads = vec![];
+            let total_range = 1 << 24;
+            let thread_range = total_range / num_threads;
+            for thread_id in 0..num_threads {
+                let rivers = Arc::clone(&rivers);
+                let extra_biomes = Arc::clone(&extra_biomes);
+                let range_lo = u32::try_from(thread_range * thread_id).unwrap();
+                let range_hi = if thread_id + 1 == num_threads {
+                    total_range
+                } else {
+                    thread_range * (thread_id + 1)
+                };
+                let range_hi = u32::try_from(range_hi).unwrap();
+
+                debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
+                let handle = thread::spawn(move || {
+                    let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, range_lo, range_hi);
+                    debug!("Thread {} finished", thread_id);
+
+                    r
+                });
+                threads.push(handle);
+            }
+
+            let seeds: Vec<_> = threads.into_iter().flat_map(|h| h.join().unwrap()).collect();
             println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
 
             if let Some(of) = output_file {
