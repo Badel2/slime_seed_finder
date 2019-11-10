@@ -3245,12 +3245,19 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         if candidate_score >= target_score * 90 / 100 {
             // When most rivers match, try extra biomes
             let mut hits = 0;
+            let mut misses = 0;
             let target = extra_biomes.len() * 90 / 100;
+            let max_misses = extra_biomes.len() - target;
             for (biome, x, z) in extra_biomes.iter().cloned() {
                 let area = Area { x, z, w: 1, h: 1 };
                 let g43 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 43);
                 if g43.a[(0, 0)] == biome {
                     hits += 1;
+                } else {
+                    misses += 1;
+                    if misses > max_misses {
+                        break;
+                    }
                 }
             }
             if hits >= target {
