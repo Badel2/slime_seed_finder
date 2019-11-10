@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use log::debug;
+use log::error;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -75,9 +76,14 @@ pub fn best_river_chunk(river_chunks: &HashMap<(i32, i32), u8>) -> Option<(i32, 
 /// * Return a few extra biomes
 ///
 /// This is meant to be used together with river_seed_finder.
-pub fn get_rivers_and_some_extra_biomes(input_dir: &PathBuf) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+pub fn get_rivers_and_some_extra_biomes(input_dir: &PathBuf, center_block: Option<(i64, i64)>) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
     let chunk_provider = AnvilChunkProvider::new(input_dir.to_str().unwrap());
-    let chunks = read_area_around(&chunk_provider, 1000, (1000, -300)).unwrap();
+    let center_block = if let Some((x, z)) = center_block {
+        (x, z)
+    } else {
+        (0, 0)
+    };
+    let chunks = read_area_around(&chunk_provider, 1000, center_block).unwrap();
 
     let mut biome_data = HashMap::new();
     let mut river_chunks: HashMap<(i32, i32), u8> = HashMap::new();
@@ -112,6 +118,14 @@ pub fn get_rivers_and_some_extra_biomes(input_dir: &PathBuf) -> (Vec<(i64, i64)>
                 }
             }
         }
+    }
+
+    if biome_data.is_empty() {
+        error!("No chunks found around {:?}. Maybe that part of the map is not generated?", center_block);
+    }
+
+    if river_chunks.is_empty() {
+        error!("No rivers found around {:?}. Please try again with different coords.", center_block);
     }
 
     debug!("biome_data.len(): {}", biome_data.len());
