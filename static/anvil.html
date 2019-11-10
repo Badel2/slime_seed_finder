@@ -46,6 +46,11 @@
                 height: 100%;
                 width: 100%;
             }
+            .card {
+                border: 1px solid #ccc;
+                box-shadow: 2px 2px 6px 0px rgba(0, 0, 0, 0.3);
+                padding: 20px 20px 20px;
+            }
             #gridContainer textarea {
                 width: 100%;
                 margin: 0;
@@ -73,30 +78,41 @@
         </div>
         <div
             id="gridContainer"
-            style="display: grid; grid-auto-flow: dense; align-items: center;"
+            style="display: grid; grid-auto-flow: dense; align-items: center; grid-gap: 20px;"
         >
-            <input type="file" id="filepicker" accept=".mca" />
-            <div style="grid-column: 3 / 4; grid-row: 1 / 2;">
-                <div id="extraBiomes">
-                    <select id="minecraftVersion">
-                        <option value="1.7">Java 1.7 - 1.12</option>
-                        <option value="1.13">Java 1.13</option>
-                        <option value="1.14">Java 1.14</option>
-                    </select>
-                </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 1 / 2;">
+                Find the seed from a minecraft save based on the biome data.
             </div>
-            <div style="grid-column: 4 / 5; grid-row: 1 / 2;">
-                <input
-                    id="num_candidates"
-                    class="code"
-                    rows="1"
-                    value="Estimate runtime"
-                    readonly
-                />
-                <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 2 / 3;">
+                Select a minecraft region file.<br />
+                You can find them in the region/ folder inside a saved world.<br />
+                They look like "r.0.0.mca".<br />
+                This file will not be uploaded to any server, don't worry.<br /><br />
+                <input type="file" id="filepicker" accept=".mca" />
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 3 / 4;">
+                Choose the minecraft version used to GENERATE the world.<br />
+                This may be older than the version used to play it.<br />
+                You can guess the version based on these features:<br />
+                <!-- TODO: the program also could guess the version based on this features... -->
+                Boring oceans: 1.7 - 1.12<br />
+                Fancy oceans: 1.13<br />
+                New villages: 1.14<br /><br />
+                <select id="minecraftVersion">
+                    <option value="1.7">Java 1.7 - 1.12</option>
+                    <option value="1.13">Java 1.13</option>
+                    <option value="1.14" selected>Java 1.14</option>
+                </select>
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 4 / 5;">
+                Start the seed search.<br />
+                This should take no more than 5 minutes.<br />
+                If you don't see any progress after 1 minute, the program
+                probably crashed.<br />
+                All the errors go to the developer console.<br /><br />
                 <button id="comphdl_start" onClick="runGui()">RUN!</button>
             </div>
-            <div style="grid-column: 4 / 5; grid-row: 2 / 3;">
+            <div style="grid-column: 1 / 2; grid-row: 5 / 6;">
                 <textarea id="output_textarea" class="code" rows="20" readonly>
 Found seeds will appear here.</textarea
                 >
