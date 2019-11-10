@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            /* https://stackoverflow.com/questions/41429906/how-to-display-data-label-inside-html5-progress-bar-cross-browser-compatible */
+            .progress {
+                height: 1.5em;
+                width: 100%;
+                background-color: #c9c9c9;
+                position: relative;
+            }
+            .progress:before {
+                content: attr(data-label);
+                font-size: 0.8em;
+                position: absolute;
+                text-align: center;
+                top: 5px;
+                left: 0;
+                right: 0;
+            }
+            .progress .value {
+                background-color: #7cc4ff;
+                display: inline-block;
+                height: 100%;
+            }
+            .pixelated {
+                /* width: 512px; */
+                /* height: 512px; */
+                image-rendering: -moz-crisp-edges;
+                image-rendering: -webkit-crisp-edges;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+            }
+            div .canvasContainer {
+                height: 100%;
+                width: 100%;
+            }
+            #gridContainer textarea {
+                width: 100%;
+                margin: 0;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <a href="https://github.com/Badel2/slime_seed_finder"
+            >SLIME SEED FINDER</a
+        >
+        <strong>Under construction.</strong><br />
+        <div>
+            <div
+                id="progressBarLabel"
+                class="progress"
+                data-label="NOT RUNNING"
+            >
+                <span
+                    id="progressBarSpan"
+                    class="value"
+                    style="width:0%;"
+                ></span>
+            </div>
+        </div>
+        <div
+            id="gridContainer"
+            style="display: grid; grid-auto-flow: dense; align-items: center;"
+        >
+            <input type="file" id="filepicker" accept=".mca" />
+            <div style="grid-column: 3 / 4; grid-row: 1 / 2;">
+                <div id="extraBiomes">
+                    <select id="minecraftVersion">
+                        <option value="1.7">Java 1.7 - 1.12</option>
+                        <option value="1.13">Java 1.13</option>
+                        <option value="1.14">Java 1.14</option>
+                    </select>
+                </div>
+            </div>
+            <div style="grid-column: 4 / 5; grid-row: 1 / 2;">
+                <input
+                    id="num_candidates"
+                    class="code"
+                    rows="1"
+                    value="Estimate runtime"
+                    readonly
+                />
+                <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
+                <button id="comphdl_start" onClick="runGui()">RUN!</button>
+            </div>
+            <div style="grid-column: 4 / 5; grid-row: 2 / 3;">
+                <textarea id="output_textarea" class="code" rows="20" readonly>
+Found seeds will appear here.</textarea
+                >
+            </div>
+        </div>
+        <script type="text/javascript" src="wasm_gui.js"></script>
+        <script type="text/javascript" src="anvil.js"></script>
+    </body>
+</html>

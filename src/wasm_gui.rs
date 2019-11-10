@@ -9,6 +9,7 @@ extern crate log;
 mod stdweb_logger;
 
 use stdweb::serde::Serde;
+use stdweb::web::TypedArray;
 use palette::{Gradient, LinSrgb};
 use serde::{Serialize, Deserialize};
 
@@ -74,6 +75,13 @@ pub struct GenerateRiversCandidate {
     version: String,
     seed: String,
     area: Area,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnvilOptions {
+    range: Option<(u32, u32)>,
+    version: String,
 }
 
 #[cfg(feature = "wasm")]
@@ -491,6 +499,29 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
         };
     }
     let r = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 24);
+
+    r.into_iter().map(|seed| format!("{}", seed)).collect()
+}
+
+#[cfg(feature = "wasm")]
+#[js_export]
+pub fn anvil_region_seed_finder(region: TypedArray<u8>, o: String) -> Vec<String> {
+    log::debug!("region len: {}", region.len());
+    console!(log, format!("Parsing options: {}", o));
+    let o: Result<AnvilOptions, _> = serde_json::from_str(&o);
+    console!(log, format!("Parsing options result: {}", if o.is_ok() { "ok" } else { "err" }));
+    let o = o.unwrap();
+
+    use std::io::Cursor;
+    let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_from_region(Cursor::new(region.to_vec()));
+    console!(log, format!("Rivers: {:?}", rivers));
+    console!(log, format!("Extra biomes: {:?}", extra_biomes));
+
+    let r = if let Some((range_lo, range_hi)) = o.range {
+        biome_layers::river_seed_finder_range_version(&rivers, &extra_biomes, range_lo, range_hi, o.version.parse().unwrap())
+    } else {
+        biome_layers::river_seed_finder(&rivers, &extra_biomes)
+    };
 
     r.into_iter().map(|seed| format!("{}", seed)).collect()
 }
