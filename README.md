@@ -1,9 +1,7 @@
 # slime_seed_finder
 
-This program finds minecraft world generation seeds given enough slime chunks.
-Since slime chunks are 10% of all the chunks and there are 2^64 minecraft
-seeds, one would think that with 20 chunks you can find the seed, however
-thinks get interesting...
+This program finds minecraft world generation seeds using slime chunks and
+biomes.
 
 ### Web demo
 There is a work in progress WebAssembly demo available at:
@@ -13,8 +11,8 @@ There is a work in progress WebAssembly demo available at:
 Also, a biome viewer (like [Amidst](https://github.com/toolbox4minecraft/amidst) but without structures):
 <https://badel2.github.io/slime_seed_finder/biomes.html>
 
-And a slime map which can be used to compare multiple seeds:
-<https://badel2.github.io/slime_seed_finder/slime_map.html>
+And a tool to find the seed of a saved world:
+<https://badel2.github.io/slime_seed_finder/anvil.html>
 
 ### Local instalation
 To build this project you need to install the Rust programming language. Follow the instructions on https://rustup.rs
@@ -63,6 +61,22 @@ If you already have a list of possible 48-bit seeds, put them in a file as a JSO
 ```
 slime_seed_finder find --candidate-seeds candidates.json -i seedinfo.json
 ```
+
+#### Anvil
+
+Anvil is the name of the format used to store chunk data.
+The anvil subcommand allows you to work directly on Minecraft saves:
+
+```
+RUST_LOG=debug slime_seed_finder anvil --input-dir=survival/region/ --mc-version="1.7"
+```
+
+This will use various techniques to find the world seed.
+
+As this is an experimental feature, please only use it on backup worlds, and
+never on a world that is currently open by Minecraft, as it may corrupt it.
+
+See also: [web version](https://badel2.github.io/slime_seed_finder/anvil.html)
 
 #### extend48
 
