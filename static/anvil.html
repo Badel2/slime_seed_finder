@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no" />
         <title>slime_seed_finder playground</title>
         <style>
             body {
@@ -9,9 +10,18 @@
             }
             input {
                 font-family: monospace;
+                height: 40px;
             }
             textarea {
                 font-family: monospace;
+            }
+            button {
+                height: 40px;
+                width: 90px;
+            }
+            select {
+                height: 40px;
+                width: 150px;
             }
             /* https://stackoverflow.com/questions/41429906/how-to-display-data-label-inside-html5-progress-bar-cross-browser-compatible */
             .progress {
@@ -50,6 +60,7 @@
                 border: 1px solid #ccc;
                 box-shadow: 2px 2px 6px 0px rgba(0, 0, 0, 0.3);
                 padding: 20px 20px 20px;
+                max-width: 640px;
             }
             #gridContainer textarea {
                 width: 100%;
