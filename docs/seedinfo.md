@@ -4,7 +4,7 @@ In order to simplify the process of collecting data about a Minecraft world, I
 decided to use a simple JSON file as a standard interface for the tools in this
 repository.
 
-```json
+```js
 {
     "version": "1.7",
         // Minecraft version of when the world was generated
