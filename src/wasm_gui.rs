@@ -506,24 +506,20 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn anvil_region_seed_finder(region: TypedArray<u8>, o: String) -> Vec<String> {
-    log::debug!("region len: {}", region.len());
-    console!(log, format!("Parsing options: {}", o));
-    let o: Result<AnvilOptions, _> = serde_json::from_str(&o);
-    console!(log, format!("Parsing options result: {}", if o.is_ok() { "ok" } else { "err" }));
-    let o = o.unwrap();
-
+pub fn anvil_region_to_river_seed_finder(region: TypedArray<u8>) -> String {
     use std::io::Cursor;
     let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_from_region(Cursor::new(region.to_vec()));
-    console!(log, format!("Rivers: {:?}", rivers));
-    console!(log, format!("Extra biomes: {:?}", extra_biomes));
-    let version = o.version.parse().unwrap();
 
-    let r = if let Some((range_lo, range_hi)) = o.range {
-        biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi)
-    } else {
-        biome_layers::river_seed_finder(&rivers, &extra_biomes, version)
-    };
+    let mut s = SeedInfo::default();
+    s.biomes.insert(7, rivers);
 
-    r.into_iter().map(|seed| format!("{}", seed)).collect()
+    for (b_id, b_x, b_z) in extra_biomes {
+        let b_coords = (b_x, b_z);
+        // Adding more rivers here breaks bounding box detection...
+        if b_id != 7 {
+            s.biomes.entry(b_id).or_default().push(b_coords);
+        }
+    }
+
+    serde_json::to_string(&s).unwrap()
 }

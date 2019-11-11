@@ -33,20 +33,13 @@ function fitToContainer(canvas) {
     canvas.style.height = "";
 }
 
-let minecraft_version = "1.7";
 let l42AreaC = null;
 let foundSeeds = [];
 let workers = [];
 let selection_history = [];
 let region = [];
 
-document
-    .getElementById("minecraftVersion")
-    .addEventListener("input", function(event) {
-        minecraft_version = document.getElementById("minecraftVersion").value;
-    });
-
-function runWorkers(numWorkers) {
+function runWorkers(numWorkers, seedInfo) {
     foundSeeds = [];
     let outta = document.getElementById("output_textarea");
     outta.value = "Calculating...";
@@ -56,14 +49,15 @@ function runWorkers(numWorkers) {
     let range = 1 << 17;
     //let range = (limit / numWorkers);
     for (let workerId = 0; workerId < numWorkers; workerId++) {
-        let myWorker = new Worker("anvil_worker.js");
+        let myWorker = new Worker("rivers_worker.js");
         workers.push(myWorker);
         showProgressBar(x / range, limit / range);
-        myWorker.postMessage({
-            region: region,
-            range: [startedX, startedX + range],
-            minecraftVersion: minecraft_version,
-        });
+        myWorker.postMessage(
+            JSON.stringify({
+                seedInfo: seedInfo,
+                range: [startedX, startedX + range],
+            })
+        );
         startedX += range;
         console.log("Message posted to worker");
         myWorker.onmessage = function(e) {
@@ -76,11 +70,12 @@ function runWorkers(numWorkers) {
                 { maxLength: 20 }
             );
             if (startedX < limit) {
-                myWorker.postMessage({
-                    region: region,
-                    range: [startedX, startedX + range],
-                    minecraftVersion: minecraft_version,
-                });
+                myWorker.postMessage(
+                    JSON.stringify({
+                        seedInfo: seedInfo,
+                        range: [startedX, startedX + range],
+                    })
+                );
                 startedX += range;
             } else if (x < limit) {
                 // Waiting for other workers to finish
@@ -101,7 +96,18 @@ function runGui() {
     let seltextarea = document.getElementById("selection_output");
     if (window.Worker) {
         let maxWorkers = navigator.hardwareConcurrency || 4;
-        runWorkers(maxWorkers);
+        Rust.wasm_gui.then(function(wasmgui) {
+            let seedInfo_str = wasmgui.anvil_region_to_river_seed_finder(
+                region
+            );
+            console.log("Got seedInfo from wasm:");
+            console.log(seedInfo_str);
+            let seedInfo = JSON.parse(seedInfo_str);
+            seedInfo.version = document.getElementById(
+                "minecraftVersion"
+            ).value;
+            runWorkers(maxWorkers, seedInfo);
+        });
     } else {
         alert("Version without webworkers not implemented");
     }
