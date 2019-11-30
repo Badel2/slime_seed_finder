@@ -13,10 +13,18 @@ pub mod lcg_const_extra {
     pub const INV__INV_A__1: u64 = 192407907957609;
 }
 
-const MASK48: u64 = (1 << 48) - 1;
-
-// Waiting for const fn :(
-fn mask(n: usize) -> u64 {
+/// Return a mask which will keep the lower n bits
+/// ```
+/// use slime_seed_finder::java_rng::mask;
+///
+/// let fifteen = 0b1111;
+/// assert_eq!(fifteen & mask(0), 0b0000);
+/// assert_eq!(fifteen & mask(1), 0b0001);
+/// assert_eq!(fifteen & mask(2), 0b0011);
+/// assert_eq!(fifteen & mask(3), 0b0111);
+/// assert_eq!(fifteen & mask(4), 0b1111);
+/// ```
+pub const fn mask(n: usize) -> u64 {
     (1 << n) - 1
 }
 
@@ -54,16 +62,16 @@ impl JavaRng {
     }
 
     pub fn get_seed(&self) -> u64 {
-        (self.seed ^ lcg_const::A) & MASK48
+        (self.seed ^ lcg_const::A) & mask(48)
     }
 
     pub fn get_raw_seed(&self) -> u64 {
-        self.seed & MASK48
+        self.seed & mask(48)
     }
 
     pub fn next(&mut self, bits: usize) -> i32 {
         self.seed = Self::next_state(self.seed);
-        ((self.seed & MASK48) >> (48 - bits)) as i32
+        ((self.seed & mask(48)) >> (48 - bits)) as i32
     }
 
     // s * A + C
@@ -73,7 +81,7 @@ impl JavaRng {
 
     // Returns the same as the last call to next
     pub fn last_next(&self, bits: usize) -> i32 {
-        ((self.seed & MASK48) >> (48 - bits)) as i32
+        ((self.seed & mask(48)) >> (48 - bits)) as i32
     }
 
     // (s * A) + C
@@ -174,7 +182,7 @@ impl JavaRng {
 
     // The previous internal state of the prng, not the seed
     pub fn previous_state(s: u64) -> u64 {
-        (s.wrapping_sub(lcg_const::C)).wrapping_mul(lcg_const_extra::INV_A) & MASK48
+        (s.wrapping_sub(lcg_const::C)).wrapping_mul(lcg_const_extra::INV_A) & mask(48)
     }
 
     // Equivalent to 2 calls to previous
@@ -299,10 +307,10 @@ impl JavaRng {
     // We have the lower 48 bits of r.next_long(), what are the other bits?
     // This function can return more than one number! Sometimes 0, sometimes 2
     pub fn extend_long_48(l: u64) -> Vec<u64> {
-        let l = l & MASK48;
+        let l = l & mask(48);
         let (i0, i1) = JavaRng::ints_from_long(l as i64);
         let i0 = i0 as u16;
-        let seed = ((i1 as u32 as u64) << 16) & MASK48;
+        let seed = ((i1 as u32 as u64) << 16) & mask(48);
 
         (0..0x10000) // for every 16 bit number
             .into_iter()
