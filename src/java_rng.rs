@@ -270,20 +270,49 @@ impl JavaRng {
         ((i0 as i64) << 32) + (i1 as i64)
     }
 
-    // Could this function return more than one value?
-    // No, because this prng has no loops
-    /* Suppose we call r.next_int() and obtain i0. If we want to obtain i1 in
-     * the next call, what should be the value of the lower 16 bits of the 
-     * internal seed? (the higher 32 are already known to be i0) */
+    // Suppose we call r.next_int() and obtain i0. If we want to obtain i1 in
+    // the next call, what should be the value of the lower 16 bits of the
+    // internal seed? (the higher 32 are already known to be i0)
+    //
+    // Derivation:
+    //
+    // Since i1 = (((i0 << 16) + low16) * A + C) >> 16
+    // And C >> 16 can be only 0 or sometimes 1, we set it to 0
+    // i1 = (((i0 << 16) + low16) * A) >> 16
+    // Illegal parenthesis manipulation
+    // i1 = ((i0 << 16) + low16) * (A >> 16)
+    // i1 = i0 * A + low16 * (A >> 16)
+    // i1 - i0 * A = low16 * (A >> 16)
+    // (i1 - i0 * A) / (A >> 16) = low16
+    //
+    // We want the result of the division to be greater than 2^16, so that the
+    // low 16 bits are correct.
+    //
+    // i0 and i1 are 32-bit values, A is a 35-bit value.
+    // (i1 - i0 * A) / (A >> 16)
+    // From the left side of the `/` we get 32 bits, but from the right side we
+    // get (35 - 16) = 19 bits. Since we divide a 32-bit value by a 19-bit value
+    // the result is a (32 - 19) = 13 bit value.
+    //
+    // So we can only extract 13 bits from here.
+    //
+    // But that's not a problem, we can just bruteforce the remaining 3 bits.
+    //
+    // In fact, we only need to bruteforce 2.58 bits (6 values instead of 8)
+    // because the constant A is not exactly 2^35, its slightly below
+    // 2^34 + 2^33. So in the worst case we need to check 6 extra values.
+    // That's a great improvement over the naive 2^16.
     pub fn low_16_for_next_int(i0: u32, i1: u32) -> Option<u16> {
         // x = i1 - i0 * A
         let x: u32 = i1.wrapping_sub(i0.wrapping_mul(lcg_const::A as u32));
         for i in 0..6 {
-            let back =
-                ((x as u64 + ((i as u64) << 32)) / (lcg_const::A >> 16)) as u16;
-            let y = (Self::next_state(back as u64) >> 16) as u32;
+            let low16 =
+                ((x as u64 | ((i as u64) << 32)) / (lcg_const::A >> 16)) as u16;
+            let y = (Self::next_state(low16 as u64) >> 16) as u32;
             if y == x {
-                return Some(back);
+                // Could this function return more than one value?
+                // No, because this PRNG has no loops
+                return Some(low16);
             }
         }
 
@@ -543,5 +572,19 @@ mod tests {
         assert_eq!(&JavaRng::extend_long_48(131291916928825), &[-1095369317440944327i64 as u64]);
         assert_eq!(&JavaRng::extend_long_48(249127199878301), &[5773582374512143517, -166384059012830051i64 as u64]);
         assert_eq!(&JavaRng::extend_long_48(186701866325681), &[3353398099420370609, -2586568334104602959i64 as u64]);
+    }
+
+    #[test]
+    fn test_low_16() {
+        let s = 1234;
+        let mut r = JavaRng::with_seed(s);
+
+        for _ in 0..1 {
+            let i0 = r.next_int();
+            let expected = (r.get_raw_seed() & mask(16)) as u16;
+            let i1 = r.next_int();
+            let ee = JavaRng::low_16_for_next_int(i0 as u32, i1 as u32);
+            assert_eq!(ee, Some(expected));
+        }
     }
 }
