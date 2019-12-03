@@ -19,6 +19,7 @@ pub mod voronoi;
 pub mod seed_info;
 pub mod noise_generator;
 pub mod anvil;
+pub mod structures;
 
 use crate::slime::is_slime_chunk;
 use crate::chunk::Chunk;
