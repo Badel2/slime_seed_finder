@@ -210,6 +210,30 @@ enum Opt {
         #[structopt(long, default_value = "1.14")]
         mc_version: String,
     },
+
+    /// Read a minecraft region file and try to find its seed
+    #[structopt(name = "anvil-zip")]
+    AnvilZip {
+        /// Path to "minecraft_saved_world.zip"
+        #[structopt(short = "i", long, parse(from_os_str))]
+        input_zip: PathBuf,
+        /// Where to write the found seeds as a JSON array
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
+        /// Number of threads to use. By default, same as number of CPUs
+        #[structopt(short = "j", long, default_value = "0")]
+        threads: usize,
+        /// Center x coordinate around which to look for rivers
+        #[structopt(long, default_value = "0")]
+        center_x: i64,
+        /// Center z coordinate around which to look for rivers
+        #[structopt(long, default_value = "0")]
+        center_z: i64,
+        /// Minecraft version to use (Java edition).
+        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
+        #[structopt(long, default_value = "1.14")]
+        mc_version: String,
+    },
 }
 
 fn main() {
@@ -460,7 +484,54 @@ fn main() {
             }
             let version = mc_version.parse().unwrap();
 
-            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&input_dir, (center_x, center_z));
+            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_folder(&input_dir, (center_x, center_z));
+            let rivers = Arc::new(rivers);
+            let extra_biomes = Arc::new(extra_biomes);
+            let num_threads = if threads == 0 { num_cpus::get() } else { threads };
+
+            let mut threads = vec![];
+            let total_range = 1 << 24;
+            let thread_range = total_range / num_threads;
+            for thread_id in 0..num_threads {
+                let rivers = Arc::clone(&rivers);
+                let extra_biomes = Arc::clone(&extra_biomes);
+                let range_lo = u32::try_from(thread_range * thread_id).unwrap();
+                let range_hi = if thread_id + 1 == num_threads {
+                    total_range
+                } else {
+                    thread_range * (thread_id + 1)
+                };
+                let range_hi = u32::try_from(range_hi).unwrap();
+
+                debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
+                let handle = thread::spawn(move || {
+                    let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
+                    debug!("Thread {} finished", thread_id);
+
+                    r
+                });
+                threads.push(handle);
+            }
+
+            let seeds: Vec<_> = threads.into_iter().flat_map(|h| h.join().unwrap()).collect();
+            println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+            if let Some(of) = output_file {
+                write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
+            }
+        }
+
+        Opt::AnvilZip {
+            input_zip,
+            output_file,
+            threads,
+            center_x,
+            center_z,
+            mc_version,
+        } => {
+            let version = mc_version.parse().unwrap();
+
+            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip(&input_zip, (center_x, center_z));
             let rivers = Arc::new(rivers);
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };

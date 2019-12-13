@@ -506,9 +506,13 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
 
 #[cfg(feature = "wasm")]
 #[js_export]
-pub fn anvil_region_to_river_seed_finder(region: TypedArray<u8>) -> String {
+pub fn anvil_region_to_river_seed_finder(zipped_world: TypedArray<u8>) -> String {
     use std::io::Cursor;
-    let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_from_region(Cursor::new(region.to_vec()));
+    use slime_seed_finder::anvil::ZipChunkProvider;
+    // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
+    let mut zip_chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world)));
+    let center_chunk = (0, 0);
+    let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_chunk);
 
     let mut s = SeedInfo::default();
     s.biomes.insert(7, rivers);

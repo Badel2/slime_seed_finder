@@ -17,7 +17,7 @@ wasm = ["stdweb", "palette"]
 
 [dependencies]
 ansi_term = "0.12.0"
-anvil-region = { git = "https://github.com/Badel2/anvil-region", branch = "generic-anvil-region" }
+anvil-region = { git = "https://github.com/Badel2/anvil-region", branch = "generic-fs", features = ["zip"] }
 named-binary-tag = "0.2"
 spiral = "0.1"
 num_cpus = { version = "1.0", optional = true }
