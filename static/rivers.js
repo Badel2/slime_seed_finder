@@ -194,6 +194,7 @@ window.onload = function() {
         seltextarea.value = stringify(
             {
                 version: minecraft_version,
+                seedInfo: "0.1",
                 biomes: {
                     7: Game.getSelection(0, 1),
                 },
@@ -231,7 +232,7 @@ function fitToContainer(canvas) {
 }
 
 let minecraft_version = "1.7";
-let seedInfo = { version: minecraft_version };
+let seedInfo = { version: minecraft_version, seedInfo: "0.1" };
 let l42AreaC = null;
 let foundSeeds = [];
 let workers = [];

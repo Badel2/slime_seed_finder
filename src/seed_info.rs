@@ -44,8 +44,10 @@ impl FromStr for MinecraftVersion {
 }
 
 // Options not necesarly related to the seed or the minecraft world
-#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+// Allow unknown fields
+//#[serde(deny_unknown_fields)]
 pub struct Options {
     // Indicates that the seed was not generated using the nextLong method from
     // Java Random. That method has a flaw of using only 48 bits of entropy, so
@@ -58,8 +60,9 @@ pub struct Options {
     pub error_margin_slime_chunks_negative: u8,
 }
 
-#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct TreasureMap {
     pub fragment_x: i64,
     pub fragment_z: i64,
@@ -67,8 +70,9 @@ pub struct TreasureMap {
     pub map: Vec<u8>,
 }
 
-#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
 pub struct SeedStructures {
     #[serde(default, skip_serializing_if = "is_default")]
     pub slime_chunks: Vec<Chunk>,
@@ -104,26 +108,26 @@ pub struct SeedStructures {
     pub pillager_outposts: Vec<Chunk>,
 }
 
-#[derive(Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+// Serialization is implemented for the SeedInfoCompat struct in order to
+// support multiple versions of SeedInfo
+#[serde(from = "SeedInfoCompat")]
+#[serde(into = "SeedInfoCompat")]
 pub struct SeedInfo {
+    /// Minecraft version used to generate the world
     pub version: String,
+    /// Human readable description of the seed
+    pub description: String,
     // Extra settings for optimizing the search: error margin, use extend48
-    #[serde(default, skip_serializing_if = "is_default")]
     pub options: Options,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub biomes: HashMap<BiomeId, Vec<Point>>,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub end_pillars: Vec<u8>,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub treasure_maps: Vec<TreasureMap>,
-    #[serde(flatten)]
     pub positive: SeedStructures,
     // Coords of structures that do not exist, useful to remove duplicates
-    #[serde(default, skip_serializing_if = "is_default")]
     pub negative: SeedStructures,
-    // Extra data from other versions
-    #[serde(default, skip_serializing_if = "is_default")]
+    // Extra data from sections of the minecraft world generated using a
+    // different minecraft version
     pub and: Vec<SeedInfo>,
 }
 
@@ -139,6 +143,117 @@ impl SeedInfo {
     pub fn version(&self) -> Result<MinecraftVersion, String> {
         self.version.parse()
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(deny_unknown_fields)]
+pub struct SeedInfoV0_1 {
+    /// Minecraft version used to generate the world
+    pub version: String,
+    /// Human readable description of the seed
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub description: String,
+    // Extra settings for optimizing the search: error margin, use extend48
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub options: Options,
+    #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(deserialize_with = "deserialize_biomes")]
+    pub biomes: HashMap<BiomeId, Vec<Point>>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub end_pillars: Vec<u8>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub treasure_maps: Vec<TreasureMap>,
+    #[serde(flatten)]
+    pub positive: SeedStructures,
+    // Coords of structures that do not exist, useful to remove duplicates
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub negative: SeedStructures,
+    // Extra data from sections of the minecraft world generated using a
+    // different minecraft version
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub and: Vec<SeedInfo>,
+}
+
+impl From<SeedInfoV0_1> for SeedInfo {
+    fn from(s: SeedInfoV0_1) -> SeedInfo {
+        SeedInfo {
+            version: s.version,
+            description: s.description,
+            options: s.options,
+            biomes: s.biomes,
+            end_pillars: s.end_pillars,
+            treasure_maps: s.treasure_maps,
+            positive: s.positive,
+            negative: s.negative,
+            and: s.and,
+        }
+    }
+}
+
+impl From<SeedInfo> for SeedInfoV0_1 {
+    fn from(s: SeedInfo) -> SeedInfoV0_1 {
+        SeedInfoV0_1 {
+            version: s.version,
+            description: s.description,
+            options: s.options,
+            biomes: s.biomes,
+            end_pillars: s.end_pillars,
+            treasure_maps: s.treasure_maps,
+            positive: s.positive,
+            negative: s.negative,
+            and: s.and,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(tag = "seedInfo")]
+enum SeedInfoCompat {
+    #[serde(rename = "0.1")]
+    V0_1(SeedInfoV0_1),
+}
+
+impl SeedInfoCompat {
+    // Consume self by converting it into the latest version of the SeedInfo
+    // format
+    fn convert_to_latest(mut self) -> SeedInfo {
+        loop {
+            match self {
+                // Latest version: we're done
+                Self::V0_1(seed_info) => return seed_info.into(),
+                // Older version: incrementally convert to latest
+                #[allow(unreachable_patterns)]
+                _ => self = self.convert_to_next(),
+            }
+        }
+    }
+    // Update the version by one step
+    // This allows us to support all the existing SeedInfo versions, while only
+    // having to write a migration from the second newest version to the newest
+    // version
+    fn convert_to_next(self) -> Self {
+        match self {
+            Self::V0_1(seed_info) => Self::V0_1(seed_info),
+        }
+    }
+}
+
+impl From<SeedInfoCompat> for SeedInfo {
+    fn from(s: SeedInfoCompat) -> SeedInfo {
+        s.convert_to_latest()
+    }
+}
+
+impl From<SeedInfo> for SeedInfoCompat {
+    fn from(s: SeedInfo) -> SeedInfoCompat {
+        SeedInfoCompat::V0_1(s.into())
+    }
+}
+
+fn deserialize_biomes<'de, D>(d: D) -> Result<HashMap<BiomeId, Vec<Point>>, D::Error> where D: Deserializer<'de> {
+    let biomes = HashMap::<String, Vec<Point>>::deserialize(d)?;
+    Ok(biomes.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect())
 }
 
 pub fn biomes_to_map<I>(biomes: I) -> Map
@@ -246,12 +361,34 @@ mod tests {
         };
         let x = serde_json::to_string(&seed_info).unwrap();
         // Version field must be serialized!
-        assert_eq!(x, r#"{"version":"1.7"}"#);
+        assert_eq!(x, r#"{"seedInfo":"0.1","version":"1.7"}"#);
+    }
+
+    #[test]
+    fn serialize_compat() {
+        let seed_info = SeedInfoCompat::V0_1(SeedInfo {
+            version: "1.7".to_string(),
+            ..Default::default()
+        }.into());
+        let x = serde_json::to_string(&seed_info).unwrap();
+        // Version field must be serialized!
+        assert_eq!(x, r#"{"seedInfo":"0.1","version":"1.7"}"#);
+    }
+
+    #[test]
+    fn deserialize_no_seed_info_version() {
+        let json = r#"{
+            "version": "1.7",
+            "description": "I have no seedInfo field"
+        }"#;
+        // This should fail
+        assert!(serde_json::from_str::<SeedInfo>(json).is_err());
     }
 
     #[test]
     fn deserialize_slime_chunks() {
         let json = r#"{
+            "seedInfo": "0.1",
             "version": "1.7",
             "slimeChunks": [[14, -8], [15, -8]],
             "negative": {
@@ -267,6 +404,7 @@ mod tests {
     #[test]
     fn biome_map() {
         let json = r#"{
+            "seedInfo": "0.1",
             "version": "1.7",
             "biomes": {
                 "7": [[0, 0], [2, 2]]

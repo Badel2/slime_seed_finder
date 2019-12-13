@@ -237,6 +237,7 @@ function startGame(lastLayer) {
                         seltextarea.value = stringify(
                             {
                                 version: "1.7",
+                                seedInfo: "0.1",
                                 slimeChunks: Game.getSelection(0, 1),
                                 negative: {
                                     slimeChunks: Game.getSelection(0, 2),
@@ -272,6 +273,7 @@ function startGame(lastLayer) {
         seltextarea.value = stringify(
             {
                 version: "1.7",
+                seedInfo: "0.1",
                 slimeChunks: Game.getSelection(0, 1),
                 negative: {
                     slimeChunks: Game.getSelection(0, 2),
