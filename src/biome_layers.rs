@@ -5320,7 +5320,7 @@ mod tests {
         let s = SeedInfo::read("seedinfo_tests/voronoi_1_15.json").unwrap();
         let river_coords = &s.biomes[&7];
         println!("{}", draw_map(&map_with_river_at(river_coords, Area::from_coords(river_coords))));
-        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords), s.world_seed.unwrap().parse().unwrap());
+        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords), s.world_seed.unwrap());
         println!("{}", draw_map(&m));
         for r in river_coords {
             let gr = m.get(r.0, r.1);

@@ -120,7 +120,7 @@ pub struct SeedInfo {
     /// Minecraft version used to generate the world
     pub version: String,
     /// Seed of the world, if known
-    pub world_seed: Option<String>,
+    pub world_seed: Option<i64>,
     /// Human readable description of the seed
     pub description: String,
     // Extra settings for optimizing the search: error margin, use extend48
@@ -157,9 +157,8 @@ pub struct SeedInfoV0_1 {
     /// Minecraft version used to generate the world
     pub version: String,
     /// Seed of the world, if known
-    #[serde(default, skip_serializing_if = "is_default")]
-    // TODO: world_seed should be i64, not String
-    pub world_seed: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default", with = "opt_string")]
+    pub world_seed: Option<i64>,
     /// Human readable description of the seed
     #[serde(default, skip_serializing_if = "is_default")]
     pub description: String,
@@ -360,6 +359,41 @@ fn is_default<T: Default + PartialEq>(t: &T) -> bool {
         t == &T::default()
 }
 
+// https://github.com/serde-rs/json/issues/329#issuecomment-305608405
+mod opt_string {
+    use std::fmt::Display;
+    use std::str::FromStr;
+
+    use serde::{de, Serializer, Deserialize, Deserializer};
+
+    pub fn serialize<T, S>(value: &Option<T>, serializer: S) -> Result<S::Ok, S::Error>
+        where T: Display,
+              S: Serializer
+    {
+        if let Some(value) = value {
+            serializer.collect_str(value)
+        } else {
+            // Serialize None as empty string
+            serializer.collect_str("")
+        }
+    }
+
+    pub fn deserialize<'de, T, D>(deserializer: D) -> Result<Option<T>, D::Error>
+        where T: FromStr,
+              T::Err: Display,
+              D: Deserializer<'de>
+    {
+        let s = String::deserialize(deserializer)?;
+
+        if s.is_empty() {
+            // Deserialize empty string as None
+            Ok(None)
+        } else {
+            s.parse().map_err(de::Error::custom).map(Some)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,5 +459,29 @@ mod tests {
         let seed_info: SeedInfo = serde_json::from_str(json).unwrap();
         assert_eq!(seed_info.version, "1.7".to_string());
         assert_eq!(seed_info.biomes[&7], vec![(0, 0), (2, 2)]);
+    }
+
+    #[test]
+    fn world_seed_string() {
+        let json = r#"{
+            "seedInfo": "0.1",
+            "version": "1.7",
+            "worldSeed": "1234"
+        }"#;
+
+        let seed_info: SeedInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(seed_info.world_seed, Some(1234));
+    }
+
+    #[test]
+    fn world_seed_empty_string() {
+        let json = r#"{
+            "seedInfo": "0.1",
+            "version": "1.7",
+            "worldSeed": ""
+        }"#;
+
+        let seed_info: SeedInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(seed_info.world_seed, None);
     }
 }
