@@ -79,6 +79,7 @@
                     <option value="1.7">Java 1.7 - 1.12</option>
                     <option value="1.13">Java 1.13</option>
                     <option value="1.14">Java 1.14</option>
+                    <option value="1.15">Java 1.15</option>
                     <option value="TreasureMap">Java 1.13+ Treasure Map</option>
                 </select>
                 <a id="download" download="biome_map.png">
@@ -251,6 +252,7 @@
                 } else if (
                     minecraft_version == "1.13" ||
                     minecraft_version == "1.14" ||
+                    minecraft_version == "1.15" ||
                     minecraft_version == "TreasureMap"
                 ) {
                     scales = scales113;
@@ -329,6 +331,7 @@
                         old_v == "1.7" &&
                         (new_v == "1.13" ||
                             new_v == "1.14" ||
+                            new_v == "1.15" ||
                             new_v == "TreasureMap")
                     ) {
                         if (lastLayer == 42) {
@@ -341,6 +344,7 @@
                     if (
                         (old_v == "1.13" ||
                             old_v == "1.14" ||
+                            old_v == "1.15" ||
                             old_v == "TreasureMap") &&
                         new_v == "1.7"
                     ) {
@@ -371,6 +375,7 @@
                 } else if (
                     minecraft_version == "1.13" ||
                     minecraft_version == "1.14" ||
+                    minecraft_version == "1.15" ||
                     minecraft_version == "TreasureMap"
                 ) {
                     scales = scales113;

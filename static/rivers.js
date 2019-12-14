@@ -260,6 +260,8 @@ function version_map(s) {
         return "1.13";
     } else if (s == "1.14") {
         return "1.14";
+    } else if (s == "1.15") {
+        return "1.15";
     } else {
         console.error("Unknown minecraft version: " + s);
         return "";

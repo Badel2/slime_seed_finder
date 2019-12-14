@@ -17,6 +17,7 @@ pub enum MinecraftVersion {
     Java1_7, // From 1.7 to 1.12
     Java1_13,
     Java1_14,
+    Java1_15,
 }
 
 impl MinecraftVersion {
@@ -26,6 +27,7 @@ impl MinecraftVersion {
             MinecraftVersion::Java1_7 => 43,
             MinecraftVersion::Java1_13 => 51,
             MinecraftVersion::Java1_14 => 51, // actually 52 but bamboo jungle is inlined...
+            MinecraftVersion::Java1_15 => 51, // actually 52 but bamboo jungle is inlined...
             _ => 0,
         }
     }
@@ -38,6 +40,7 @@ impl FromStr for MinecraftVersion {
             "1.7" | "1.8" | "1.9" | "1.10" | "1.11" | "1.12" => MinecraftVersion::Java1_7,
             "1.13" => MinecraftVersion::Java1_13,
             "1.14" => MinecraftVersion::Java1_14,
+            "1.15" => MinecraftVersion::Java1_15,
             _ => return Err(x.to_string())
         })
     }
