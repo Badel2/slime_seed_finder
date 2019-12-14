@@ -116,6 +116,8 @@ pub struct SeedStructures {
 pub struct SeedInfo {
     /// Minecraft version used to generate the world
     pub version: String,
+    /// Seed of the world, if known
+    pub world_seed: Option<String>,
     /// Human readable description of the seed
     pub description: String,
     // Extra settings for optimizing the search: error margin, use extend48
@@ -151,6 +153,10 @@ impl SeedInfo {
 pub struct SeedInfoV0_1 {
     /// Minecraft version used to generate the world
     pub version: String,
+    /// Seed of the world, if known
+    #[serde(default, skip_serializing_if = "is_default")]
+    // TODO: world_seed should be i64, not String
+    pub world_seed: Option<String>,
     /// Human readable description of the seed
     #[serde(default, skip_serializing_if = "is_default")]
     pub description: String,
@@ -179,6 +185,7 @@ impl From<SeedInfoV0_1> for SeedInfo {
     fn from(s: SeedInfoV0_1) -> SeedInfo {
         SeedInfo {
             version: s.version,
+            world_seed: s.world_seed,
             description: s.description,
             options: s.options,
             biomes: s.biomes,
@@ -195,6 +202,7 @@ impl From<SeedInfo> for SeedInfoV0_1 {
     fn from(s: SeedInfo) -> SeedInfoV0_1 {
         SeedInfoV0_1 {
             version: s.version,
+            world_seed: s.world_seed,
             description: s.description,
             options: s.options,
             biomes: s.biomes,
