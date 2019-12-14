@@ -10,12 +10,27 @@ use serde::{Serialize, Deserialize};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use crate::java_rng::JavaRng;
 use crate::seed_info::Point;
 
 // The different Map* layers are copied from
 // https://github.com/Cubitect/cubiomes
 // since it's easier to translate C to Rust than Java to Rust.
+
+/// Hash function used by MapVoronoiZoom since Minecraft 1.15
+pub fn sha256_long_to_long(x: i64) -> i64 {
+    use sha2::{Digest, Sha256};
+
+    let mut hasher = Sha256::new();
+    // Add long in little endian format
+    hasher.input(x.to_le_bytes());
+    let r = hasher.result();
+
+    // Output the first 8 bytes of the hash interpreted as a little endian i64
+    // The output of Sha256 is 32 bytes, so this cannot fail
+    i64::from_le_bytes(r[..8].try_into().unwrap())
+}
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Area {
@@ -73,6 +88,10 @@ impl Map {
     pub fn area(&self) -> Area {
         let (w, h) = self.a.dim();
         Area { x: self.x, z: self.z, w: w as u64, h: h as u64 }
+    }
+    /// Get value at real coordinate (x, z)
+    pub fn get(&self, real_x: i64, real_z: i64) -> i32 {
+        self.a[((real_x - self.x) as usize, (real_z - self.z) as usize)]
     }
 }
 
@@ -608,6 +627,231 @@ impl GetMap for MapVoronoiZoom {
 
         m
     }
+}
+
+pub struct MapVoronoiZoom115 {
+    hashed_world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapVoronoiZoom115 {
+    pub fn new(world_seed: i64) -> Self {
+        Self { hashed_world_seed: sha256_long_to_long(world_seed), parent: None }
+    }
+}
+
+// TODO: tests
+impl GetMap for MapVoronoiZoom115 {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            // TODO: Area::double(), Area::quadruple(), etc
+            // Example 1:
+            // area  1x1: we want to generate 1x1
+            // parea 2x2: we need 2x2 from the previous layer
+            // narea 4x4: instead of 8x8, we only zoom the top left corner
+            // now we need to crop that 4x4 into 1x1
+            //
+            // Example 2:
+            // area  10x10: we want to generate 10x10
+            // parea 4x4: we need 4x4 from the previous layer
+            // narea 12x12: instead of 16x16, we skip the bottom and right pixels
+            // now we need to crop that 12x12 into 10x10
+            // But wait. We actually need parea 5x5, for the worst case:
+            // |...*|****|****|*...|....|
+            // So it makes sense to rewrite this algorithm and account for that
+            // cases, allowing some optimizations
+            let parea = Area {
+                x: (area.x - 2) >> 2,
+                z: (area.z - 2) >> 2,
+                w: (area.w >> 2) + 2 + 1, // TODO: without the +1 the slicing fails
+                h: (area.h >> 2) + 2 + 1,
+            };
+
+            let narea = Area {
+                w: (parea.w - 1) << 2,
+                h: (parea.h - 1) << 2,
+                ..area
+            };
+
+            let pmap = parent.get_map(parea);
+            let mut map = self.get_map_from_pmap(&pmap);
+            let (nw, nh) = map.a.dim();
+            assert_eq!((nw, nh), (narea.w as usize, narea.h as usize));
+            // TODO: is this correct?
+            let (nx, nz) = ((area.x - 2) & 3, (area.z - 2) & 3);
+            map.x += nx;
+            map.z += nz;
+            let (nx, nz) = (nx as usize, nz as usize);
+            map.a.slice_collapse(s![
+                    nx..nx + area.w as usize,
+                    nz..nz + area.h as usize
+            ]);
+
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let (p_w, p_h) = pmap.a.dim();
+        let p_x = pmap.x;
+        let p_z = pmap.z;
+        // TODO: x and z are correct?
+        let mut area: Area = Default::default();
+        area.x = ((p_x + 0) << 2) + 2;
+        area.z = ((p_z + 0) << 2) + 2;
+        area.w = ((p_w - 1) << 2) as u64;
+        area.h = ((p_h - 1) << 2) as u64;
+        let mut m = Map::new(area);
+
+        // From a 2x2 pmap we can only generate 1 tile, because we need a 1 margin
+        // for x+1 and z+1
+        // 2x2 => 4x4
+        // 3x3 => 8x8
+        // 4x4 => 12x12
+
+        for z in 0..p_h - 1 {
+            let mut v00 = pmap.a[(0, z)];
+            let mut v01 = pmap.a[(0, z+1)];
+
+            for x in 0..p_w - 1 {
+                let v10 = pmap.a[(x+1, z)]; //& 0xFF;
+                let v11 = pmap.a[(x+1, z+1)]; //& 0xFF;
+
+                // Missed optimization (not present in Java):
+                // if v00 == v01 == v10 == v11,
+                // buf will always be set to the same value, so skip
+                // all the calculations
+                // Benchmark result: x10 speedup when pmap is all zeros
+                if v00 == v01 && v00 == v10 && v00 == v11 {
+                    for j in 0..4 {
+                        for i in 0..4 {
+                            let x = x as usize;
+                            let z = z as usize;
+                            let idx = ((x << 2) + i, (z << 2) + j);
+                            m.a[idx] = v00;
+                        }
+                    }
+
+                    v00 = v10;
+                    v01 = v11;
+                    continue;
+                }
+
+                // For each pixel from pmap we want to generate 4x4 pixels in buf
+                for j in 0..4 {
+                    let mut idx = {
+                        let x = x as usize;
+                        let z = z as usize;
+                        (x << 2, (z << 2) + j)
+                    };
+                    for _i in 0..4 {
+                        // TODO: this can be optimized by operating on the 4x4 area at once
+                        // For example, make map_voronoi_1_15 return a 4x4 array
+                        m.a[idx] = map_voronoi_1_15(self.hashed_world_seed, (area.x + idx.0 as i64) as i32, 0, (area.z + idx.1 as i64) as i32, |x, y, z| {
+                            if x == 0 && z == 0 {
+                                v00
+                            } else if x == 0 && z == 1 {
+                                v01
+                            } else if x == 1 && z == 0 {
+                                v10
+                            } else if x == 1 && z == 1 {
+                                v11
+                            } else {
+                                panic!("Voronoi115: biome_at called with invalid args: {:?}", (x, y, z));
+                            }
+                        });
+
+                        idx.0 += 1;
+                    }
+                }
+
+                v00 = v10;
+                v01 = v11;
+            }
+        }
+
+        m
+    }
+}
+
+// Return the index of the minimum element of the input array, or None if the array is empty.
+// Panics if the input contains a NaN float.
+// Note that in case of tie, the element with the lowest index should win
+fn index_of_min_element(x: &[f64]) -> Option<usize> {
+    x.iter().enumerate().min_by(|(_, a), (_, b)| a.partial_cmp(b).expect("NaN float")).map(|(i, _)| i)
+}
+
+fn map_voronoi_1_15<F: FnMut(i32, i32, i32) -> i32>(seed: i64, x: i32, y: i32, z: i32, mut biome_at: F) -> i32 {
+    // Zoom from 1:4 to 1:1, with (4k + 2, 4k + 2) being the center coordinate
+    // px: x coordinate in 1:4 scale
+    let px = (x - 2) >> 2;
+    let py = (y - 2) >> 2;
+    let pz = (z - 2) >> 2;
+    // dx is one of 0.00, 0.25, 0.50, 0.75
+    let dx = f64::from((x - 2) & 3) / 4.0;
+    let dy = f64::from((y - 2) & 3) / 4.0;
+    let dz = f64::from((z - 2) & 3) / 4.0;
+    let mut dists = [0.0; 8];
+
+    for i in 0..8 {
+        let flag = (i & 4) == 0;
+        let flag1 = (i & 2) == 0;
+        let flag2 = (i & 1) == 0;
+
+        let x1 = if flag { px } else { px + 1 };
+        let y1 = if flag1 { py } else { py + 1 };
+        let z1 = if flag2 { pz } else { pz + 1 };
+        let dx1 = if flag { dx } else { dx - 1.0 };
+        let dy1 = if flag1 { dy } else { dy - 1.0 };
+        let dz1 = if flag2 { dz } else { dz - 1.0 };
+
+        dists[i] = rand_distance(seed, x1, y1, z1, dx1, dy1, dz1);
+    }
+
+    let min_index = index_of_min_element(&dists).unwrap();
+
+    let rx = if (min_index & 4) == 0 { 0 } else { 1 };
+    let ry = if (min_index & 2) == 0 { 0 } else { 1 };
+    let rz = if (min_index & 1) == 0 { 0 } else { 1 };
+
+    // Always call biome_at with args from (0, 0, 0) to (1, 1, 1)
+    biome_at(rx, ry, rz)
+}
+
+fn mod_squared_3d(x: f64, y: f64, z: f64) -> f64 {
+    x * x + y * y + z * z
+}
+
+fn rand_offset_3d(seed: i64, x: i32, y: i32, z: i32) -> (f64, f64, f64) {
+    // Returns number in range [-0.45, 0.45)
+    fn rand_offset(seed: i64) -> f64 {
+        let d = McRng::math_floor_div(seed >> 24, 1024) as f64 / 1024.0;
+
+        (d - 0.5) * 0.9
+    }
+
+    let mut r = McRng::next_state(seed, i64::from(x));
+    r = McRng::next_state(r, i64::from(y));
+    r = McRng::next_state(r, i64::from(z));
+    r = McRng::next_state(r, i64::from(x));
+    r = McRng::next_state(r, i64::from(y));
+    r = McRng::next_state(r, i64::from(z));
+    let dx = rand_offset(r);
+
+    r = McRng::next_state(r, i64::from(seed));
+    let dy = rand_offset(r);
+
+    r = McRng::next_state(r, i64::from(seed));
+    let dz = rand_offset(r);
+
+    (dx, dy, dz)
+}
+
+fn rand_distance(seed: i64, x: i32, y: i32, z: i32, dx0: f64, dy0: f64, dz0: f64) -> f64 {
+    let (dx1, dy1, dz1) = rand_offset_3d(seed, x, y, z);
+
+    mod_squared_3d(dz0 + dz1, dy0 + dy1, dx0 + dx1)
 }
 
 pub struct MapIsland {
@@ -3676,6 +3920,7 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
         MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers),
         MinecraftVersion::Java1_13 => generate_up_to_layer_1_13(area, seed, num_layers),
         MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
+        MinecraftVersion::Java1_15 => generate_up_to_layer_1_15(area, seed, num_layers),
         _ => {
             error!("Biome generation in version {:?} is not implemented", version);
             panic!("Biome generation in version {:?} is not implemented", version);
@@ -4356,6 +4601,194 @@ pub fn generator_up_to_layer_1_14(world_seed: i64, layer: u32) -> Box<dyn GetMap
     Box::new(g51)
 }
 
+pub fn generate_up_to_layer_1_15(a: Area, world_seed: i64, layer: u32) -> Map {
+    if layer >= 200 {
+        //return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
+    }
+    if layer >= 100 && layer <= 142 {
+        // The first 42 layers are almost equal in 1.7 and 1.13
+        // The main difference being the MapHills bug, which does
+        // not affect the river generation code
+        return generate_up_to_layer_1_7_extra(a, world_seed, layer);
+    }
+
+    generator_up_to_layer_1_15(world_seed, layer).get_map(a)
+}
+
+pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
+    let g0 = MapIsland::new(1, world_seed);
+    if layer == 0 { return Box::new(g0); }
+    let mut g1 = MapZoom::new(2000, world_seed);
+    g1.parent = Some(Rc::new(g0));
+    g1.fuzzy = true;
+    if layer == 1 { return Box::new(g1); }
+    let mut g2 = MapAddIsland::new(1, world_seed);
+    g2.parent = Some(Rc::new(g1));
+    if layer == 2 { return Box::new(g2); }
+    let mut g3 = MapZoom::new(2001, world_seed);
+    g3.parent = Some(Rc::new(g2));
+    if layer == 3 { return Box::new(g3); }
+    let mut g4 = MapAddIsland::new(2, world_seed);
+    g4.parent = Some(Rc::new(g3));
+    if layer == 4 { return Box::new(g4); }
+    let mut g5 = MapAddIsland::new(50, world_seed);
+    g5.parent = Some(Rc::new(g4));
+    if layer == 5 { return Box::new(g5); }
+    let mut g6 = MapAddIsland::new(70, world_seed);
+    g6.parent = Some(Rc::new(g5));
+    if layer == 6 { return Box::new(g6); }
+    let mut g7 = MapRemoveTooMuchOcean::new(2, world_seed);
+    g7.parent = Some(Rc::new(g6));
+    if layer == 7 { return Box::new(g7); }
+    let mut g8 = MapAddSnow::new(2, world_seed);
+    g8.parent = Some(Rc::new(g7));
+    if layer == 8 { return Box::new(g8); }
+    let mut g9 = MapAddIsland::new(3, world_seed);
+    g9.parent = Some(Rc::new(g8));
+    if layer == 9 { return Box::new(g9); }
+    let mut g10 = MapCoolWarm::new(2, world_seed);
+    g10.parent = Some(Rc::new(g9));
+    if layer == 10 { return Box::new(g10); }
+    let mut g11 = MapHeatIce::new(2, world_seed);
+    g11.parent = Some(Rc::new(g10));
+    if layer == 11 { return Box::new(g11); }
+    let mut g12 = MapSpecial::new(3, world_seed);
+    g12.parent = Some(Rc::new(g11));
+    if layer == 12 { return Box::new(g12); }
+    let mut g13 = MapZoom::new(2002, world_seed);
+    g13.parent = Some(Rc::new(g12));
+    if layer == 13 { return Box::new(g13); }
+    let mut g14 = MapZoom::new(2003, world_seed);
+    g14.parent = Some(Rc::new(g13));
+    if layer == 14 { return Box::new(g14); }
+    let mut g15 = MapAddIsland::new(4, world_seed);
+    g15.parent = Some(Rc::new(g14));
+    if layer == 15 { return Box::new(g15); }
+    let mut g16 = MapAddMushroomIsland::new(5, world_seed);
+    g16.parent = Some(Rc::new(g15));
+    if layer == 16 { return Box::new(g16); }
+    let mut g17 = MapDeepOcean::new(4, world_seed);
+    g17.parent = Some(Rc::new(g16));
+    if layer == 17 { return Box::new(g17); }
+    let g17 = Rc::new(g17);
+    let mut g18 = MapBiome::new(200, world_seed);
+    g18.parent = Some(g17.clone());
+    //if layer == 18 { return Box::new(g18); }
+    // 1.14: bamboo
+    let mut g18b = MapAddBamboo::new(1001, world_seed);
+    g18b.parent = Some(Rc::new(g18));
+    if layer == 18 { return Box::new(g18b); }
+    let mut g19 = MapZoom::new(1000, world_seed);
+    g19.parent = Some(Rc::new(g18b));
+    if layer == 19 { return Box::new(g19); }
+    let mut g20 = MapZoom::new(1001, world_seed);
+    g20.parent = Some(Rc::new(g19));
+    if layer == 20 { return Box::new(g20); }
+    let mut g21 = MapBiomeEdge::new(1000, world_seed);
+    g21.parent = Some(Rc::new(g20));
+    if layer == 21 { return Box::new(g21); }
+    let mut g22 = MapRiverInit::new(100, world_seed);
+    g22.parent = Some(g17.clone());
+    if layer == 22 { return Box::new(g22); }
+    let g22 = Rc::new(g22);
+    // TODO: use some special color palette for MapRiverInit?
+    //if layer == 23 { return Box::new(MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }); }
+    let mut g23 = MapZoom::new(1000, world_seed);
+    g23.parent = Some(g22.clone());
+    if layer == 23 { return Box::new(MapMap { parent: Rc::new(g23), f: pretty_biome_map_hills }); }
+    let mut g24 = MapZoom::new(1001, world_seed);
+    g24.parent = Some(Rc::new(g23));
+    if layer == 24 { return Box::new(MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }); }
+    let mut g25 = MapHills::new(1000, world_seed);
+    g25.parent1 = Some(Rc::new(g21));
+    g25.parent2 = Some(Rc::new(g24));
+    if layer == 25 { return Box::new(g25); }
+    let mut g26 = MapRareBiome::new(1001, world_seed);
+    g26.parent = Some(Rc::new(g25));
+    if layer == 26 { return Box::new(g26); }
+    let mut g27 = MapZoom::new(1000, world_seed);
+    g27.parent = Some(Rc::new(g26));
+    if layer == 27 { return Box::new(g27); }
+    let mut g28 = MapAddIsland::new(3, world_seed);
+    g28.parent = Some(Rc::new(g27));
+    if layer == 28 { return Box::new(g28); }
+    let mut g29 = MapZoom::new(1001, world_seed);
+    g29.parent = Some(Rc::new(g28));
+    if layer == 29 { return Box::new(g29); }
+    let mut g30 = MapShore::new(1000, world_seed);
+    g30.parent = Some(Rc::new(g29));
+    if layer == 30 { return Box::new(g30); }
+    let mut g31 = MapZoom::new(1002, world_seed);
+    g31.parent = Some(Rc::new(g30));
+    if layer == 31 { return Box::new(g31); }
+    let mut g32 = MapZoom::new(1003, world_seed);
+    g32.parent = Some(Rc::new(g31));
+    if layer == 32 { return Box::new(g32); }
+    let mut g33 = MapSmooth::new(1000, world_seed);
+    g33.parent = Some(Rc::new(g32));
+    if layer == 33 { return Box::new(g33); }
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(g22.clone());
+    if layer == 34 { return Box::new(MapMap { parent: Rc::new(g34), f: reduce_id }); }
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    if layer == 35 { return Box::new(MapMap { parent: Rc::new(g35), f: reduce_id }); }
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    if layer == 36 { return Box::new(MapMap { parent: Rc::new(g36), f: reduce_id }); }
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    if layer == 37 { return Box::new(MapMap { parent: Rc::new(g37), f: reduce_id }); }
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    if layer == 38 { return Box::new(MapMap { parent: Rc::new(g38), f: reduce_id }); }
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    if layer == 39 { return Box::new(MapMap { parent: Rc::new(g39), f: reduce_id }); }
+    let mut g40 = MapRiver::new(1, world_seed);
+    g40.parent = Some(Rc::new(g39));
+    if layer == 40 { return Box::new(g40); }
+    let mut g41 = MapSmooth::new(1000, world_seed);
+    g41.parent = Some(Rc::new(g40));
+    if layer == 41 { return Box::new(g41); }
+    let mut g42 = MapRiverMix::new(100, world_seed);
+    g42.parent1 = Some(Rc::new(g33));
+    g42.parent2 = Some(Rc::new(g41));
+    if layer == 42 { return Box::new(g42); }
+
+    // 1.13 ocean layers
+    let g43 = MapOceanTemp::new(2, world_seed);
+    if layer == 43 { return Box::new(g43); }
+    let mut g44 = MapZoom::new(2001, world_seed);
+    g44.parent = Some(Rc::new(g43));
+    if layer == 44 { return Box::new(g44); }
+    let mut g45 = MapZoom::new(2002, world_seed);
+    g45.parent = Some(Rc::new(g44));
+    if layer == 45 { return Box::new(g45); }
+    let mut g46 = MapZoom::new(2003, world_seed);
+    g46.parent = Some(Rc::new(g45));
+    if layer == 46 { return Box::new(g46); }
+    let mut g47 = MapZoom::new(2004, world_seed);
+    g47.parent = Some(Rc::new(g46));
+    if layer == 47 { return Box::new(g47); }
+    let mut g48 = MapZoom::new(2005, world_seed);
+    g48.parent = Some(Rc::new(g47));
+    if layer == 48 { return Box::new(g48); }
+    let mut g49 = MapZoom::new(2006, world_seed);
+    g49.parent = Some(Rc::new(g48));
+    if layer == 49 { return Box::new(g49); }
+
+    let mut g50 = MapOceanMix::new(100, world_seed);
+    g50.parent1 = Some(Rc::new(g42)); // MapRiverMix
+    g50.parent2 = Some(Rc::new(g49)); // MapZoom <- MapOceanTemp
+    if layer == 50 { return Box::new(g50); }
+
+    let mut g51 = MapVoronoiZoom115::new(world_seed);
+    g51.parent = Some(Rc::new(g50));
+
+    Box::new(g51)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -4879,6 +5312,63 @@ mod tests {
         for id in &swamps { // -0.2, -0.1
             assert!(BIOME_INFO[*id as usize].height < 0.0, "{}", id);
         }
+    }
+
+    #[test]
+    fn voronoi_1_15() {
+        use crate::seed_info::SeedInfo;
+        let s = SeedInfo::read("seedinfo_tests/voronoi_1_15.json").unwrap();
+        let river_coords = &s.biomes[&7];
+        println!("{}", draw_map(&map_with_river_at(river_coords, Area::from_coords(river_coords))));
+        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords), s.world_seed.unwrap().parse().unwrap());
+        println!("{}", draw_map(&m));
+        for r in river_coords {
+            let gr = m.get(r.0, r.1);
+            assert!(gr == 7, "{:?} should be river but is {}", r, gr);
+        }
+    }
+
+    #[test]
+    fn sha256_byte_order() {
+        let input = 2499980394650691929u64 as i64;
+        let expected = 11169288594992569606u64 as i64;
+
+        assert_eq!(sha256_long_to_long(input), expected);
+    }
+
+    #[test]
+    fn sha256_collision_34_bits() {
+        use crate::java_rng::mask;
+
+        // These values of the world seed result in the same lower 34 bits
+        // after being hashed. This doesn't seed to be useful, but here they
+        // are anyway.
+        let x = [19424995491, 55159191312, 47814887371];
+        for &i in &x {
+            assert_eq!(sha256_long_to_long(i) & mask(34) as i64, i & mask(34) as i64);
+        }
+    }
+
+    #[test]
+    fn sha256_collision_similar_biome_seeds() {
+        use crate::java_rng::mask;
+
+        // The similar biomes trick doesn't work as well in 1.15 because of the
+        // changes in MapVoronoiZoom. However, it is still possible to find
+        // some seeds that share the lower 34 bits when hashed
+        let x = [36159317779, 54081671403, 3734291918, 41695158396];
+        for &i in &x {
+            let similar = McRng::similar_biome_seed(i);
+            assert_eq!(sha256_long_to_long(i) & mask(34) as i64, sha256_long_to_long(similar) & mask(34) as i64);
+        }
+    }
+
+    #[test]
+    fn index_of_min_element_tie() {
+        assert_eq!(index_of_min_element(&[0.0, 1.0]).unwrap(), 0);
+        assert_eq!(index_of_min_element(&[1.0, 0.0]).unwrap(), 1);
+        assert_eq!(index_of_min_element(&[0.0, 0.0]).unwrap(), 0);
+        assert_eq!(index_of_min_element(&[0.1, 0.0, 0.0]).unwrap(), 1);
     }
 }
 

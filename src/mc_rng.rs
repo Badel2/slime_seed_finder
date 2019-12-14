@@ -81,14 +81,20 @@ impl McRng {
 
         (s * (s * Wrapping(mc_qcg_const::A) + Wrapping(mc_qcg_const::C)) + k).0
     }
-    pub fn next_int_n(&mut self, n: i32) -> i32 {
-        let mut ret = ((self.chunk_seed >> 24) % (n as i64)) as i32;
+    // Equivalent to Java's Math.floorDiv(x, y)
+    pub fn math_floor_div(x: i64, y: i64) -> i64 {
+        let mut ret = x % y;
 
         // Java % is not the same as C %, this is needed in Java because we
         // do not want negative results:
         if ret < 0 {
-            ret += n;
+            ret += y;
         }
+
+        ret
+    }
+    pub fn next_int_n(&mut self, n: i32) -> i32 {
+        let ret = Self::math_floor_div(self.chunk_seed >> 24, n as i64) as i32;
 
         self.chunk_seed = Self::next_state(self.chunk_seed, self.world_seed);
 
