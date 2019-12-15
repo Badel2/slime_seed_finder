@@ -61,6 +61,8 @@ pub struct Options {
     pub error_margin_slime_chunks: u8,
     #[serde(default, skip_serializing_if = "is_default")]
     pub error_margin_slime_chunks_negative: u8,
+    #[serde(flatten)]
+    pub other: HashMap<String, serde_json::Value>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
