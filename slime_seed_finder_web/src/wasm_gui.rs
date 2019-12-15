@@ -249,7 +249,7 @@ pub fn generate_fragment(
     let version1: MinecraftVersion = match version.parse() {
         Ok(s) => s,
         Err(_) => {
-            if version == "TreasureMap" {
+            if version.starts_with("TreasureMap") {
                 let seed = if let Ok(s) = seed.parse() {
                     s
                 } else {
