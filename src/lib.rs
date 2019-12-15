@@ -22,7 +22,7 @@ pub mod anvil;
 pub mod structures;
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
-mod biome_info;
+pub mod biome_info;
 
 
 use crate::slime::is_slime_chunk;

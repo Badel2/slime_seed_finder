@@ -5,7 +5,7 @@ use stdweb::js_export;
 use stdweb::serde::Serde;
 use stdweb::web::TypedArray;
 
-use slime_seed_finder::biome_layers::biome_id;
+use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::Map;
 use slime_seed_finder::java_rng::JavaRng;

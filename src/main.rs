@@ -1,9 +1,9 @@
 use structopt::StructOpt;
 use std::path::PathBuf;
 use slime_seed_finder::*;
+use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
-use slime_seed_finder::biome_layers::biome_id;
 use slime_seed_finder::biome_layers::Map;
 use slime_seed_finder::slime::seed_from_slime_chunks;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
