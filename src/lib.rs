@@ -20,6 +20,10 @@ pub mod seed_info;
 pub mod noise_generator;
 pub mod anvil;
 pub mod structures;
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
+mod biome_info;
+
 
 use crate::slime::is_slime_chunk;
 use crate::chunk::Chunk;
