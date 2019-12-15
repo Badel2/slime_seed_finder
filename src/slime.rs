@@ -1,3 +1,4 @@
+use log::info;
 use crate::java_rng::JavaRng;
 use crate::chunk::Chunk;
 use crate::biome_layers::{Area, Map};
@@ -60,12 +61,11 @@ impl SlimeChunks {
         let mut v = vec![];
 
         for &l in &self.low_18_candidates {
-            let l = l as u64;
-            'nextseed: for seed in lo..hi {
-                let seed = ((seed as u64) << 18) | l;
+            for seed in lo..hi {
+                let seed = ((seed as u64) << 18) | (l as u64);
 
                 if self.try_seed_skip_18(seed) {
-                    println!("Found seed: {:012X}", seed);
+                    info!("Found seed: {:012X}", seed);
                     v.push(seed);
                 }
             }
@@ -200,7 +200,7 @@ pub fn seed_from_slime_chunks(
 ) -> Vec<u64> {
     let sc = SlimeChunks::new(slimechunks, max_errors, noslimechunks, max_noerrors);
 
-    println!("Found {} 18-bit candidates", sc.low_18_candidates.len());
+    info!("Found {} 18-bit candidates", sc.low_18_candidates.len());
 
     sc.find_seed()
 }
