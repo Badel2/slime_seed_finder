@@ -15,14 +15,14 @@ pub mod wasm_gui;
 /// # Panics
 /// This function *always* panics.
 #[inline]
-pub fn print_error_panic< A: stdweb::JsSerialize >( value: A ) -> ! {
+pub fn print_error_panic<A: stdweb::JsSerialize>(value: A) -> ! {
     js! { @(no_return)
         console.error( @{value} );
     }
     panic!();
 }
 
-fn main(){
+fn main() {
     // Set panic hook so we get backtrace in console
     panic::set_hook(Box::new(|info| {
         print_error_panic(&info.to_string());

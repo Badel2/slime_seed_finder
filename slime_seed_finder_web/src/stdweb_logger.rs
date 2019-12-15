@@ -11,11 +11,11 @@
 // And also added color and module info, from the pretty_env_logger crate
 
 use ansi_term::{Color, Style};
-use log::{self, Log, LevelFilter, Level, Record, SetLoggerError, Metadata};
-use stdweb::js;
+use log::{self, Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
+use std::fmt;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::fmt;
+use stdweb::js;
 
 // This struct is from the pretty_env_logger crate
 // https://github.com/seanmonstar/pretty-env-logger
@@ -28,8 +28,9 @@ impl fmt::Display for ColorLevel {
             Level::Debug => Color::Blue.paint("DEBUG"),
             Level::Info => Color::Green.paint("INFO "),
             Level::Warn => Color::Yellow.paint("WARN "),
-            Level::Error => Color::Red.paint("ERROR")
-        }.fmt(f)
+            Level::Error => Color::Red.paint("ERROR"),
+        }
+        .fmt(f)
     }
 }
 
@@ -47,9 +48,7 @@ impl Logger {
     }
 
     pub fn try_init_with_level(level: LevelFilter) -> Result<(), SetLoggerError> {
-        let logger = Self {
-            filter: level,
-        };
+        let logger = Self { filter: level };
 
         log::set_max_level(logger.filter());
         log::set_boxed_logger(Box::new(logger))
@@ -78,17 +77,21 @@ impl Log for Logger {
             max_width = target.len();
         }
         let mut message = String::new();
-        write!(&mut message, " {} {} > {}",
-               ColorLevel(record.level()),
-               Style::new().bold().paint(format!("{: <width$}", target, width=max_width)),
-               record.args()
-        ).unwrap();
+        write!(
+            &mut message,
+            " {} {} > {}",
+            ColorLevel(record.level()),
+            Style::new()
+                .bold()
+                .paint(format!("{: <width$}", target, width = max_width)),
+            record.args()
+        )
+        .unwrap();
 
-        js!{
+        js! {
             console.debug(@{message});
         }
     }
 
     fn flush(&self) {}
 }
-
