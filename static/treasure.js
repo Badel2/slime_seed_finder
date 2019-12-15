@@ -347,13 +347,13 @@ function runWorkers(numWorkers, seedInfo) {
             );
             // Draw sample image to canvas
             if (l42AreaC && workerId == 0) {
-                Rust.wasm_gui.then(function(wasmgui) {
+                Rust.wasm_gui.then(function(slime_seed_finder_web) {
                     let seltextarea = document.getElementById(
                         "selection_output"
                     );
                     let seedInfo = JSON.parse(seltextarea.value);
                     let minecraft_version = seedInfo.version;
-                    let r = wasmgui.generate_rivers_candidate(
+                    let r = slime_seed_finder_web.generate_rivers_candidate(
                         JSON.stringify({
                             version: minecraft_version,
                             seed: "" + startedX,
@@ -404,9 +404,9 @@ function runGui() {
 // Count candidates
 function countCandidates() {
     Rust.wasm_gui.then(
-        function(wasmgui) {
+        function(slime_seed_finder_web) {
             let outta = document.getElementById("num_candidates");
-            outta.value = wasmgui.count_rivers(
+            outta.value = slime_seed_finder_web.count_rivers(
                 JSON.stringify({ seedInfo: seedInfo })
             );
         },
@@ -417,8 +417,10 @@ function countCandidates() {
 }
 
 function drawVoronoi() {
-    Rust.wasm_gui.then(function(wasmgui) {
-        let r = wasmgui.draw_rivers(JSON.stringify({ seedInfo: seedInfo }));
+    Rust.wasm_gui.then(function(slime_seed_finder_web) {
+        let r = slime_seed_finder_web.draw_rivers(
+            JSON.stringify({ seedInfo: seedInfo })
+        );
         drawMapToCanvas(
             document.getElementById("mapLayer43"),
             r.l43,
@@ -477,9 +479,9 @@ function convertIntsToColor(r, g, b, a) {
 }
 
 function drawTreasureMap() {
-    Rust.wasm_gui.then(function(wasmgui) {
+    Rust.wasm_gui.then(function(slime_seed_finder_web) {
         console.log("draw_treasure_map");
-        let q = wasmgui.draw_treasure_map(
+        let q = slime_seed_finder_web.draw_treasure_map(
             JSON.stringify({ seedInfo: seedInfo })
         );
         drawMapToCanvas(document.getElementById("treasureCanvas"), q, {

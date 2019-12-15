@@ -201,7 +201,7 @@
                         });
                 } else {
                     return Rust.wasm_gui.then(
-                        function(wasmgui) {
+                        function(slime_seed_finder_web) {
                             let ws = document.getElementById("worldSeed");
                             // Since js doesnt support 64 bit ints, we just pass
                             // the string array to the Rust code, it will be parsed there
@@ -215,7 +215,7 @@
                             console.log(
                                 "Generating fragment: " + fx + ", " + fy
                             );
-                            let rvec = wasmgui.generate_fragment_slime_map(
+                            let rvec = slime_seed_finder_web.generate_fragment_slime_map(
                                 fx,
                                 fy,
                                 seed,
@@ -259,8 +259,8 @@
                 // Oh, right, the seed is 64 bits
 
                 Rust.wasm_gui.then(
-                    function(wasmgui) {
-                        let new_value = wasmgui.gen_test_seed_base_n_bits(
+                    function(slime_seed_finder_web) {
+                        let new_value = slime_seed_finder_web.gen_test_seed_base_n_bits(
                             base.value,
                             n.value,
                             bits.value

@@ -13,7 +13,6 @@ lto = true
 [features]
 cubiomes_rs = ["libc"]
 main = ["structopt", "rand", "image", "num_cpus"]
-wasm = ["stdweb", "palette"]
 
 [dependencies]
 ansi_term = "0.12.0"
@@ -25,11 +24,9 @@ structopt = { version = "0.2.18", optional = true }
 image = { version = "0.22.1", optional = true }
 libc = { version = "0.2.62", optional = true }
 log = { version = "0.4.8", features = ["std"] }
-stdweb = { version = "0.4.20", optional = true, features = ["futures-support"] }
-serde = { version = "1.0.99", optional = false, features = ["derive"] }
-serde_json = { version = "1.0.40", optional = false }
+serde = { version = "1.0.103", features = ["derive"] }
+serde_json = { version = "1.0.44", optional = false }
 ndarray = "0.12.1"
-palette = { version = "0.4.1", optional = true }
 rand = { version = "0.7.0", optional = true }
 pretty_env_logger = "0.3.1"
 sha2 = "0.8"
@@ -39,12 +36,11 @@ name = "slime_seed_finder"
 path = "src/main.rs"
 required-features = ["main"]
 
-[[bin]]
-name = "wasm_gui"
-path = "src/wasm_gui.rs"
-required-features = ["stdweb"]
-
 [[example]]
 name = "rendermap"
 required-features = ["cubiomes_rs"]
 
+[workspace]
+members = [
+    "slime_seed_finder_web"
+]

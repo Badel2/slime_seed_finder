@@ -1,13 +1,5 @@
-extern crate slime_seed_finder;
-#[macro_use]
-extern crate stdweb;
-extern crate serde;
-extern crate serde_json;
-extern crate palette;
-extern crate log;
-
-mod stdweb_logger;
-
+use stdweb::console;
+use stdweb::js_export;
 use stdweb::serde::Serde;
 use stdweb::web::TypedArray;
 use palette::{Gradient, LinSrgb};
@@ -23,35 +15,6 @@ use slime_seed_finder::mc_rng::McRng;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 
-use std::panic;
-
-//use stdweb::print_error_panic;
-// https://github.com/koute/stdweb/blob/4d337ee9a0a4542ea5803b46b5124d9bc166dcb7/src/webcore/promise_future.rs#L127
-/// Prints an error to the console and then panics.
-///
-/// If you're using Futures, it's more convenient to use [`unwrap_future`](fn.unwrap_future.html) instead.
-///
-/// # Panics
-/// This function *always* panics.
-#[inline]
-pub fn print_error_panic< A: stdweb::JsSerialize >( value: A ) -> ! {
-    js! { @(no_return)
-        console.error( @{value} );
-    }
-    panic!();
-}
-
-#[cfg(feature = "wasm")]
-fn main(){
-    // Set panic hook so we get backtrace in console
-    panic::set_hook(Box::new(|info| {
-        print_error_panic(&info.to_string());
-    }));
-    // Init console logger
-    stdweb_logger::Logger::init_with_level(::log::LevelFilter::Debug);
-    // Don't start, wait for user to press button
-}
-
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Options {
@@ -59,7 +22,6 @@ pub struct Options {
     range: Option<(u32, u32)>,
 }
 
-js_serializable!(DrawRivers);
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DrawRivers {
@@ -84,7 +46,6 @@ pub struct AnvilOptions {
     version: String,
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 //pub fn slime_seed_finder(chunks_str: &str, no_chunks_str: &str) -> String {
 //    let r = find_seed(chunks_str, no_chunks_str);
@@ -96,7 +57,6 @@ pub fn slime_seed_finder(o: Serde<Options>) -> String {
     format!("Found {} seeds!\n{:#?}", r.len(), r)
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn river_seed_finder(o: String) -> Vec<String> {
     let o: Result<Options, _> = serde_json::from_str(&o);
@@ -107,9 +67,8 @@ pub fn river_seed_finder(o: String) -> Vec<String> {
     r.into_iter().map(|seed| format!("{}", seed)).collect()
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
-pub fn draw_rivers(o: String) -> DrawRivers {
+pub fn draw_rivers(o: String) -> Serde<DrawRivers> {
     // TODO: detect when there are two separate river areas and return a vec of maps?
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
@@ -121,32 +80,30 @@ pub fn draw_rivers(o: String) -> DrawRivers {
     let area_hd = Area::from_coords(&hd_coords);
     let target_map_hd = biome_layers::map_with_river_at(&hd_coords, area_hd);
 
-    DrawRivers {
+    Serde(DrawRivers {
         l43_area: target_map_hd.area(),
         l43: biome_layers::draw_map_image(&target_map_hd),
         l42_area: m.area(),
         l42: biome_layers::draw_map_image(&m),
-    }
+    })
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
-pub fn generate_rivers_candidate(o: String) -> DrawRivers {
+pub fn generate_rivers_candidate(o: String) -> Serde<DrawRivers> {
     let o: Result<GenerateRiversCandidate, _> = serde_json::from_str(&o);
     let o = o.unwrap();
 
     // TODO: only works for version 1.7
     let magic_layer_river_candidate = 141;
 
-    DrawRivers {
+    Serde(DrawRivers {
         l43_area: Area { x: 0, z: 0, w: 0, h: 0 },
         l43: vec![],
         l42_area: o.area,
         l42: biome_layers::generate_image_up_to_layer(o.version.parse().unwrap(), o.area, o.seed.parse().unwrap(), magic_layer_river_candidate),
-    }
+    })
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn count_candidates(o: Serde<Options>) -> String {
     let o = o.0;
@@ -161,7 +118,6 @@ pub fn count_candidates(o: Serde<Options>) -> String {
     return format!("{} * 2^30 candidates", num_cand);
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn draw_reverse_voronoi(o: Serde<Options>) -> Vec<u8> {
     let o = o.0;
@@ -171,7 +127,6 @@ pub fn draw_reverse_voronoi(o: Serde<Options>) -> Vec<u8> {
     biome_layers::draw_map_image(&m)
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn extend48(s: &str) -> String {
     let mut r = vec![];
@@ -204,7 +159,6 @@ pub fn extend48(s: &str) -> String {
     s
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn count_rivers(o: String) -> String {
     let o: Result<Options, _> = serde_json::from_str(&o);
@@ -264,7 +218,6 @@ pub fn find_seed_rivers(o: Options) -> Vec<i64> {
     }
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn generate_fragment(version: String, fx: i32, fy: i32, seed: String, frag_size: usize) -> Vec<u8> {
     let version1: MinecraftVersion = match version.parse() {
@@ -290,7 +243,6 @@ pub fn generate_fragment(version: String, fx: i32, fy: i32, seed: String, frag_s
     generate_fragment_up_to_layer(version, fx, fy, seed, frag_size, num_layers)
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn generate_fragment_up_to_layer(version: String, fx: i32, fy: i32, seed: String, frag_size: usize, layer: u32) -> Vec<u8> {
     let frag_size = frag_size as usize;
@@ -346,7 +298,6 @@ pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4]
     }
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_size: usize) -> Vec<u8> {
     let seeds: Vec<u64> = seeds.into_iter().map(|s| s.parse().unwrap_or_else(|s| {
@@ -393,7 +344,6 @@ pub fn generate_fragment_slime_map(fx: i32, fy: i32, seeds: Vec<String>, frag_si
     v
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn add_2_n(seed: String, n: u8) -> String {
     if n >= 64 {
@@ -407,7 +357,6 @@ pub fn add_2_n(seed: String, n: u8) -> String {
     }
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn sub_2_n(seed: String, n: u8) -> String {
     if n >= 64 {
@@ -421,7 +370,6 @@ pub fn sub_2_n(seed: String, n: u8) -> String {
     }
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> String {
     let base: i64 = base.parse().unwrap();
@@ -440,7 +388,6 @@ pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> Strin
     s
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn similar_biome_seed(seed: String) -> String {
     if let Ok(s) = seed.parse::<i64>() {
@@ -450,7 +397,6 @@ pub fn similar_biome_seed(seed: String) -> String {
     }
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn draw_treasure_map(o: String) -> Vec<u8> {
     console!(log, format!("Parsing options: {}", o));
@@ -480,7 +426,6 @@ pub fn draw_treasure_map(o: String) -> Vec<u8> {
     biome_layers::draw_treasure_map_image(&tmap)
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
     console!(log, format!("Parsing options: {}", o));
@@ -504,7 +449,6 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
     r.into_iter().map(|seed| format!("{}", seed)).collect()
 }
 
-#[cfg(feature = "wasm")]
 #[js_export]
 pub fn anvil_region_to_river_seed_finder(zipped_world: TypedArray<u8>) -> String {
     use std::io::Cursor;

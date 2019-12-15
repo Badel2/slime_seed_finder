@@ -110,9 +110,11 @@ Found 64-bit seeds will appear here.</textarea
                     };
                 } else {
                     Rust.wasm_gui.then(
-                        function(wasmgui) {
+                        function(slime_seed_finder_web) {
                             // TODO: check if a thread is already running and kill it
-                            outta.value = wasmgui.slime_seed_finder(seedInfo);
+                            outta.value = slime_seed_finder_web.slime_seed_finder(
+                                seedInfo
+                            );
                         },
                         function(err) {
                             console.error(err);
@@ -124,13 +126,13 @@ Found 64-bit seeds will appear here.</textarea
             // Count candidates
             function countCandidates() {
                 Rust.wasm_gui.then(
-                    function(wasmgui) {
+                    function(slime_seed_finder_web) {
                         let outta = document.getElementById("num_candidates");
                         let seltextarea = document.getElementById(
                             "selection_output"
                         );
                         let seedInfo = JSON.parse(seltextarea.value);
-                        outta.value = wasmgui.count_candidates({
+                        outta.value = slime_seed_finder_web.count_candidates({
                             seedInfo: seedInfo,
                         });
                     },
@@ -142,11 +144,13 @@ Found 64-bit seeds will appear here.</textarea
 
             // Extend 48
             Rust.wasm_gui.then(
-                function(wasmgui) {
+                function(slime_seed_finder_web) {
                     let seed48 = document.getElementById("seed48");
                     let outta = document.getElementById("output_extend48");
                     seed48.addEventListener("keyup", function(event) {
-                        outta.value = wasmgui.extend48(seed48.value);
+                        outta.value = slime_seed_finder_web.extend48(
+                            seed48.value
+                        );
                     });
                 },
                 function(err) {

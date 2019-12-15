@@ -96,8 +96,8 @@ function runGui() {
     let seltextarea = document.getElementById("selection_output");
     if (window.Worker) {
         let maxWorkers = navigator.hardwareConcurrency || 4;
-        Rust.wasm_gui.then(function(wasmgui) {
-            let seedInfo_str = wasmgui.anvil_region_to_river_seed_finder(
+        Rust.wasm_gui.then(function(slime_seed_finder_web) {
+            let seedInfo_str = slime_seed_finder_web.anvil_region_to_river_seed_finder(
                 region
             );
             console.log("Got seedInfo from wasm:");
@@ -116,9 +116,9 @@ function runGui() {
 // Count candidates
 function countCandidates() {
     Rust.wasm_gui.then(
-        function(wasmgui) {
+        function(slime_seed_finder_web) {
             let outta = document.getElementById("num_candidates");
-            outta.value = wasmgui.count_rivers(
+            outta.value = slime_seed_finder_web.count_rivers(
                 JSON.stringify({ seedInfo: seedInfo })
             );
         },

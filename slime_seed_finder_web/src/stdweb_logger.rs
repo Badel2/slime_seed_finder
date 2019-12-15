@@ -10,8 +10,9 @@
 // term2
 // And also added color and module info, from the pretty_env_logger crate
 
-use log::{self, Log, LevelFilter, Level, Record, SetLoggerError, Metadata};
 use ansi_term::{Color, Style};
+use log::{self, Log, LevelFilter, Level, Record, SetLoggerError, Metadata};
+use stdweb::js;
 use std::fmt::Write;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::fmt;

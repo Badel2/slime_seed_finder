@@ -428,15 +428,15 @@
                     */
                     // Ok, I'll just implement it in Rust
                     return Rust.wasm_gui.then(
-                        function(wasmgui) {
+                        function(slime_seed_finder_web) {
                             let new_value;
                             if (add_not_sub) {
-                                new_value = wasmgui.add_2_n(
+                                new_value = slime_seed_finder_web.add_2_n(
                                     ws.value,
                                     n.value | 0
                                 );
                             } else {
-                                new_value = wasmgui.sub_2_n(
+                                new_value = slime_seed_finder_web.sub_2_n(
                                     ws.value,
                                     n.value | 0
                                 );
@@ -454,8 +454,8 @@
                 if (ws) {
                     // Ok, I'll just implement it in Rust
                     return Rust.wasm_gui.then(
-                        function(wasmgui) {
-                            let new_value = wasmgui.similar_biome_seed(
+                        function(slime_seed_finder_web) {
+                            let new_value = slime_seed_finder_web.similar_biome_seed(
                                 ws.value
                             );
                             setSeed(new_value);
@@ -612,7 +612,7 @@
                         });
                 } else {
                     return Rust.wasm_gui.then(
-                        function(wasmgui) {
+                        function(slime_seed_finder_web) {
                             let ws = document.getElementById("worldSeed");
                             // Since js doesnt support 64 bit ints, we just pass
                             // the string to the Rust code, it will be parsed there
@@ -621,7 +621,7 @@
                             console.log(
                                 "Generating fragment: " + fx + ", " + fy
                             );
-                            let rvec = wasmgui.generate_fragment(
+                            let rvec = slime_seed_finder_web.generate_fragment(
                                 fx,
                                 fy,
                                 seed,
