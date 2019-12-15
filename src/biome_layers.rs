@@ -722,12 +722,9 @@ impl GetMap for MapVoronoiZoom115 {
                 // if v00 == v01 == v10 == v11,
                 // buf will always be set to the same value, so skip
                 // all the calculations
-                // Benchmark result: x10 speedup when pmap is all zeros
                 if v00 == v01 && v00 == v10 && v00 == v11 {
                     for j in 0..4 {
                         for i in 0..4 {
-                            let x = x as usize;
-                            let z = z as usize;
                             let idx = ((x << 2) + i, (z << 2) + j);
                             m.a[idx] = v00;
                         }
@@ -739,30 +736,21 @@ impl GetMap for MapVoronoiZoom115 {
                 }
 
                 // For each pixel from pmap we want to generate 4x4 pixels in buf
+                // Calculate the positions of the 2x2x2 points from (px, py, pz) to (px+1, py+1, pz+1)
+                let pos_offset = {
+                    let px = (p_x + x as i64) as i32;
+                    let pz = (p_z + z as i64) as i32;
+                    // y = 0; py = (y - 2) >> 2
+                    let py = -1;
+                    voronoi_1_15_pos_offset(self.hashed_world_seed, px, py, pz)
+                };
+                let biome_at = [v00, v01, v00, v01, v10, v11, v10, v11];
                 for j in 0..4 {
-                    let mut idx = {
-                        let x = x as usize;
-                        let z = z as usize;
-                        (x << 2, (z << 2) + j)
-                    };
-                    for _i in 0..4 {
-                        // TODO: this can be optimized by operating on the 4x4 area at once
-                        // For example, make map_voronoi_1_15 return a 4x4 array
-                        m.a[idx] = map_voronoi_1_15(self.hashed_world_seed, (area.x + idx.0 as i64) as i32, 0, (area.z + idx.1 as i64) as i32, |x, y, z| {
-                            if x == 0 && z == 0 {
-                                v00
-                            } else if x == 0 && z == 1 {
-                                v01
-                            } else if x == 1 && z == 0 {
-                                v10
-                            } else if x == 1 && z == 1 {
-                                v11
-                            } else {
-                                panic!("Voronoi115: biome_at called with invalid args: {:?}", (x, y, z));
-                            }
-                        });
-
-                        idx.0 += 1;
+                    for i in 0..4 {
+                        let idx = ((x << 2) + i, (z << 2) + j);
+                        // y = 0; y2 = (y - 2)
+                        let y2 = -2;
+                        m.a[idx] = map_voronoi_1_15(i as i32, y2, j as i32, &pos_offset, &biome_at);
                     }
                 }
 
@@ -782,50 +770,66 @@ fn index_of_min_element(x: &[f64]) -> Option<usize> {
     x.iter().enumerate().min_by(|(_, a), (_, b)| a.partial_cmp(b).expect("NaN float")).map(|(i, _)| i)
 }
 
-fn map_voronoi_1_15<F: FnMut(i32, i32, i32) -> i32>(seed: i64, x: i32, y: i32, z: i32, mut biome_at: F) -> i32 {
-    // Zoom from 1:4 to 1:1, with (4k + 2, 4k + 2) being the center coordinate
-    // px: x coordinate in 1:4 scale
-    let px = (x - 2) >> 2;
-    let py = (y - 2) >> 2;
-    let pz = (z - 2) >> 2;
+fn voronoi_1_15_pos_offset(seed: i64, px: i32, py: i32, pz: i32) -> [(f64, f64, f64); 8] {
+    // Negative position of the voronoi point
+    let mut pos_offset = [(0.0, 0.0, 0.0); 8];
+
+    for i in 0..8 {
+        let flagx = (i & 4) == 0;
+        let flagy = (i & 2) == 0;
+        let flagz = (i & 1) == 0;
+
+        let x1 = if flagx { px } else { px + 1 };
+        let y1 = if flagy { py } else { py + 1 };
+        let z1 = if flagz { pz } else { pz + 1 };
+
+        pos_offset[i] = rand_offset_3d(seed, x1, y1, z1);
+        // FIXME(voronoi_float_precision): these operations used to be performed
+        // right before mod_squared_3d
+        pos_offset[i].0 -= if flagx { 0.0 } else { 1.0 };
+        pos_offset[i].1 -= if flagy { 0.0 } else { 1.0 };
+        pos_offset[i].2 -= if flagz { 0.0 } else { 1.0 };
+    }
+
+    pos_offset
+}
+
+// Calculates the distance from (x, y, z) to each of the points in pos_offset,
+// and returns the biome of the nearest point.
+// (x, y, z) are the coordinates inside the 4x4x4 cube that will be generated
+// by MapVoronoiZoom115, should be one of (0, 1, 2, 3).
+fn map_voronoi_1_15(x: i32, y: i32, z: i32, pos_offset: &[(f64, f64, f64); 8], biome_at: &[i32; 8]) -> i32 {
     // dx is one of 0.00, 0.25, 0.50, 0.75
-    let dx = f64::from((x - 2) & 3) / 4.0;
-    let dy = f64::from((y - 2) & 3) / 4.0;
-    let dz = f64::from((z - 2) & 3) / 4.0;
+    let dx = f64::from(x & 3) / 4.0;
+    let dy = f64::from(y & 3) / 4.0;
+    let dz = f64::from(z & 3) / 4.0;
     let mut dists = [0.0; 8];
 
     for i in 0..8 {
-        let flag = (i & 4) == 0;
-        let flag1 = (i & 2) == 0;
-        let flag2 = (i & 1) == 0;
-
-        let x1 = if flag { px } else { px + 1 };
-        let y1 = if flag1 { py } else { py + 1 };
-        let z1 = if flag2 { pz } else { pz + 1 };
-        let dx1 = if flag { dx } else { dx - 1.0 };
-        let dy1 = if flag1 { dy } else { dy - 1.0 };
-        let dz1 = if flag2 { dz } else { dz - 1.0 };
-
-        dists[i] = rand_distance(seed, x1, y1, z1, dx1, dy1, dz1);
+        dists[i] = mod_squared_3d(pos_offset[i].0 + dx, pos_offset[i].1 + dy, pos_offset[i].2 + dz); 
     }
 
     let min_index = index_of_min_element(&dists).unwrap();
 
-    let rx = if (min_index & 4) == 0 { 0 } else { 1 };
-    let ry = if (min_index & 2) == 0 { 0 } else { 1 };
-    let rz = if (min_index & 1) == 0 { 0 } else { 1 };
-
-    // Always call biome_at with args from (0, 0, 0) to (1, 1, 1)
-    biome_at(rx, ry, rz)
+    biome_at[min_index]
 }
 
 fn mod_squared_3d(x: f64, y: f64, z: f64) -> f64 {
-    x * x + y * y + z * z
+    // FIXME(voronoi_float_precision): the order of the arguments is important,
+    // but I don't have any test cases with the correct order. This may be a
+    // problem when two points are at about the same distance from a third
+    // point. In that case, the biome at the third point may be wrong because of
+    // the floating point precision. We cannot use AMIDST to generate test cases
+    // because we need the full resolution biome map.
+    z * z + y * y + x * x
 }
 
 fn rand_offset_3d(seed: i64, x: i32, y: i32, z: i32) -> (f64, f64, f64) {
     // Returns number in range [-0.45, 0.45)
     fn rand_offset(seed: i64) -> f64 {
+        // nextInt(1024) / 1024.0
+        // Return a f64 between 0.0 and 1.0 with 10 bits of accuracy:
+        // two different points cannot be closer than 2^-10
         let d = McRng::math_floor_div(seed >> 24, 1024) as f64 / 1024.0;
 
         (d - 0.5) * 0.9
@@ -846,12 +850,6 @@ fn rand_offset_3d(seed: i64, x: i32, y: i32, z: i32) -> (f64, f64, f64) {
     let dz = rand_offset(r);
 
     (dx, dy, dz)
-}
-
-fn rand_distance(seed: i64, x: i32, y: i32, z: i32, dx0: f64, dy0: f64, dz0: f64) -> f64 {
-    let (dx1, dy1, dz1) = rand_offset_3d(seed, x, y, z);
-
-    mod_squared_3d(dz0 + dz1, dy0 + dy1, dx0 + dx1)
 }
 
 pub struct MapIsland {
