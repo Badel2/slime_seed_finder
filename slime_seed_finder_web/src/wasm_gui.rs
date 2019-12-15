@@ -287,7 +287,7 @@ pub fn generate_fragment_up_to_layer(
     let version = match version.parse() {
         Ok(s) => s,
         Err(_) => {
-            if version == "TreasureMap" {
+            if version.starts_with("TreasureMap") {
                 let seed = if let Ok(s) = seed.parse() {
                     s
                 } else {
