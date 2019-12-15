@@ -77,7 +77,7 @@
 
         <script src="common.js"></script>
         <script src="fragment_map.js"></script>
-        <script type="text/javascript" src="wasm_gui.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
         <script>
             // Hacks to make workers return promises
             // https://codeburst.io/promises-for-the-web-worker-9311b7831733
@@ -200,7 +200,7 @@
                             return c;
                         });
                 } else {
-                    return Rust.wasm_gui.then(
+                    return Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
                             let ws = document.getElementById("worldSeed");
                             // Since js doesnt support 64 bit ints, we just pass
@@ -258,7 +258,7 @@
                 let bits = document.getElementById("genSeedBits");
                 // Oh, right, the seed is 64 bits
 
-                Rust.wasm_gui.then(
+                Rust.slime_seed_finder_web.then(
                     function(slime_seed_finder_web) {
                         let new_value = slime_seed_finder_web.gen_test_seed_base_n_bits(
                             base.value,

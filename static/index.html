@@ -91,7 +91,7 @@ Found 64-bit seeds will appear here.</textarea
 
         <script src="common.js"></script>
         <script src="select_map.js"></script>
-        <script type="text/javascript" src="wasm_gui.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
         <script>
             if (window.Worker) {
                 let myWorker = new Worker("worker.js");
@@ -109,7 +109,7 @@ Found 64-bit seeds will appear here.</textarea
                         console.log("Got message from worker");
                     };
                 } else {
-                    Rust.wasm_gui.then(
+                    Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
                             // TODO: check if a thread is already running and kill it
                             outta.value = slime_seed_finder_web.slime_seed_finder(
@@ -125,7 +125,7 @@ Found 64-bit seeds will appear here.</textarea
 
             // Count candidates
             function countCandidates() {
-                Rust.wasm_gui.then(
+                Rust.slime_seed_finder_web.then(
                     function(slime_seed_finder_web) {
                         let outta = document.getElementById("num_candidates");
                         let seltextarea = document.getElementById(
@@ -143,7 +143,7 @@ Found 64-bit seeds will appear here.</textarea
             }
 
             // Extend 48
-            Rust.wasm_gui.then(
+            Rust.slime_seed_finder_web.then(
                 function(slime_seed_finder_web) {
                     let seed48 = document.getElementById("seed48");
                     let outta = document.getElementById("output_extend48");

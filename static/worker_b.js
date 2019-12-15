@@ -1,4 +1,4 @@
-importScripts("wasm_gui.js");
+importScripts("slime_seed_finder_web.js");
 
 // Simulate lengthy calculation or an async call
 function doCalculation(slime_seed_finder_web, data, cb) {
@@ -29,7 +29,7 @@ function doCalculation(slime_seed_finder_web, data, cb) {
 self.onmessage = function(msg) {
     const { id, payload } = msg.data;
 
-    Rust.wasm_gui.then(function(slime_seed_finder_web) {
+    Rust.slime_seed_finder_web.then(function(slime_seed_finder_web) {
         doCalculation(slime_seed_finder_web, payload, function(err, result) {
             const msg = {
                 id,

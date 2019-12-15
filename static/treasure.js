@@ -347,7 +347,9 @@ function runWorkers(numWorkers, seedInfo) {
             );
             // Draw sample image to canvas
             if (l42AreaC && workerId == 0) {
-                Rust.wasm_gui.then(function(slime_seed_finder_web) {
+                Rust.slime_seed_finder_web.then(function(
+                    slime_seed_finder_web
+                ) {
                     let seltextarea = document.getElementById(
                         "selection_output"
                     );
@@ -403,7 +405,7 @@ function runGui() {
 
 // Count candidates
 function countCandidates() {
-    Rust.wasm_gui.then(
+    Rust.slime_seed_finder_web.then(
         function(slime_seed_finder_web) {
             let outta = document.getElementById("num_candidates");
             outta.value = slime_seed_finder_web.count_rivers(
@@ -417,7 +419,7 @@ function countCandidates() {
 }
 
 function drawVoronoi() {
-    Rust.wasm_gui.then(function(slime_seed_finder_web) {
+    Rust.slime_seed_finder_web.then(function(slime_seed_finder_web) {
         let r = slime_seed_finder_web.draw_rivers(
             JSON.stringify({ seedInfo: seedInfo })
         );
@@ -479,7 +481,7 @@ function convertIntsToColor(r, g, b, a) {
 }
 
 function drawTreasureMap() {
-    Rust.wasm_gui.then(function(slime_seed_finder_web) {
+    Rust.slime_seed_finder_web.then(function(slime_seed_finder_web) {
         console.log("draw_treasure_map");
         let q = slime_seed_finder_web.draw_treasure_map(
             JSON.stringify({ seedInfo: seedInfo })

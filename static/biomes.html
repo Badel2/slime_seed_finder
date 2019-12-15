@@ -99,7 +99,7 @@
         <div style="clear: both;"></div>
         <script src="common.js"></script>
         <script src="fragment_map.js"></script>
-        <script type="text/javascript" src="wasm_gui.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
         <script>
             // https://codeburst.io/throttling-and-debouncing-in-javascript-646d076d0a44
             function debounced(delay, fn) {
@@ -436,7 +436,7 @@
                     ws.value = seed.toString();
                     */
                     // Ok, I'll just implement it in Rust
-                    return Rust.wasm_gui.then(
+                    return Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
                             let new_value;
                             if (add_not_sub) {
@@ -462,7 +462,7 @@
                 let ws = document.getElementById("worldSeed");
                 if (ws) {
                     // Ok, I'll just implement it in Rust
-                    return Rust.wasm_gui.then(
+                    return Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
                             let new_value = slime_seed_finder_web.similar_biome_seed(
                                 ws.value
@@ -620,7 +620,7 @@
                             return c;
                         });
                 } else {
-                    return Rust.wasm_gui.then(
+                    return Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
                             let ws = document.getElementById("worldSeed");
                             // Since js doesnt support 64 bit ints, we just pass
