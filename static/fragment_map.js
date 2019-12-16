@@ -164,6 +164,8 @@ Game.init = function(tsize, canvasH, canvasW, activeLayer) {
     // Dirty flag: only render if true, remember to set it when changing state
     this.dirty = true;
     this.activeLayer = activeLayer;
+    // Never have more than 3 elements in the cache
+    this.lru_cache_size = 3;
 };
 
 Game.update = function(delta) {
@@ -290,10 +292,49 @@ Game.clickTile = function(x, y) {};
 // Get all the (x, y) pairs from a layer with the given value
 Game.getSelection = function(layer, value) {};
 
-Game.clear = function(layer) {
-    map.layers = array_filled_with(NUM_LAYERS, function() {
-        return new Map();
-    });
+Game.load_layers_from_cache = function(cache_key) {
+    if (!this.lru_cache) {
+        this.lru_cache = new Map();
+    }
+    let cached_layers = this.lru_cache.get(cache_key);
+    if (cached_layers) {
+        map.layers = cached_layers;
+    } else {
+        map.layers = array_filled_with(NUM_LAYERS, function() {
+            return new Map();
+        });
+    }
+    // Hopefully update insertion order to make this the most recent
+    this.save_layers_to_cache(cache_key);
+};
+
+Game.save_layers_to_cache = function(cache_key) {
+    this.lru_cache.set(cache_key, map.layers);
+    if (this.lru_cache.size > this.lru_cache_size) {
+        this.lru_cache.delete(this.lru_cache.keys().next().value);
+    }
+};
+
+Game.clearLruCache = function() {
+    this.lru_cache = new Map();
+};
+Game.setLruCacheSize = function(size) {
+    this.lru_cache_size = size;
+    // If shrinking, delete extra elements
+    while (this.lru_cache.size > this.lru_cache_size) {
+        this.lru_cache.delete(this.lru_cache.keys().next().value);
+    }
+};
+
+Game.clear = function(cache_key) {
+    if (cache_key) {
+        // Load state from the LRU cache using this KEY
+        Game.load_layers_from_cache(cache_key);
+    } else {
+        map.layers = array_filled_with(NUM_LAYERS, function() {
+            return new Map();
+        });
+    }
     map.generating = array_filled_with(NUM_LAYERS, function() {
         return new Set();
     });

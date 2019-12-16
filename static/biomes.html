@@ -92,6 +92,9 @@
                         DOWNLOAD MAP
                     </button>
                 </a>
+                Cache size:
+                <input type="text" id="lruCacheSize" size="2" value="3" />
+                <button onClick="Game.clearLruCache()">Clear cache</button>
             </div>
             <div id="position_info" class="controlPanel"></div>
         </div>
@@ -113,21 +116,6 @@
                         timerId = null;
                     }, delay);
                 };
-            }
-
-            function setSeed(seed) {
-                let element = document.getElementById("worldSeed");
-                if (element.value != seed) {
-                    element.value = seed;
-                    // Trigger input event, which will run Game.clear()
-                    // https://stackoverflow.com/a/35659572
-                    let event = new Event("input", {
-                        bubbles: true,
-                        cancelable: true,
-                    });
-
-                    element.dispatchEvent(event);
-                }
             }
 
             // Download canvas as named image
@@ -304,6 +292,7 @@
                 }
                 return r;
             }
+            let oldSeed;
             {
                 let seed = document.getElementById("worldSeed").value;
                 if (seed == "") {
@@ -327,6 +316,13 @@
                 .getElementById("lastLayer")
                 .addEventListener("input", function(event) {
                     updateWithLayerPlus(0);
+                });
+            document
+                .getElementById("lruCacheSize")
+                .addEventListener("input", function(event) {
+                    let new_cache_size =
+                        document.getElementById("lruCacheSize").value | 0;
+                    Game.setLruCacheSize(new_cache_size);
                 });
             document
                 .getElementById("minecraftVersion")
@@ -390,7 +386,8 @@
                         updateWithLayerPlus(51 - lastLayer);
                     }
 
-                    Game.clear();
+                    let ws = document.getElementById("worldSeed");
+                    Game.clear(minecraft_version + ";" + ws.value);
                 });
             function updateWithLayerPlus(x) {
                 let i = document.getElementById("lastLayer").value | 0;
@@ -705,15 +702,26 @@
             map.generateFragment = generateFragmentB;
 
             let ws = document.getElementById("worldSeed");
-            let oldSeed = ws.value;
+            oldSeed = ws.value;
             // Only regenerate map if the input has been static for 500ms
             ws.oninput = debounced(500, function() {
                 if (ws.value != oldSeed) {
                     // Regenerate map when seed changes
-                    Game.clear();
+                    Game.clear(minecraft_version + ";" + ws.value);
                     oldSeed = ws.value;
                 }
             });
+
+            function setSeed(seed) {
+                let ws = document.getElementById("worldSeed");
+                if (ws.value != seed) {
+                    // Instantly change the seed
+                    ws.value = seed;
+                    // Regenerate map when seed changes
+                    Game.clear(minecraft_version + ";" + ws.value);
+                    oldSeed = ws.value;
+                }
+            }
 
             function resize() {
                 canvas.width = window.innerWidth;
