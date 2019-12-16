@@ -4,7 +4,7 @@ use crate::seed_info::MinecraftVersion;
 // TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
 // is the z dimension, but in the Java code it is the x dimension, as the arrays
 // are defined as (z * w + x).
-use log::{debug, error};
+use log::debug;
 use ndarray::Array2;
 use serde::{Serialize, Deserialize};
 use std::rc::Rc;
@@ -434,8 +434,31 @@ impl MapHalfVoronoiZoom {
 
 // TODO: tests
 impl GetMap for MapHalfVoronoiZoom {
-    fn get_map(&self, _area: Area) -> Map {
-        unimplemented!()
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x >> 1,
+                z: area.z >> 1,
+                w: (area.w >> 1) + 2,
+                h: (area.h >> 1) + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let mut map = self.get_map_from_pmap(&pmap);
+            // TODO: is this correct?
+            let (nx, nz) = ((area.x) & 1, (area.z) & 1);
+            map.x += nx;
+            map.z += nz;
+            let (nx, nz) = (nx as usize, nz as usize);
+            map.a.slice_collapse(s![
+                    nx..nx + area.w as usize,
+                    nz..nz + area.h as usize
+            ]);
+
+            map
+        } else {
+            panic!("Parent not set");
+        }
     }
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         // Naive implementation: apply MapVoronoiZoom and rescale
@@ -3868,14 +3891,14 @@ pub fn draw_treasure_map_image(map: &Map) -> Vec<u8> {
 }
 
 /// Generate terrain with the same style as unexplored treasure maps.
-pub fn generate_image_treasure_map(area: Area, seed: i64) -> Vec<u8> {
-    let map = generate_fragment_treasure_map(area, seed);
+pub fn generate_image_treasure_map(version: MinecraftVersion, area: Area, seed: i64) -> Vec<u8> {
+    let map = generate_fragment_treasure_map(version, area, seed);
 
     draw_treasure_map_image(&map)
 }
 
 /// Generate a treasure map with the same scale and aligment as ingame maps.
-pub fn generate_image_treasure_map_at(seed: i64, fragment_x: i64, fragment_z: i64) -> Vec<u8> {
+pub fn generate_image_treasure_map_at(version: MinecraftVersion, seed: i64, fragment_x: i64, fragment_z: i64) -> Vec<u8> {
     let corner_x = fragment_x * 256 - 64;
     let corner_z = fragment_z * 256 - 64;
     let parea = Area {
@@ -3884,18 +3907,32 @@ pub fn generate_image_treasure_map_at(seed: i64, fragment_x: i64, fragment_z: i6
         w: 256,
         h: 256,
     };
-    let pmap = generator_up_to_layer_1_14(seed, 51).get_map(parea);
+    let parent = match version {
+        MinecraftVersion::Java1_13 => (generator_up_to_layer_1_13(seed, 51)),
+        MinecraftVersion::Java1_14 => (generator_up_to_layer_1_14(seed, 51)),
+        MinecraftVersion::Java1_15 => (generator_up_to_layer_1_15(seed, 51)),
+        _ => panic!("Treasure map generation in version {:?} is not implemented", version),
+    };
+    let pmap = parent.get_map(parea);
     let map = treasure_map_at(fragment_x, fragment_z, &pmap);
 
     draw_treasure_map_image(&map)
 }
 
-pub fn generate_fragment_treasure_map(area: Area, seed: i64) -> Map {
+pub fn generate_fragment_treasure_map(version: MinecraftVersion, area: Area, seed: i64) -> Map {
     // Parent: right before VoronoiZoom
     // TODO: this is incorrect, the parent is VoronoiZoom but the scale
     // is 1:2 instead of 1:1
+    let parent = match version {
+        MinecraftVersion::Java1_13 => Rc::from(generator_up_to_layer_1_13(seed, 50)),
+        MinecraftVersion::Java1_14 => Rc::from(generator_up_to_layer_1_14(seed, 50)),
+        MinecraftVersion::Java1_15 => Rc::from(generator_up_to_layer_1_15(seed, 50)),
+        _ => panic!("Treasure map generation in version {:?} is not implemented", version),
+    };
+    let mut mhv = MapHalfVoronoiZoom::new(10, seed);
+    mhv.parent = Some(parent);
     let mt = MapTreasure {
-        parent: Rc::from(generator_up_to_layer_1_14(seed, 50)),
+        parent: Rc::from(mhv),
     };
 
     mt.get_map(area)
@@ -3924,7 +3961,6 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
         MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
         MinecraftVersion::Java1_15 => generate_up_to_layer_1_15(area, seed, num_layers),
         _ => {
-            error!("Biome generation in version {:?} is not implemented", version);
             panic!("Biome generation in version {:?} is not implemented", version);
         }
     }

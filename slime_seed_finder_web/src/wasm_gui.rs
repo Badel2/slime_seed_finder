@@ -246,6 +246,7 @@ pub fn generate_fragment(
     seed: String,
     frag_size: usize,
 ) -> Vec<u8> {
+    let empty_map_as_error = || vec![0; frag_size * frag_size * 4];
     let version1: MinecraftVersion = match version.parse() {
         Ok(s) => s,
         Err(_) => {
@@ -254,7 +255,7 @@ pub fn generate_fragment(
                     s
                 } else {
                     console!(error, format!("{} is not a valid seed", seed));
-                    return vec![0; frag_size * frag_size * 4];
+                    return empty_map_as_error();
                 };
                 let frag_size = frag_size as u64;
                 let area = Area {
@@ -263,10 +264,23 @@ pub fn generate_fragment(
                     w: frag_size,
                     h: frag_size,
                 };
-                return biome_layers::generate_image_treasure_map(area, seed);
+                let mc_version = if version == "TreasureMap13" {
+                    MinecraftVersion::Java1_13
+                } else if version == "TreasureMap14" {
+                    MinecraftVersion::Java1_14
+                } else if version == "TreasureMap15" {
+                    MinecraftVersion::Java1_15
+                } else {
+                    console!(
+                        error,
+                        format!("{} is not a valid treasure map version", version)
+                    );
+                    return empty_map_as_error();
+                };
+                return biome_layers::generate_image_treasure_map(mc_version, area, seed);
             } else {
                 console!(error, format!("{} is not a valid version", version));
-                return vec![0; frag_size * frag_size * 4];
+                return empty_map_as_error();
             }
         }
     };
@@ -283,6 +297,7 @@ pub fn generate_fragment_up_to_layer(
     frag_size: usize,
     layer: u32,
 ) -> Vec<u8> {
+    let empty_map_as_error = || vec![0; frag_size * frag_size * 4];
     let frag_size = frag_size as usize;
     let version = match version.parse() {
         Ok(s) => s,
@@ -292,7 +307,7 @@ pub fn generate_fragment_up_to_layer(
                     s
                 } else {
                     console!(error, format!("{} is not a valid seed", seed));
-                    return vec![0; frag_size * frag_size * 4];
+                    return empty_map_as_error();
                 };
                 let frag_size = frag_size as u64;
                 let area = Area {
@@ -301,10 +316,23 @@ pub fn generate_fragment_up_to_layer(
                     w: frag_size,
                     h: frag_size,
                 };
-                return biome_layers::generate_image_treasure_map(area, seed);
+                let mc_version = if version == "TreasureMap13" {
+                    MinecraftVersion::Java1_13
+                } else if version == "TreasureMap14" {
+                    MinecraftVersion::Java1_14
+                } else if version == "TreasureMap15" {
+                    MinecraftVersion::Java1_15
+                } else {
+                    console!(
+                        error,
+                        format!("{} is not a valid treasure map version", version)
+                    );
+                    return empty_map_as_error();
+                };
+                return biome_layers::generate_image_treasure_map(mc_version, area, seed);
             } else {
                 console!(error, format!("{} is not a valid version", version));
-                return vec![0; frag_size * frag_size * 4];
+                return empty_map_as_error();
             }
         }
     };
@@ -312,7 +340,7 @@ pub fn generate_fragment_up_to_layer(
         s
     } else {
         console!(error, format!("{} is not a valid seed", seed));
-        return vec![0; frag_size * frag_size * 4];
+        return empty_map_as_error();
     };
 
     let frag_size = frag_size as u64;

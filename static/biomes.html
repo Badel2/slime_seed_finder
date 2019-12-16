@@ -279,6 +279,12 @@
                 if (i >= 200 && i <= 243) {
                     layerScale = scales[i - 200];
                 }
+                if (
+                    minecraft_version == "TreasureMap13" ||
+                    minecraft_version == "TreasureMap15"
+                ) {
+                    layerScale = 2;
+                }
 
                 map.currentScale = layerScale;
                 Game.setActiveLayer(i);
@@ -366,6 +372,23 @@
                             updateWithLayerPlus(42 - lastLayer);
                         }
                     }
+                    if (
+                        (old_v == "1.13" ||
+                            old_v == "1.14" ||
+                            old_v == "1.15") &&
+                        (new_v == "TreasureMap13" || new_v == "TreasureMap15")
+                    ) {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                    if (
+                        (old_v == "TreasureMap13" ||
+                            old_v == "TreasureMap15") &&
+                        (new_v == "1.13" || new_v == "1.14" || new_v == "1.15")
+                    ) {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
 
                     Game.clear();
                 });
@@ -394,35 +417,49 @@
                         "Unknown Minecraft version: " + minecraft_version
                     );
                 }
-                if (i >= 0 && i <= num_layers) {
-                    let newScale = scales[i];
+                if (
+                    minecraft_version == "TreasureMap13" ||
+                    minecraft_version == "TreasureMap15"
+                ) {
+                    let newScale = 2;
                     if (Game.camera) {
                         Game.camera.resolutionChange(newScale / layerScale);
                     }
                     layerScale = newScale;
                     //Game.clear();
-                    Game.setActiveLayer(i);
-                    document.getElementById("lastLayer").value = i;
-                }
-                if (i >= 100 && i <= 143) {
-                    let newScale = scales[i - 100];
-                    if (Game.camera) {
-                        Game.camera.resolutionChange(newScale / layerScale);
+                    Game.setActiveLayer(51);
+                    document.getElementById("lastLayer").value = 51;
+                } else {
+                    if (i >= 0 && i <= num_layers) {
+                        let newScale = scales[i];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
                     }
-                    layerScale = newScale;
-                    //Game.clear();
-                    Game.setActiveLayer(i);
-                    document.getElementById("lastLayer").value = i;
-                }
-                if (i >= 200 && i <= 243) {
-                    let newScale = scales[i - 200];
-                    if (Game.camera) {
-                        Game.camera.resolutionChange(newScale / layerScale);
+                    if (i >= 100 && i <= 143) {
+                        let newScale = scales[i - 100];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
                     }
-                    layerScale = newScale;
-                    //Game.clear();
-                    Game.setActiveLayer(i);
-                    document.getElementById("lastLayer").value = i;
+                    if (i >= 200 && i <= 243) {
+                        let newScale = scales[i - 200];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
                 }
                 map.currentScale = layerScale;
             }
