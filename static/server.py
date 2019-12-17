@@ -1,16 +1,17 @@
-import SimpleHTTPServer
-import SocketServer
+#!/usr/bin/env python3
+
+import http.server
+import socketserver
 
 PORT = 8000
 
-class Handler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class Handler(http.server.SimpleHTTPRequestHandler):
     pass
 
 Handler.extensions_map['.shtml'] = 'text/html'
 Handler.extensions_map['.wasm'] = 'application/wasm'
 
-httpd = SocketServer.TCPServer(("", PORT), Handler)
+httpd = socketserver.TCPServer(("", PORT), Handler)
 
-print "serving at port", PORT
+print("serving at port", PORT)
 httpd.serve_forever()
-

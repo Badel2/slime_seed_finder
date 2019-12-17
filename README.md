@@ -125,7 +125,7 @@ You need to run a local web server at the `static/` dir. You can use the provide
 
 ```
 cd static
-python2 server.py
+python3 server.py
 ```
 
 ### Theory
