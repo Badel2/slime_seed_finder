@@ -166,6 +166,7 @@ Game.init = function(tsize, canvasH, canvasW, activeLayer) {
     this.activeLayer = activeLayer;
     // Never have more than 3 elements in the cache
     this.lru_cache_size = 3;
+    this.maxNumFragmentsOnScreen = 400;
 };
 
 Game.update = function(delta) {
@@ -183,6 +184,18 @@ Game._drawLayer = function(layer) {
 
     //console.log([startCol, endCol, startRow, endRow, offsetX, offsetY]);
 
+    let numFragments = (endCol - startCol + 1) * (endRow - startRow + 1);
+    while (numFragments > this.maxNumFragmentsOnScreen) {
+        // Change zoom level and retry
+        this.zoomBy(1.01);
+        startCol = Math.floor(this.camera.x / this.camera.tsize);
+        endCol = startCol + this.camera.width / this.camera.tsize + 1;
+        startRow = Math.floor(this.camera.y / this.camera.tsize);
+        endRow = startRow + this.camera.height / this.camera.tsize + 1;
+        offsetX = -this.camera.x + startCol * this.camera.tsize;
+        offsetY = -this.camera.y + startRow * this.camera.tsize;
+        numFragments = (endCol - startCol + 1) * (endRow - startRow + 1);
+    }
     let i = 0;
     for (let c = startCol; c <= endCol; c++) {
         for (let r = startRow; r <= endRow; r++) {
