@@ -3344,74 +3344,118 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
     // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
     //let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
     let mut target_maps_derived = vec![];
-    for target_map_voronoi in split_rivers_into_fragments(river_coords_voronoi) {
+    let river_fragments = split_rivers_into_fragments(river_coords_voronoi);
+    let initial_num_river_fragments = river_fragments.len();
+    for target_map_voronoi in river_fragments {
         match reverse_map_voronoi_zoom(&target_map_voronoi) {
-            Ok(x) => target_maps_derived.push(x),
+            Ok(x) => {
+                let rivers = count_rivers(&x);
+                target_maps_derived.push((x, rivers));
+            }
             Err(()) => {
                 debug!("Too few rivers, minimum map size is 8x8");
             },
-        };
+        }
     }
 
     // Sort target maps by river count: most rivers first
-    target_maps_derived.sort_unstable_by_key(|k| !count_rivers(k));
+    target_maps_derived.sort_unstable_by_key(|(_map, rivers)| !rivers);
 
-    let (prevoronoi_coords, _hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
-    // If the area is large, do a few quick 1x1 checks
-    // TODO: do it even if the area is not large?
-    let check_coords: Vec<_> = [prevoronoi_coords[0], prevoronoi_coords[prevoronoi_coords.len() / 2], prevoronoi_coords[prevoronoi_coords.len() - 1]].iter().map(|(x, z)| {
-        let x = (x - 2) / 4;
-        let z = (z - 2) / 4;
-        Area { x, z, w: 1, h: 1, }
-    }).collect();
+    // Keep at most 10 maps
+    target_maps_derived.truncate(10);
 
-    // TODO: only using one map
-    let target_map = &target_maps_derived[0];
-    let area = target_map.area();
-    let target_score = count_rivers(&target_map);
+    // Remove all the maps with less than 10 rivers
+    target_maps_derived.retain(|(_map, rivers)| *rivers >= 10);
 
-    debug!("{}", draw_map(&target_map));
-    debug!("Target score: {}", target_score);
+    // 2 bad maps are needed to discard the seed
+    let bad_map_target = match target_maps_derived.len() {
+        1 => 1,
+        _ => 2,
+    };
+
+    let mut max_possible_score = 0;
+    for (_map, rivers) in &target_maps_derived {
+        max_possible_score += rivers;
+    }
+
+    debug!("Max score: {}", max_possible_score);
+    debug!("Max bad maps: {}", bad_map_target);
+    debug!("Using {} out of {} river maps. Total river count: {}\n{:?}", target_maps_derived.len(), initial_num_river_fragments, max_possible_score, target_maps_derived);
+
     let mut candidates_26 = vec![];
 
-    for world_seed in iter25 {
-        // Do a quick check for 2 seeds at once: with the bit 25 undefined
-        if check_coords.iter().all(|area| {
-            let candidate_map = candidate_river_map_bit_25_undefined(*area, world_seed);
-            candidate_map.a[(0, 0)] != biome_id::river
-        }) {
-            // Skip this candidate if none of the check_coords are river
-            continue;
+    'nextseed: for world_seed in iter25 {
+        let mut good_maps0 = 0;
+        let mut bad_maps0 = 0;
+        let mut good_maps1 = 0;
+        let mut bad_maps1 = 0;
+        let mut check0 = true;
+        let mut check1 = true;
+        let mut score0 = 0;
+        let mut score1 = 0;
+        'nextmap: for (target_map, target_score) in &target_maps_derived {
+            let area = target_map.area();
+
+            if check0 {
+                // Check with bit 25 set to 0
+                let candidate_map = candidate_river_map(area, world_seed);
+                //debug!("{}", draw_map(&candidate_map));
+
+                let and_map = map_river_and(candidate_map, &target_map);
+                let candidate_score = count_rivers(&and_map);
+                score0 += candidate_score;
+                if candidate_score >= target_score * 90 / 100 {
+                    good_maps0 += 1;
+                } else {
+                    bad_maps0 += 1;
+                }
+
+                if bad_maps0 >= bad_map_target {
+                    check0 = false;
+                }
+            }
+
+            if check1 {
+                // Check with bit 25 set to 1
+                // If the area is large enough, we could skip this check if the map
+                // with bit 25 set to 0 had very few matches, as the two maps are
+                // usually pretty similar at large scales
+                let world_seed = world_seed ^ (1 << 25);
+                let candidate_map = candidate_river_map(area, world_seed);
+                //debug!("{}", draw_map(&candidate_map));
+
+                let and_map = map_river_and(candidate_map, &target_map);
+                let candidate_score = count_rivers(&and_map);
+                score1 += candidate_score;
+                if candidate_score >= target_score * 90 / 100 {
+                    good_maps1 += 1;
+                } else {
+                    bad_maps1 += 1;
+                }
+
+                if bad_maps1 >= bad_map_target {
+                    check1 = false;
+                }
+            }
+
+            if check0 == false && check1 == false {
+                continue 'nextseed;
+            }
         }
 
-        // Check with bit 25 set to 0
-        let candidate_map = candidate_river_map(area, world_seed);
-        //debug!("{}", draw_map(&candidate_map));
-
-        let and_map = map_river_and(candidate_map, &target_map);
-        let candidate_score = count_rivers(&and_map);
-        if candidate_score >= target_score * 90 / 100 {
+        if check0 {
             let similar_biome_seed = McRng::similar_biome_seed(world_seed) & ((1 << 26) - 1);
-            debug!("{:08X}: {}", world_seed, candidate_score);
-            debug!("{:08X}: {}", similar_biome_seed, candidate_score);
+            debug!("{:08X}: {}/{} maps, {}/{} rivers", world_seed, good_maps0, target_maps_derived.len(), score0, max_possible_score);
+            debug!("{:08X}: {}/{} maps, {}/{} rivers", similar_biome_seed, good_maps0, target_maps_derived.len(), score0, max_possible_score);
             candidates_26.push(world_seed);
             candidates_26.push(similar_biome_seed);
         }
 
-        // Check with bit 25 set to 1
-        // If the area is large enough, we could skip this check if the map
-        // with bit 25 set to 0 had very few matches, as the two maps are
-        // usually pretty similar at large scales
-        let world_seed = world_seed ^ (1 << 25);
-        let candidate_map = candidate_river_map(area, world_seed);
-        //debug!("{}", draw_map(&candidate_map));
-
-        let and_map = map_river_and(candidate_map, &target_map);
-        let candidate_score = count_rivers(&and_map);
-        if candidate_score >= target_score * 90 / 100 {
+        if check1 {
+            let world_seed = world_seed ^ (1 << 25);
             let similar_biome_seed = McRng::similar_biome_seed(world_seed) & ((1 << 26) - 1);
-            debug!("{:08X}: {}", world_seed, candidate_score);
-            debug!("{:08X}: {}", similar_biome_seed, candidate_score);
+            debug!("{:08X}: {}/{} maps, {}/{} rivers", world_seed, good_maps1, target_maps_derived.len(), score1, max_possible_score);
+            debug!("{:08X}: {}/{} maps, {}/{} rivers", similar_biome_seed, good_maps1, target_maps_derived.len(), score1, max_possible_score);
             candidates_26.push(world_seed);
             candidates_26.push(similar_biome_seed);
         }
