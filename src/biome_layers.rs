@@ -3342,15 +3342,19 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
     let iter25 = McRng::similar_biome_seed_iterator_bits(25).skip(range_lo as usize).take((range_hi - range_lo) as usize);
     // prevoronoi_coords are used to find the first 26 bits
     // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
-    let area_voronoi = Area::from_coords(river_coords_voronoi);
-    let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
-    let target_map_derived = match reverse_map_voronoi_zoom(&target_map_voronoi) {
-        Ok(x) => x,
-        Err(()) => {
-            debug!("Too few rivers, minimum map size is 8x8");
-            return vec![];
-        },
-    };
+    //let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
+    let mut target_maps_derived = vec![];
+    for target_map_voronoi in split_rivers_into_fragments(river_coords_voronoi) {
+        match reverse_map_voronoi_zoom(&target_map_voronoi) {
+            Ok(x) => target_maps_derived.push(x),
+            Err(()) => {
+                debug!("Too few rivers, minimum map size is 8x8");
+            },
+        };
+    }
+
+    // Sort target maps by river count: most rivers first
+    target_maps_derived.sort_unstable_by_key(|k| !count_rivers(k));
 
     let (prevoronoi_coords, _hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
     // If the area is large, do a few quick 1x1 checks
@@ -3361,7 +3365,8 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
         Area { x, z, w: 1, h: 1, }
     }).collect();
 
-    let target_map = target_map_derived;
+    // TODO: only using one map
+    let target_map = &target_maps_derived[0];
     let area = target_map.area();
     let target_score = count_rivers(&target_map);
 
@@ -3675,6 +3680,28 @@ pub fn map_with_river_at(c: &[(i64, i64)], area: Area) -> Map {
         m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id::river;
     }
     m
+}
+
+/// Segregate a list of river coordinates into small maps
+pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
+    let mut h: HashMap<(i64, i64), Vec<Point>> = HashMap::new();
+
+    let frag_size = 64;
+    // Split points into fragments of size 64x64
+    for p in points {
+        let (frag_x, frag_z) = (p.0 / frag_size, p.1 / frag_size);
+        h.entry((frag_x, frag_z)).or_default().push(*p);
+    }
+
+    // Convert that fragments into maps
+    let mut r = vec![];
+    for ps in h.values() {
+        let a = Area::from_coords(ps);
+        let m = map_with_river_at(ps, a);
+        r.push(m);
+    }
+
+    r
 }
 
 
