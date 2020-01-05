@@ -138,7 +138,7 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
         }
 
         let mut biome_data = HashMap::new();
-        let mut river_chunks: HashMap<(i32, i32), u8> = HashMap::new();
+        let mut rivers = vec![];
         for c in chunks {
             let level_compound_tag = c.get_compound_tag("Level").unwrap();
             let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
@@ -161,9 +161,8 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
                     }
                     b => {
                         if b == 7 {
-                            // River: store as potential river_seed_finder starting point
-                            let a = river_chunks.entry((chunk_x, chunk_z)).or_default();
-                            *a = a.saturating_add(1);
+                            // Store all the rivers
+                            rivers.push((block_x, block_z));
                         }
                         biome_data.insert((block_x, block_z), b);
                     }
@@ -176,29 +175,12 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
             continue;
         }
 
-        if river_chunks.is_empty() {
+        if rivers.is_empty() {
             debug!("No rivers found around {:?}. Please try again with different coords.", center_block);
             continue;
         }
 
         debug!("biome_data.len(): {}", biome_data.len());
-        debug!("river_chunks: {:?}", river_chunks);
-        let (brc_x, brc_z) = best_river_chunk(&river_chunks).unwrap();
-
-        let mut rivers = vec![];
-        {
-            let start_x = i64::from((brc_x - 1) * 16);
-            let start_z = i64::from((brc_z - 1) * 16);
-
-            for x in 0..16*3 {
-                for z in 0..16*3 {
-                    if biome_data.get(&(start_x+x, start_z+z)) == Some(&7) {
-                        rivers.push((start_x+x, start_z+z));
-                    }
-                }
-            }
-        }
-        debug!("rivers: {:?}", rivers);
 
         let mut extra_biomes = vec![];
         // Hashmap iteration follows a random order, so take some random biomes
