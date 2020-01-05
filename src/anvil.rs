@@ -143,7 +143,21 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
             let level_compound_tag = c.get_compound_tag("Level").unwrap();
             let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
             let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
-            let biomes_array = level_compound_tag.get_i32_vec("Biomes").unwrap();
+            let biomes_array_17;
+            let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
+                Ok(x) => x,
+                Err(_e) => {
+                    match level_compound_tag.get_i8_vec("Biomes") {
+                        Ok(x) => {
+                            // Important: before 1.13 biomes was a byte array,
+                            // i8 is wrong, u8 is correct
+                            biomes_array_17 = x.into_iter().map(|byte| i32::from(*byte as u8)).collect();
+                            &biomes_array_17
+                        }
+                        Err(e) => panic!("Unknown format for biomes array: {:?}", e),
+                    }
+                }
+            };
             match biomes_array.len() {
                 0 => {}
                 256 => {}
