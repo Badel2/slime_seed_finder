@@ -2518,6 +2518,8 @@ impl GetMap for HelperMapRiverAll {
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         use biome_id::*;
         let (p_w, p_h) = pmap.a.dim();
+        assert!(p_w > 2);
+        assert!(p_h > 2);
         let area = Area {
             x: pmap.x + 1,
             z: pmap.z + 1,
@@ -3472,66 +3474,69 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
 /// range_hi: 1 << 24
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
 pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], version: MinecraftVersion, range_lo: u32, range_hi: u32) -> Vec<i64> {
-    // prevoronoi_coords are used to find the first 26 bits
-    // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
-    let area_voronoi = Area::from_coords(river_coords_voronoi);
-    let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
-    let target_map_derived = match reverse_map_voronoi_zoom(&target_map_voronoi) {
-        Ok(x) => x,
-        Err(()) => {
-            debug!("Too few rivers, minimum map size is 8x8");
-            return vec![];
-        },
-    };
-
-    let target_map = target_map_derived;
-    let area = target_map.area();
-    let target_score = count_rivers(&target_map);
-
     // For the 34-bit voronoi phase we only want to compare hd_coords
-    let (_prevoronoi_coords, hd_coords) = segregate_coords_prevoronoi_hd(river_coords_voronoi.to_vec());
-    let hd_area = Area::from_coords(&hd_coords);
-    let target_map_voronoi_hd = map_with_river_at(&hd_coords, hd_area);
-    let target_map_derived_hd = match reverse_map_voronoi_zoom(&target_map_voronoi_hd) {
-        Ok(x) => x,
-        Err(()) => {
-            debug!("Too few high resolution river borders!");
-            return river_seed_finder_26_range(river_coords_voronoi, range_lo, range_hi);
-        },
-    };
+    let mut target_maps_hd = vec![];
+    let river_fragments = split_rivers_into_fragments(river_coords_voronoi);
+    for target_map_voronoi_hd in river_fragments {
+        match reverse_map_voronoi_zoom(&target_map_voronoi_hd) {
+            Ok(target_map_derived_hd) => {
+                // Compare resolution of original and reverse-voronoi + voronoi
+                let g43 = MapVoronoiZoom::new(10, 1234);
+                let target_rv_voronoi = g43.get_map_from_pmap(&target_map_derived_hd);
 
-    let target_map_hd = target_map_derived_hd;
-    // Compare resolution of original and reverse-voronoi + voronoi
-    let g43 = MapVoronoiZoom::new(10, 1234);
-    let target_rv_voronoi = g43.get_map_from_pmap(&target_map_hd);
+                let target_rv_voronoi_area = target_rv_voronoi.area();
+                if target_rv_voronoi_area.w <= 2 || target_rv_voronoi_area.h <= 2 {
+                    debug!("Map too small, skipping: {:?}", target_rv_voronoi_area);
+                    continue;
+                }
 
-    let target_map_voronoi_sliced = slice_to_area(target_map_voronoi_hd.clone(), target_rv_voronoi.area());
+                let target_map_voronoi_sliced = slice_to_area(target_map_voronoi_hd.clone(), target_rv_voronoi.area());
+                // Actually, we only want to compare borders, so use HelperMapRiverAll, which is actually an
+                // edge detector
+                let target_map_voronoi_sliced = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&target_map_voronoi_sliced);
+                let target_score_voronoi_sliced = count_rivers(&target_map_voronoi_sliced);
 
-    // Actually, we only want to compare borders, so use HelperMapRiverAll, which is actually an
-    // edge detector
-    let target_map_voronoi_sliced = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&target_map_voronoi_sliced);
-    let target_score_voronoi_sliced = count_rivers(&target_map_voronoi_sliced);
+                target_maps_hd.push((target_map_derived_hd, target_map_voronoi_sliced, target_score_voronoi_sliced));
+            }
+            Err(()) => {
+                debug!("Too few rivers, minimum map size is 8x8");
+            },
+        }
+    }
+
+    // Sort target maps by river count: most rivers first
+    target_maps_hd.sort_unstable_by_key(|(_map, _map_sliced, rivers)| !rivers);
+
+    // Keep at most 4 maps
+    target_maps_hd.truncate(4);
+
+    // Remove all the maps with less than 40 rivers
+    target_maps_hd.retain(|(_map, _map_sliced, rivers)| *rivers >= 40);
 
     // Ok, begin bruteforce!
 
     let candidates_26 = river_seed_finder_26_range(river_coords_voronoi, range_lo, range_hi);
 
-    debug!("Target voronoi score: {}", target_score_voronoi_sliced);
+    //let target_maps_hd = vec![(target_map_hd, target_map_voronoi_sliced, target_score_voronoi_sliced)];
     // Now use voronoi zoom to bruteforce the remaining (34-26 = 8 bits)
     let candidates_34 = candidates_26.into_iter().flat_map(|x| {
         let mut v = vec![];
-        for seed in 0..(1 << (34 - 26)) {
+        'nextseed: for seed in 0..(1 << (34 - 26)) {
             let world_seed = x | (seed << 26);
             let g43 = MapVoronoiZoom::new(10, world_seed);
-            let candidate_voronoi = g43.get_map_from_pmap(&target_map_hd);
-            let candidate_voronoi = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
-            //debug!("{}", draw_map(&target_map_voronoi_sliced));
-            //debug!("{}", draw_map(&candidate_voronoi));
-            let and_map = map_river_and(candidate_voronoi, &target_map_voronoi_sliced);
-            let candidate_score = count_rivers(&and_map);
-            if candidate_score >= target_score_voronoi_sliced * 90 / 100 {
-                debug!("{:09X}: {}", world_seed, candidate_score);
-                v.push(world_seed);
+            for (target_map_hd, target_map_voronoi_sliced, target_score_voronoi_sliced) in &target_maps_hd {
+                let candidate_voronoi = g43.get_map_from_pmap(&target_map_hd);
+                let candidate_voronoi = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
+                //debug!("{}", draw_map(&target_map_voronoi_sliced));
+                //debug!("{}", draw_map(&candidate_voronoi));
+                let and_map = map_river_and(candidate_voronoi, &target_map_voronoi_sliced);
+                let candidate_score = count_rivers(&and_map);
+                // One match is enough to mark this as a candidate
+                if candidate_score >= target_score_voronoi_sliced * 90 / 100 {
+                    debug!("{:09X}: {}", world_seed, candidate_score);
+                    v.push(world_seed);
+                    continue 'nextseed;
+                }
             }
         }
 
@@ -3554,37 +3559,42 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         v
     }).filter_map(|world_seed| {
         let world_seed = world_seed as i64;
-        // Compare only rivers
-        //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
-        // Compare all biomes (slower)
         let last_layer = version.num_layers();
-        let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1);
+        for (target_map, _target_map_voronoi, _voronoi_score) in &target_maps_hd {
+            let target_score = count_rivers(target_map);
+            let area = target_map.area();
+            // Compare only rivers
+            //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
+            // Compare all biomes (slower)
+            let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1);
+            let candidate_score = count_rivers_exact(&g42, &target_map);
+            if candidate_score < target_score * 90 / 100 {
+                // Skip this seed
+                return None;
+            }
+        }
 
-        let candidate_score = count_rivers_exact(&g42, &target_map);
-        if candidate_score >= target_score * 90 / 100 {
-            // When most rivers match, try extra biomes
-            let mut hits = 0;
-            let mut misses = 0;
-            let target = extra_biomes.len() * 90 / 100;
-            let max_misses = extra_biomes.len() - target;
-            for (biome, x, z) in extra_biomes.iter().cloned() {
-                let area = Area { x, z, w: 1, h: 1 };
-                let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
-                if g43.a[(0, 0)] == biome {
-                    hits += 1;
-                } else {
-                    misses += 1;
-                    if misses > max_misses {
-                        break;
-                    }
+        // When most rivers match, try extra biomes
+        let mut hits = 0;
+        let mut misses = 0;
+        let target = extra_biomes.len() * 90 / 100;
+        let max_misses = extra_biomes.len() - target;
+        for (biome, x, z) in extra_biomes.iter().cloned() {
+            let area = Area { x, z, w: 1, h: 1 };
+            let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
+            if g43.a[(0, 0)] == biome {
+                hits += 1;
+            } else {
+                misses += 1;
+                if misses > max_misses {
+                    break;
                 }
             }
-            if hits >= target {
-                debug!("{:016X}: {}", world_seed, candidate_score);
-                Some(world_seed)
-            } else {
-                None
-            }
+        }
+
+        if hits >= target {
+            debug!("{:016X}: {}/{}", world_seed, hits, extra_biomes.len());
+            Some(world_seed)
         } else {
             None
         }
