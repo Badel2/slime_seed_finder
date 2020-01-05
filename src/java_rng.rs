@@ -238,7 +238,7 @@ impl JavaRng {
     pub fn previous_verify_16(&self, target: u16) -> u32 {
         let p1 = Self::previous_state(self.seed) as u16;
         let p = ((target as u32) << 16) | (p1 as u32);
-        let p2 = p.wrapping_mul(lcg_const::A as u32).wrapping_add(lcg_const::C as u32);
+        let p2 = p.wrapping_mul((lcg_const::A & mask(32)) as u32).wrapping_add(lcg_const::C as u32);
 
         p2 ^ (self.seed as u32)
     }
@@ -304,7 +304,7 @@ impl JavaRng {
     // That's a great improvement over the naive 2^16.
     pub fn low_16_for_next_int(i0: u32, i1: u32) -> Option<u16> {
         // x = i1 - i0 * A
-        let x: u32 = i1.wrapping_sub(i0.wrapping_mul(lcg_const::A as u32));
+        let x: u32 = i1.wrapping_sub(i0.wrapping_mul((lcg_const::A & mask(32)) as u32));
         for i in 0..6 {
             let low16 =
                 ((x as u64 | ((i as u64) << 32)) / (lcg_const::A >> 16)) as u16;
