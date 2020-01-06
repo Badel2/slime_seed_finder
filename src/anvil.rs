@@ -12,7 +12,6 @@ use nbt::CompoundTag;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
-use std::io::BufReader;
 use log::*;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
@@ -108,9 +107,7 @@ pub fn get_rivers_and_some_extra_biomes_folder(input_dir: &PathBuf, center_block
 }
 
 pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &PathBuf, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
-    let file = std::fs::File::open(&input_zip).unwrap();
-    let reader = BufReader::new(file);
-    let mut chunk_provider = ZipChunkProvider::new(reader);
+    let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
 
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }

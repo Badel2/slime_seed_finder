@@ -573,7 +573,8 @@ pub fn anvil_region_to_river_seed_finder(zipped_world: TypedArray<u8>) -> String
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut zip_chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world)));
+    let mut zip_chunk_provider =
+        ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
     let center_chunk = (0, 0);
     let (rivers, extra_biomes) =
         anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_chunk);
