@@ -1,9 +1,6 @@
 use crate::mc_rng::McRng;
 use crate::noise_generator::NoiseGeneratorPerlin;
 use crate::seed_info::MinecraftVersion;
-// TODO: Array2[(x, z)] is a nice syntax, but the fastest dimension to iterate
-// is the z dimension, but in the Java code it is the x dimension, as the arrays
-// are defined as (z * w + x).
 use log::debug;
 use ndarray::Array2;
 use serde::{Serialize, Deserialize};
@@ -149,16 +146,16 @@ impl CachedMap {
     }
     fn insert_into_cache(&self, m: &Map) {
         let area = m.area();
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 self.cache.borrow_mut().insert((area.x as i64 + x as i64, area.z as i64 + z as i64), m.a[(x, z)]);
             }
         }
     }
     fn get_all_from_cache(&self, area: Area) -> Option<Map> {
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 if let Some(b) = self.cache.borrow().get(&(area.x as i64 + x as i64, area.z as i64 + z as i64)) {
                     m.a[(x, z)] = *b;
                 } else {
@@ -343,8 +340,8 @@ pub struct MapFn<F: Fn(i64, i64) -> i32>(F);
 impl<F: Fn(i64, i64) -> i32> GetMap for MapFn<F> {
     fn get_map(&self, area: Area) -> Map {
         let mut m = Map::new(area);
-        for z in 0..area.h {
-            for x in 0..area.w {
+        for x in 0..area.w {
+            for z in 0..area.h {
                 m.a[(x as usize, z as usize)] = (self.0)(area.x + x as i64, area.z + z as i64);
             }
         }
@@ -370,8 +367,8 @@ impl<F: Fn(i64, i64, i32) -> i32, P: GetMap> GetMap for MapParentFn<P, F> {
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         let area = pmap.area();
         let mut m = Map::new(area);
-        for z in 0..area.h {
-            for x in 0..area.w {
+        for x in 0..area.w {
+            for z in 0..area.h {
                 m.a[(x as usize, z as usize)] = (self.1)(area.x + x as i64, area.z + z as i64, pmap.a[(x as usize, z as usize)]);
             }
         }
@@ -566,12 +563,12 @@ impl GetMap for MapVoronoiZoom {
         // 3x3 => 8x8
         // 4x4 => 12x12
 
-        for z in 0..p_h - 1 {
-            let mut v00 = pmap.a[(0, z)];
-            let mut v01 = pmap.a[(0, z+1)];
+        for x in 0..p_w - 1 {
+            let mut v00 = pmap.a[(x, 0)];
+            let mut v10 = pmap.a[(x+1, 0)];
 
-            for x in 0..p_w - 1 {
-                let v10 = pmap.a[(x+1, z)]; //& 0xFF;
+            for z in 0..p_h - 1 {
+                let v01 = pmap.a[(x, z+1)]; //& 0xFF;
                 let v11 = pmap.a[(x+1, z+1)]; //& 0xFF;
 
                 // Missed optimization (not present in Java):
@@ -589,8 +586,8 @@ impl GetMap for MapVoronoiZoom {
                         }
                     }
 
-                    v00 = v10;
-                    v01 = v11;
+                    v00 = v01;
+                    v10 = v11;
                     continue;
                 }
 
@@ -647,8 +644,8 @@ impl GetMap for MapVoronoiZoom {
                     }
                 }
 
-                v00 = v10;
-                v01 = v11;
+                v00 = v01;
+                v10 = v11;
             }
         }
 
@@ -737,12 +734,12 @@ impl GetMap for MapVoronoiZoom115 {
         // 3x3 => 8x8
         // 4x4 => 12x12
 
-        for z in 0..p_h - 1 {
-            let mut v00 = pmap.a[(0, z)];
-            let mut v01 = pmap.a[(0, z+1)];
+        for x in 0..p_w - 1 {
+            let mut v00 = pmap.a[(x, 0)];
+            let mut v10 = pmap.a[(x+1, 0)];
 
-            for x in 0..p_w - 1 {
-                let v10 = pmap.a[(x+1, z)]; //& 0xFF;
+            for z in 0..p_h - 1 {
+                let v01 = pmap.a[(x, z+1)]; //& 0xFF;
                 let v11 = pmap.a[(x+1, z+1)]; //& 0xFF;
 
                 // Missed optimization (not present in Java):
@@ -757,8 +754,8 @@ impl GetMap for MapVoronoiZoom115 {
                         }
                     }
 
-                    v00 = v10;
-                    v01 = v11;
+                    v00 = v01;
+                    v10 = v11;
                     continue;
                 }
 
@@ -781,8 +778,8 @@ impl GetMap for MapVoronoiZoom115 {
                     }
                 }
 
-                v00 = v10;
-                v01 = v11;
+                v00 = v01;
+                v10 = v11;
             }
         }
 
@@ -982,11 +979,11 @@ impl GetMap for MapZoom {
 
         let mut map = Map::new(area);
 
-        for z in 0..p_h - 1 {
-            let mut a = pmap.a[(0, z+0)];
-            let mut b = pmap.a[(0, z+1)];
-            for x in 0..p_w - 1 {
-                let a1 = pmap.a[(x+1, z+0)];
+        for x in 0..p_w - 1 {
+            let mut a = pmap.a[(x+0, 0)];
+            let mut a1 = pmap.a[(x+1, 0)];
+            for z in 0..p_h - 1 {
+                let b = pmap.a[(x+0, z+1)];
                 let b1 = pmap.a[(x+1, z+1)];
 
                 // Missed optimization (not present in Java):
@@ -1007,8 +1004,8 @@ impl GetMap for MapZoom {
                     map.a[((x << 1) + 1, (z << 1) + 0)] = a;
                     map.a[((x << 1) + 1, (z << 1) + 1)] = a;
 
-                    a = a1;
-                    b = b1;
+                    a = b;
+                    a1 = b1;
                     continue;
                 }
 
@@ -1030,8 +1027,8 @@ impl GetMap for MapZoom {
                     r.select_mode_or_random(a, a1, b, b1)
                 };
 
-                a = a1;
-                b = b1;
+                a = b;
+                a1 = b1;
             }
         }
 
@@ -1101,11 +1098,11 @@ impl GetMap for HelperMapZoomAllEdges {
 
         let mut map = Map::new(area);
 
-        for z in 0..p_h - 1 {
-            let mut a = pmap.a[(0, z+0)];
-            let mut b = pmap.a[(0, z+1)];
-            for x in 0..p_w - 1 {
-                let a1 = pmap.a[(x+1, z+0)];
+        for x in 0..p_w - 1 {
+            let mut a = pmap.a[(x+0, 0)];
+            let mut a1 = pmap.a[(x+1, 0)];
+            for z in 0..p_h - 1 {
+                let b = pmap.a[(x+0, z+1)];
                 let b1 = pmap.a[(x+1, z+1)];
 
                 // Missed optimization (not present in Java):
@@ -1126,8 +1123,8 @@ impl GetMap for HelperMapZoomAllEdges {
                     map.a[((x << 1) + 1, (z << 1) + 0)] = a;
                     map.a[((x << 1) + 1, (z << 1) + 1)] = a;
 
-                    a = a1;
-                    b = b1;
+                    a = b;
+                    a1 = b1;
                     continue;
                 }
 
@@ -1150,8 +1147,8 @@ impl GetMap for HelperMapZoomAllEdges {
                     a + a1 + b + b1
                 };
 
-                a = a1;
-                b = b1;
+                a = b;
+                a1 = b1;
             }
         }
 
@@ -1206,8 +1203,8 @@ impl GetMap for MapAddIsland {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v00 = pmap.a[(x+0, z+0)];
                 let v20 = pmap.a[(x+2, z+0)];
                 let v02 = pmap.a[(x+0, z+2)];
@@ -1315,8 +1312,8 @@ impl GetMap for MapRemoveTooMuchOcean {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
                 m.a[(x, z)] = v11;
 
@@ -1383,8 +1380,8 @@ impl GetMap for MapAddSnow {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
 
                 m.a[(x, z)] = if v11 == 0 {
@@ -1452,8 +1449,8 @@ impl GetMap for MapCoolWarm {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
 
                 m.a[(x, z)] = v11;
@@ -1522,8 +1519,8 @@ impl GetMap for MapHeatIce {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
 
                 m.a[(x, z)] = v11;
@@ -1638,8 +1635,8 @@ impl GetMap for MapAddMushroomIsland {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v00 = pmap.a[(x+0, z+0)];
                 let v20 = pmap.a[(x+2, z+0)];
                 let v02 = pmap.a[(x+0, z+2)];
@@ -1712,8 +1709,8 @@ impl GetMap for MapDeepOcean {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v10 = pmap.a[(x+1, z+0)];
                 let v21 = pmap.a[(x+2, z+1)];
                 let v01 = pmap.a[(x+0, z+1)];
@@ -1901,8 +1898,8 @@ impl GetMap for MapBiomeEdge {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v10 = pmap.a[(x+1, z+0)];
                 let v21 = pmap.a[(x+2, z+1)];
                 let v01 = pmap.a[(x+0, z+1)];
@@ -2026,8 +2023,8 @@ impl MapHills {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let chunk_x = x as i64 + m.x;
                 let chunk_z = z as i64 + m.z;
                 r.set_chunk_seed(chunk_x, chunk_z);
@@ -2177,8 +2174,8 @@ impl GetMap for MapRareBiome {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
 
                 let chunk_x = x as i64 + m.x;
@@ -2254,8 +2251,8 @@ impl GetMap for MapShore {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
 
                 let v10 = pmap.a[(x+1, z+0)];
@@ -2362,8 +2359,8 @@ impl GetMap for MapSmooth {
         };
         let mut m = Map::new(area);
         let mut r = McRng::new(self.base_seed, self.world_seed);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let mut v11 = pmap.a[(x+1, z+1)];
 
                 let v10 = pmap.a[(x+1, z+0)];
@@ -2461,8 +2458,8 @@ impl GetMap for MapRiver {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = reduce_id(pmap.a[(x+1, z+1)]);
                 let v10 = reduce_id(pmap.a[(x+1, z+0)]);
                 let v21 = reduce_id(pmap.a[(x+2, z+1)]);
@@ -2527,8 +2524,8 @@ impl GetMap for HelperMapRiverAll {
             h: p_h as u64 - 2
         };
         let mut m = Map::new(area);
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let v11 = pmap.a[(x+1, z+1)];
                 let v10 = pmap.a[(x+1, z+0)];
                 let v21 = pmap.a[(x+2, z+1)];
@@ -2568,8 +2565,8 @@ impl MapRiverMix {
             assert_eq!(pmap1.area(), pmap2.area());
         }
         let mut m = pmap1.clone();
-        for z in 0..p_h as usize {
-            for x in 0..p_w as usize {
+        for x in 0..p_w as usize {
+            for z in 0..p_h as usize {
                 let buf = pmap1.a[(x, z)];
                 let out = pmap2.a[(x, z)];
                 m.a[(x, z)] = if is_oceanic(buf) {
@@ -2693,8 +2690,8 @@ impl MapOceanMix {
         }
 
         let mut m = pmap2.clone();
-        for z in 0..p_h as usize {
-            'loop_x: for x in 0..p_w as usize {
+        for x in 0..p_w as usize {
+            'loop_z: for z in 0..p_h as usize {
                 let land_id = pmap1.a[(x+8, z+8)];
                 let mut ocean_id = pmap2.a[(x, z)];
 
@@ -2718,12 +2715,12 @@ impl MapOceanMix {
 
                             if ocean_id == warmOcean {
                                 m.a[(x, z)] = lukewarmOcean;
-                                continue 'loop_x;
+                                continue 'loop_z;
                             }
 
                             if ocean_id == frozenOcean {
                                 m.a[(x, z)] = coldOcean;
-                                continue 'loop_x;
+                                continue 'loop_z;
                             }
                         }
                     }
@@ -2855,8 +2852,8 @@ impl GetMap for MapSkip {
 
                 let mut map = Map::new(area);
 
-                for z in 0..p_h - 1 {
-                    for x in 0..p_w - 1 {
+                for x in 0..p_w - 1 {
+                    for z in 0..p_h - 1 {
                         let a = pmap.a[(x, z)];
                         map.a[((x << 1) + 0, (z << 1) + 0)] = a;
                         map.a[((x << 1) + 0, (z << 1) + 1)] = a;
@@ -2977,8 +2974,8 @@ pub fn treasure_map_at(fragment_x: i64, fragment_z: i64, pmap: &Map) -> Map {
     };
     let mut m = Map::new(area);
 
-    for z in 1..(area.h - 1) as usize {
-        for x in 1..(area.w - 1) as usize {
+    for x in 1..(area.w - 1) as usize {
+        for z in 1..(area.h - 1) as usize {
             let mut num_water_neighbors = 8;
 
             for i in 0..3 {
@@ -3076,8 +3073,8 @@ impl GetMap for MapTreasure {
         };
         let mut m = Map::new(area);
 
-        for z in 0..area.h as usize {
-            for x in 0..area.w as usize {
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
                 let mut num_water_neighbors = 8;
 
                 for i in 0..3 {
@@ -3147,8 +3144,8 @@ pub fn reverse_map_river(m: &Map) -> Map {
     let (p_w, p_h) = (p_w as u64, p_h as u64);
     let mut pmap = Map::new(Area { x: m.x + 1, z: m.z + 1, w: p_w, h: p_h });
 
-    for z in 0..p_h {
-        for x in 0..p_w {
+    for x in 0..p_w {
+        for z in 0..p_h {
             // if v11 is not a river, then all of [v11, v10, v21, v01, v12] are equal
             let (x, z) = (x as usize, z as usize);
             pmap.a[(x, z)] = m.a[(x + 1, z + 1)];
@@ -3173,8 +3170,8 @@ pub fn reverse_map_zoom(m: &Map) -> Map {
     let mut pmap = Map::new(Area { x: m.x >> 1, z: m.z >> 1, w: p_w, h: p_h });
     let (fx, fz) = ((m.x & 1) as usize, (m.z & 1) as usize);
 
-    for z in 0..p_h {
-        for x in 0..p_w {
+    for x in 0..p_w {
+        for z in 0..p_h {
             let (x, z) = (x as usize, z as usize);
             pmap.a[(x, z)] = m.a[(fx + (x << 1), fz + (z << 1))];
         }
@@ -3191,8 +3188,8 @@ pub fn reverse_map_half_voronoi(m: &Map) -> Map {
     let mut pmap = Map::new(Area { x: m.x >> 1, z: m.z >> 1, w: p_w, h: p_h });
     let (fx, fz) = ((!m.x & 1) as usize, (!m.z & 1) as usize);
 
-    for z in 0..p_h {
-        for x in 0..p_w {
+    for x in 0..p_w {
+        for z in 0..p_h {
             let (x, z) = (x as usize, z as usize);
             pmap.a[(x, z)] = m.a[(fx + (x << 1), fz + (z << 1))];
         }
@@ -3209,8 +3206,8 @@ pub fn reverse_map_smooth(m: &Map) -> Map {
     let mut pmap = Map::new(Area { x: (m.x + 1), z: (m.z + 1), w: p_w, h: p_h });
     let (fx, fz) = ((m.x & 1) as usize, (m.z & 1) as usize);
 
-    for z in 0..p_h {
-        for x in 0..p_w {
+    for x in 0..p_w {
+        for z in 0..p_h {
             let (x, z) = (x as usize, z as usize);
             // Set each pixel to the same color as the "parent" before MapZoom:
             // [0, 0] = [0, 0]
@@ -3276,8 +3273,8 @@ pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
     //println!("{:?} vs {:?}", area, parea);
 
     let adjusted_map = m.a.slice(s![adj_x.., adj_z..]);
-    for z in 0..p_h as usize {
-        for x in 0..p_w as usize {
+    for x in 0..p_w as usize {
+        for z in 0..p_h as usize {
             let xx = m4(x as i64) as usize;
             let zz = m4(z as i64) as usize;
             //println!("{:?} => {:?}", (x, z), (xx, zz));
@@ -5114,8 +5111,8 @@ mod tests {
         let zoom = MapZoom::new(10, 0);
         let (w, h) = (300, 300);
         let mut m = Map::new(Area { x: 0, z: 0, w, h });
-        for z in 0..h {
-            for x in 0..w {
+        for x in 0..w {
+            for z in 0..h {
                 m.a[(x as usize, z as usize)] = (x * h + z) as i32;
             }
         }
@@ -5161,8 +5158,8 @@ mod tests {
         let (w, h) = (30, 30);
         let mut m = Map::new(Area { x: 0, z: 0, w, h });
         //a[(0, 0)] = 1;
-        for z in 0..h {
-            for x in 0..w {
+        for x in 0..w {
+            for z in 0..h {
                 m.a[(x as usize, z as usize)] = (x * h + z) as i32;
             }
         }
