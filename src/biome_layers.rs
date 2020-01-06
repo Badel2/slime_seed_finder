@@ -3286,16 +3286,16 @@ pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
 }
 
 fn slice_to_area(mut m: Map, a: Area) -> Map {
-    debug!("{:?} vs {:?}", m.area(), a);
+    //debug!("{:?} vs {:?}", m.area(), a);
     let x_diff = a.x - m.x;
     let z_diff = a.z - m.z;
     m.x += x_diff;
     m.z += z_diff;
     let (x_diff, z_diff) = (x_diff as i32, z_diff as i32);
     let (new_w, new_h) = (a.w as i32 + x_diff, a.h as i32 + z_diff);
-    debug!("x_diff: {}, z_diff: {}, new_w: {}, new_h: {}", x_diff, z_diff, new_w, new_h);
+    //debug!("x_diff: {}, z_diff: {}, new_w: {}, new_h: {}", x_diff, z_diff, new_w, new_h);
     m.a.slice_collapse(s![x_diff..new_w, z_diff..new_h]);
-    debug!("{:?} vs {:?}", m.area(), a);
+    //debug!("{:?} vs {:?}", m.area(), a);
     assert_eq!(m.area(), a);
 
     m
