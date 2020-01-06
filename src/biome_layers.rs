@@ -3749,6 +3749,94 @@ pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
     r
 }
 
+/// Fast check to see if it is possible for a river to generate near this point.
+///
+/// False positives are expected (this function can return true even if a river cannot
+/// generate near the point) but false negatives should be rare (if this function returns
+/// false you can pretty confident that a river will not spawn near the point).
+///
+/// point resolution: 1:4
+/// world_seed: 24-bit value
+pub fn can_generate_river_near(pre_voronoi_point: Point, world_seed: i64) -> bool {
+    can_generate_river_near_steps(pre_voronoi_point, world_seed) == 0
+}
+
+// Return how many checks we needed to perform before discarding this seed,
+// or 0 if this seed can generate a river near this point
+fn can_generate_river_near_steps(pre_voronoi_point: Point, world_seed: i64) -> u8 {
+    fn prev_area(area: Area) -> Area {
+        let parea = Area {
+            x: area.x >> 1,
+            z: area.z >> 1,
+            w: (area.w >> 1) + 2,
+            h: (area.h >> 1) + 2
+        };
+        parea
+    }
+    fn all_equal(m: &Map) -> bool {
+        let first = m.a[(0, 0)];
+        m.a.iter().all(|&x| x == first)
+    }
+
+    // TODO: this check can be performed for 2 seeds at once,
+    // by leaving bit 25 undefined and taking the OR of the two possible maps
+    // But currently we just execute this function twice
+    if world_seed & (1 << 25) == 0 {
+        let a = can_generate_river_near_steps(pre_voronoi_point, world_seed | (1 << 25));
+        if a == 0 {
+            return 0;
+        }
+    }
+
+    // We can generate a 3x3 area for more or less the same cost that a 1x1 area
+    let a39 = Area { x: pre_voronoi_point.0 - 1, z: pre_voronoi_point.1 - 1, w: 3, h: 3 };
+    let a38 = prev_area(a39);
+    let a37 = prev_area(a38);
+    let a36 = prev_area(a37);
+    let a35 = prev_area(a36);
+    // Return false as soon as a map cannot generate rivers:
+    // when all tiles are equal
+    let g22 = TestMapCheckers;
+    let mut g34 = MapZoom::new(1000, world_seed);
+    g34.parent = Some(Rc::new(g22));
+    // This is never true
+    //let m34 = g34.get_map(a34);
+    //if all_equal(&m34) {
+    let mut g35 = MapZoom::new(1001, world_seed);
+    g35.parent = Some(Rc::new(g34));
+    // TODO: it would be better to use get_map_from_pmap here
+    // But we would need to slice the output map to the correct area
+    let m35 = g35.get_map(a35);
+    if all_equal(&m35) {
+        return 1;
+    }
+    let mut g36 = MapZoom::new(1000, world_seed);
+    g36.parent = Some(Rc::new(g35));
+    let m36 = g36.get_map(a36);
+    if all_equal(&m36) {
+        return 2;
+    }
+    let mut g37 = MapZoom::new(1001, world_seed);
+    g37.parent = Some(Rc::new(g36));
+    let m37 = g37.get_map(a37);
+    if all_equal(&m37) {
+        return 3;
+    }
+    let mut g38 = MapZoom::new(1002, world_seed);
+    g38.parent = Some(Rc::new(g37));
+    let m38 = g38.get_map(a38);
+    if all_equal(&m38) {
+        return 4;
+    }
+    let mut g39 = MapZoom::new(1003, world_seed);
+    g39.parent = Some(Rc::new(g38));
+    let m39 = g39.get_map(a39);
+    if all_equal(&m39) {
+        return 5;
+    }
+
+    0
+}
 
 pub fn candidate_river_map_generator(world_seed: i64) -> impl GetMap {
     let g22 = TestMapCheckers;
