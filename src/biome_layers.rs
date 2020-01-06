@@ -86,6 +86,10 @@ impl Map {
     pub fn new(a: Area) -> Self {
         Self { x: a.x, z: a.z, a: Array2::zeros((a.w as usize, a.h as usize)) }
     }
+    /// Create map from generator function
+    pub fn from_area_fn<F: FnMut((usize, usize)) -> i32>(a: Area, f: F) -> Self {
+        Self { x: a.x, z: a.z, a: Array2::from_shape_fn((a.w as usize, a.h as usize), f) }
+    }
     pub fn area(&self) -> Area {
         let (w, h) = self.a.dim();
         Area { x: self.x, z: self.z, w: w as u64, h: h as u64 }
@@ -339,14 +343,9 @@ pub struct MapFn<F: Fn(i64, i64) -> i32>(F);
 
 impl<F: Fn(i64, i64) -> i32> GetMap for MapFn<F> {
     fn get_map(&self, area: Area) -> Map {
-        let mut m = Map::new(area);
-        for x in 0..area.w {
-            for z in 0..area.h {
-                m.a[(x as usize, z as usize)] = (self.0)(area.x + x as i64, area.z + z as i64);
-            }
-        }
-
-        m
+        Map::from_area_fn(area, |(x, z)| {
+            (self.0)(area.x + x as i64, area.z + z as i64)
+        })
     }
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         let area = pmap.area();
