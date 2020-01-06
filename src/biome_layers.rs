@@ -5438,4 +5438,17 @@ mod tests {
         assert_eq!(index_of_min_element(&[0.0, 0.0]).unwrap(), 0);
         assert_eq!(index_of_min_element(&[0.1, 0.0, 0.0]).unwrap(), 1);
     }
+
+    #[test]
+    fn candidates_26() {
+        use crate::seed_info::SeedInfo;
+        let s = SeedInfo::read("seedinfo_tests/long_river_1_7.json").unwrap();
+
+        let river_coords_voronoi = &s.biomes[&7];
+        let river_coords_voronoi = river_coords_voronoi.iter().cloned().collect::<Vec<_>>();
+        let seed26: u32 = 0x03A1F4CC;
+        let range_lo = 0xf84c80;
+        let candidates = river_seed_finder_26_range(&river_coords_voronoi, range_lo, range_lo + (1 << 7));
+        assert!(candidates.contains(&(seed26 as i64)), "{:?}", candidates);
+    }
 }
