@@ -3403,8 +3403,11 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
                 let candidate_map = candidate_river_map(area, world_seed);
                 //debug!("{}", draw_map(&candidate_map));
 
-                let and_map = map_river_and(candidate_map, &target_map);
-                let candidate_score = count_rivers(&and_map);
+                // The candidate map will probably have more rivers than the target map
+                // Basically, target_map is a subset of candidate_map
+                // Except in some rare cases where target_map can have rivers not present
+                // in candidate_map.
+                let candidate_score = count_rivers_and(&candidate_map, &target_map);
                 score0 += candidate_score;
                 if candidate_score >= target_score * 90 / 100 {
                     good_maps0 += 1;
@@ -3426,8 +3429,11 @@ pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32,
                 let candidate_map = candidate_river_map(area, world_seed);
                 //debug!("{}", draw_map(&candidate_map));
 
-                let and_map = map_river_and(candidate_map, &target_map);
-                let candidate_score = count_rivers(&and_map);
+                // The candidate map will probably have more rivers than the target map
+                // Basically, target_map is a subset of candidate_map
+                // Except in some rare cases where target_map can have rivers not present
+                // in candidate_map.
+                let candidate_score = count_rivers_and(&candidate_map, &target_map);
                 score1 += candidate_score;
                 if candidate_score >= target_score * 90 / 100 {
                     good_maps1 += 1;
@@ -3529,8 +3535,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
                 let candidate_voronoi = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
                 //debug!("{}", draw_map(&target_map_voronoi_sliced));
                 //debug!("{}", draw_map(&candidate_voronoi));
-                let and_map = map_river_and(candidate_voronoi, &target_map_voronoi_sliced);
-                let candidate_score = count_rivers(&and_map);
+                let candidate_score = count_rivers_and(&candidate_voronoi, &target_map_voronoi_sliced);
                 // One match is enough to mark this as a candidate
                 if candidate_score >= target_score_voronoi_sliced * 90 / 100 {
                     debug!("{:09X}: {}", world_seed, candidate_score);
@@ -3567,7 +3572,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
             // Compare all biomes (slower)
             let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1);
-            let candidate_score = count_rivers_exact(&g42, &target_map);
+            let candidate_score = count_rivers_and(&g42, &target_map);
             if candidate_score < target_score * 90 / 100 {
                 // Skip this seed
                 return None;
@@ -3669,8 +3674,7 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_h
             //debug!("expected, found");
             //debug!("{}", draw_map(&target_map_hv_borders));
             //debug!("{}", draw_map(&candidate_voronoi_borders));
-            let and_map = map_river_and(candidate_voronoi_borders, &target_map_hv_borders);
-            let candidate_score = count_rivers(&and_map);
+            let candidate_score = count_rivers_exact(&candidate_voronoi_borders, &target_map_hv_borders);
             if candidate_score >= target_score_hv * 90 / 100 {
                 debug!("{:09X}: {}", world_seed, candidate_score);
                 v.push(world_seed);
@@ -3685,45 +3689,35 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_h
     return candidates_34;
 }
 
-fn map_river_and(mut a: Map, b: &Map) -> Map {
-    assert_eq!(a.area(), b.area());
-    let area = a.area();
-    for z in 0..area.h as usize {
-        for x in 0..area.w as usize {
-            let v11_a = a.a[(x, z)];
-            let v11_b = b.a[(x, z)];
-            a.a[(x, z)] = if v11_a == biome_id::river && v11_a == v11_b {
-                biome_id::river
-            } else {
-                -1
-            }
-        }
-    }
-
-    a
-}
-
 fn count_rivers(m: &Map) -> u32 {
     m.a.fold(0, |acc, &x| if x == biome_id::river { acc + 1 } else { acc })
 }
 
+// The first map should have more rivers than the second one
+fn count_rivers_and(a: &Map, b: &Map) -> u32 {
+    assert_eq!(a.area(), b.area());
+    ndarray::Zip::from(&a.a).and(&b.a).fold(0, |mut acc, &v11_a, &v11_b| {
+        acc += if v11_b == biome_id::river && v11_a == v11_b {
+            1
+        } else {
+            0
+        };
+        acc
+    })
+}
+
 fn count_rivers_exact(a: &Map, b: &Map) -> u32 {
     assert_eq!(a.area(), b.area());
-    let area = a.area();
-    let mut acc = 0;
-    for z in 0..area.h as usize {
-        for x in 0..area.w as usize {
-            let v11_a = a.a[(x, z)];
-            let v11_b = b.a[(x, z)];
-            acc += if v11_a == biome_id::river && v11_a == v11_b {
-                1
-            } else if v11_a == biome_id::river || v11_b == biome_id::river {
-                -1
-            } else {
-                0
-            };
-        }
-    }
+    let acc = ndarray::Zip::from(&a.a).and(&b.a).fold(0, |mut acc, &v11_a, &v11_b| {
+        acc += if v11_a == biome_id::river && v11_a == v11_b {
+            1
+        } else if v11_a == biome_id::river || v11_b == biome_id::river {
+            -1
+        } else {
+            0
+        };
+        acc
+    });
 
     if acc < 0 { 0 } else { acc as u32 }
 }
