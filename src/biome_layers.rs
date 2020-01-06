@@ -3801,36 +3801,35 @@ fn can_generate_river_near_steps(pre_voronoi_point: Point, world_seed: i64) -> u
     g34.parent = Some(Rc::new(g22));
     // This is never true
     //let m34 = g34.get_map(a34);
-    //if all_equal(&m34) {
+    //if all_equal(&m34) {}
     let mut g35 = MapZoom::new(1001, world_seed);
     g35.parent = Some(Rc::new(g34));
-    // TODO: it would be better to use get_map_from_pmap here
-    // But we would need to slice the output map to the correct area
     let m35 = g35.get_map(a35);
     if all_equal(&m35) {
         return 1;
     }
     let mut g36 = MapZoom::new(1000, world_seed);
     g36.parent = Some(Rc::new(g35));
-    let m36 = g36.get_map(a36);
+    let m36 = slice_to_area(g36.get_map_from_pmap(&m35), a36);
     if all_equal(&m36) {
         return 2;
     }
     let mut g37 = MapZoom::new(1001, world_seed);
     g37.parent = Some(Rc::new(g36));
-    let m37 = g37.get_map(a37);
+    let m37 = slice_to_area(g37.get_map_from_pmap(&m36), a37);
     if all_equal(&m37) {
         return 3;
     }
     let mut g38 = MapZoom::new(1002, world_seed);
     g38.parent = Some(Rc::new(g37));
-    let m38 = g38.get_map(a38);
+    let m38 = slice_to_area(g38.get_map_from_pmap(&m37), a38);
     if all_equal(&m38) {
         return 4;
     }
     let mut g39 = MapZoom::new(1003, world_seed);
     g39.parent = Some(Rc::new(g38));
-    let m39 = g39.get_map(a39);
+    let m39 = slice_to_area(g39.get_map_from_pmap(&m38), a39);
+    // This check is probably not worth it, just return 0 to save some cycles
     if all_equal(&m39) {
         return 5;
     }
