@@ -12,6 +12,7 @@ use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::java_rng::JavaRng;
 use std::fs::File;
+use std::fs;
 use std::path::Path;
 use std::io::Write;
 use std::ffi::OsStr;
@@ -532,6 +533,29 @@ fn main() {
             let version = mc_version.parse().unwrap();
 
             let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip(&input_zip, (center_x, center_z));
+
+            // TODO: this logic is duplicated in slime_seed_finder_web/src/main.rs
+            {
+                // Save the extracted data as a SeedInfo
+                // So we can use it later for tests
+                let mut seed_info = SeedInfo::default();
+                seed_info.biomes.insert(7, rivers.clone());
+                seed_info.version = mc_version.to_string();
+                seed_info.options.not_from_java_next_long = false;
+
+                for (b_id, b_x, b_z) in extra_biomes.iter().cloned() {
+                    let b_coords = (b_x, b_z);
+                    // Adding more rivers here breaks bounding box detection...
+                    if b_id != 7 {
+                        seed_info.biomes.entry(b_id).or_default().push(b_coords);
+                    }
+                }
+
+                // TODO: proper error handling
+                let buf = serde_json::to_string(&seed_info).expect("Serialization fail");
+                fs::write("seedinfo_latest.json", buf).expect("Failed to write seedinfo");
+            }
+
             let rivers = Arc::new(rivers);
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
