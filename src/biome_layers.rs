@@ -4267,6 +4267,10 @@ pub fn generate_up_to_layer_1_7_extra(a: Area, world_seed: i64, layer: u32) -> M
     g43.parent = Some(Rc::new(g42));
     if layer == 143 { return g43.get_map(a); }
 
+    if layer == 170 { return MapFn(|x, z| {
+        can_generate_river_near_steps((x, z), world_seed) as i32
+    }).get_map(a); }
+
     TestMapZero.get_map(a)
 }
 

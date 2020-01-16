@@ -264,6 +264,9 @@
                 if (i >= 100 && i <= 143) {
                     layerScale = scales[i - 100];
                 }
+                if (i == 170) {
+                    layerScale = 4;
+                }
                 if (i >= 200 && i <= 243) {
                     layerScale = scales[i - 200];
                 }
@@ -439,6 +442,16 @@
                     }
                     if (i >= 100 && i <= 143) {
                         let newScale = scales[i - 100];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                    if (i == 170) {
+                        let newScale = 4;
                         if (Game.camera) {
                             Game.camera.resolutionChange(newScale / layerScale);
                         }
