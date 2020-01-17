@@ -209,7 +209,7 @@ fn biome_exists(id: i32) -> bool {
         false
     }
 }
-fn is_oceanic(id: i32) -> bool {
+pub fn is_oceanic(id: i32) -> bool {
     use biome_id::*;
     match id {
         ocean

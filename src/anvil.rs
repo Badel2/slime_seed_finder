@@ -13,6 +13,8 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use log::*;
+use crate::biome_layers::is_oceanic;
+use crate::biome_info::biome_id;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -161,6 +163,8 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
                 n => panic!("Unexpected biomes_array len: {}", n),
             }
 
+            let mut use_rivers_from_chunk = true;
+            let mut chunk_rivers = vec![];
             for (i_b, b) in biomes_array.into_iter().enumerate() {
                 let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
                 let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
@@ -171,13 +175,23 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
                         // Ignore void biome (set by WorldDownloader for unknown biomes)
                     }
                     b => {
-                        if b == 7 {
+                        // We want to skip rivers near oceanic biomes
+                        use_rivers_from_chunk &= !is_oceanic(b);
+                        // In mushroom islands rivers are converted to shore, so skip them
+                        use_rivers_from_chunk &= b != biome_id::mushroomIslandShore;
+                        // Also skip chunks with frozen rivers, as they may be a problem
+                        use_rivers_from_chunk &= b != biome_id::frozenRiver;
+                        if use_rivers_from_chunk && b == biome_id::river {
                             // Store all the rivers
-                            rivers.push((block_x, block_z));
+                            chunk_rivers.push((block_x, block_z));
                         }
                         biome_data.insert((block_x, block_z), b);
                     }
                 }
+            }
+
+            if use_rivers_from_chunk {
+                rivers.extend(chunk_rivers);
             }
         }
 
