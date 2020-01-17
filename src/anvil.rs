@@ -117,6 +117,8 @@ pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &PathBuf, center_block_ar
 pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
     let blocks_around_center: u32 = 1_000;
 
+    let mut biome_data = HashMap::new();
+    let mut rivers = vec![];
     let cheb = spiral::ChebyshevIterator::new(0, 0, u16::max_value());
     for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
         if cheb_i == 10 {
@@ -136,8 +138,6 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
             continue;
         }
 
-        let mut biome_data = HashMap::new();
-        let mut rivers = vec![];
         for c in chunks {
             let level_compound_tag = c.get_compound_tag("Level").unwrap();
             let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
@@ -195,13 +195,13 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
             }
         }
 
-        if biome_data.is_empty() {
-            debug!("No chunks found around {:?}. Maybe that part of the map is not generated?", center_block);
+        if biome_data.len() < 50 {
+            debug!("Not enough chunks found around {:?}. Maybe that part of the map is not generated? (found {} biomes)", center_block, biome_data.len());
             continue;
         }
 
-        if rivers.is_empty() {
-            debug!("No rivers found around {:?}. Please try again with different coords.", center_block);
+        if rivers.len() < 300 {
+            debug!("Not enough rivers found around {:?}. Please try again with different coords. (found {} rivers)", center_block, rivers.len());
             continue;
         }
 
