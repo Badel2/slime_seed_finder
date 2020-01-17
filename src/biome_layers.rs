@@ -5449,7 +5449,7 @@ mod tests {
         for id in &deep { // -1.8
             assert!(BIOME_INFO[*id as usize].height < 0.0, "{}", id);
         }
-        let normal = [coldOcean, lukewarmOcean, warmOcean, ocean];
+        let normal = [frozenOcean, coldOcean, lukewarmOcean, warmOcean, ocean];
         for id in &normal { // -1.0
             assert!(BIOME_INFO[*id as usize].height < 0.0, "{}", id);
         }
