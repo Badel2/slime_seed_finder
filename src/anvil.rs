@@ -61,6 +61,19 @@ pub fn read_from_region_file<F: Seek+Read+Write>(region: &mut AnvilRegion<F>) ->
     Ok(r)
 }
 
+fn is_common_biome(b: i32) -> bool {
+    // These biomes have more than a 90% chance of appearing inside
+    // a 2000x2000-block square around (0, 0) for any random seed
+    // So they make a bad filter because 90% of all seeds can have this biomes
+    match b {
+        // Skip plains (1) and forest (4)
+        // And also skip rivers (7) because they can break some code that
+        // assumes all rivers are used for river_seed_finder...
+        1 | 4 | 7 => true,
+        _ => false,
+    }
+}
+
 /// Given a map of chunk_coords to river_biome_count, return the chunk with
 /// the most rivers in its 3x3 chunk area.
 pub fn best_river_chunk(river_chunks: &HashMap<(i32, i32), u8>) -> Option<(i32, i32)> {
@@ -165,6 +178,8 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
 
             let mut use_rivers_from_chunk = true;
             let mut chunk_rivers = vec![];
+            // Only add at most 1 extra biome per chunk
+            let mut extra_biomes_per_chunk = 1;
             for (i_b, b) in biomes_array.into_iter().enumerate() {
                 let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
                 let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
@@ -185,7 +200,12 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
                             // Store all the rivers
                             chunk_rivers.push((block_x, block_z));
                         }
-                        biome_data.insert((block_x, block_z), b);
+
+                        // Do not insert common biomes
+                        if extra_biomes_per_chunk > 0 && !is_common_biome(b) {
+                            biome_data.insert((block_x, block_z), b);
+                            extra_biomes_per_chunk -= 1;
+                        }
                     }
                 }
             }
