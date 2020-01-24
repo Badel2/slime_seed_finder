@@ -1351,13 +1351,7 @@ impl MapAddSnow {
 impl GetMap for MapAddSnow {
     fn get_map(&self, area: Area) -> Map {
         if let Some(ref parent) = self.parent {
-            let parea = Area {
-                x: area.x - 1,
-                z: area.z - 1,
-                w: area.w + 2,
-                h: area.h + 2
-            };
-            let pmap = parent.get_map(parea);
+            let pmap = parent.get_map(area);
 
             let map = self.get_map_from_pmap(&pmap);
 
@@ -1368,41 +1362,26 @@ impl GetMap for MapAddSnow {
         }
     }
 
-    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    // pmap has no margin: pmap.w == map.w
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
-        let (p_w, p_h) = pmap.a.dim();
-        let area = Area {
-            x: pmap.x + 1,
-            z: pmap.z + 1,
-            w: p_w as u64 - 2,
-            h: p_h as u64 - 2
-        };
-        let mut m = Map::new(area);
-        let mut r = McRng::new(self.base_seed, self.world_seed);
-        for x in 0..area.w as usize {
-            for z in 0..area.h as usize {
-                let v11 = pmap.a[(x+1, z+1)];
+        let r = McRng::new(self.base_seed, self.world_seed);
+        MapParentFn(PanicMap, |x, z, v| {
+            if v == 0 {
+                0
+            } else {
+                let mut r = r;
+                r.set_chunk_seed(x, z);
+                let r = r.next_int_n(6);
 
-                m.a[(x, z)] = if v11 == 0 {
-                    v11
+                if r == 0 {
+                    4
+                } else if r <= 1 {
+                    3
                 } else {
-                    let chunk_x = x as i64 + area.x;
-                    let chunk_z = z as i64 + area.z;
-                    r.set_chunk_seed(chunk_x, chunk_z);
-                    let r = r.next_int_n(6);
-
-                    if r == 0 {
-                        4
-                    } else if r <= 1 {
-                        3
-                    } else {
-                        1
-                    }
+                    1
                 }
             }
-        }
-
-        m
+        }).get_map_from_pmap(pmap)
     }
 }
 
@@ -2143,13 +2122,7 @@ impl MapRareBiome {
 impl GetMap for MapRareBiome {
     fn get_map(&self, area: Area) -> Map {
         if let Some(ref parent) = self.parent {
-            let parea = Area {
-                x: area.x - 1,
-                z: area.z - 1,
-                w: area.w + 2,
-                h: area.h + 2
-            };
-            let pmap = parent.get_map(parea);
+            let pmap = parent.get_map(area);
 
             let map = self.get_map_from_pmap(&pmap);
 
@@ -2163,33 +2136,20 @@ impl GetMap for MapRareBiome {
     // pmap has 1 wide margin on each size: pmap.w == map.w + 2
     // TODO: this layer does not need the margin?
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
-        use biome_id::*;
-        let (p_w, p_h) = pmap.a.dim();
-        let area = Area {
-            x: pmap.x + 1,
-            z: pmap.z + 1,
-            w: p_w as u64 - 2,
-            h: p_h as u64 - 2
-        };
-        let mut m = Map::new(area);
-        let mut r = McRng::new(self.base_seed, self.world_seed);
-        for x in 0..area.w as usize {
-            for z in 0..area.h as usize {
-                let v11 = pmap.a[(x+1, z+1)];
+        let r = McRng::new(self.base_seed, self.world_seed);
+        MapParentFn(PanicMap, |x, z, v| {
+            use biome_id::*;
 
-                let chunk_x = x as i64 + m.x;
-                let chunk_z = z as i64 + m.z;
-                r.set_chunk_seed(chunk_x, chunk_z);
-                m.a[(x, z)] = if r.next_int_n(57) == 0 && v11 == plains {
-                    // Sunflower Plains
-                    plains + 128
-                } else {
-                    v11
-                };
+            let mut r = r;
+            r.set_chunk_seed(x, z);
+
+            if r.next_int_n(57) == 0 && v == plains {
+                // Sunflower Plains
+                plains + 128
+            } else {
+                v
             }
-        }
-
-        m
+        }).get_map_from_pmap(pmap)
     }
 }
 
