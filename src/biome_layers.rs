@@ -925,13 +925,12 @@ pub struct MapZoom {
     base_seed: i64,
     world_seed: i64,
     pub parent: Option<Rc<dyn GetMap>>,
-    pub fuzzy: bool, // true when parent is MapIsland
     pub bug_world_seed_not_set: bool, // true if this layer is parent2 of MapHills
 }
 
 impl MapZoom {
     pub fn new(base_seed: i64, world_seed: i64) -> Self {
-        Self { base_seed, world_seed, parent: None, fuzzy: false, bug_world_seed_not_set: false }
+        Self { base_seed, world_seed, parent: None, bug_world_seed_not_set: false }
     }
 }
 
@@ -986,16 +985,119 @@ impl GetMap for MapZoom {
                 let b1 = pmap.a[(x+1, z+1)];
 
                 // Missed optimization (not present in Java):
+                // if a == a1 == b
+                // buf will always be set to the same value, so skip
+                // all the calculations
+                // This assumes that:
+                // select_mode_or_random(a, a, a, X) == a
+                // select_mode_or_random(a, a, X, a) == a
+                // Benchmark result:
+                /*
+                map_zoom_xhz        x 0.93
+                map_zoom_zeros      x 2.21
+                */
+                if a == a1 && a == b {
+                    map.a[((x << 1) + 0, (z << 1) + 0)] = a;
+                    map.a[((x << 1) + 0, (z << 1) + 1)] = a;
+                    map.a[((x << 1) + 1, (z << 1) + 0)] = a;
+                    map.a[((x << 1) + 1, (z << 1) + 1)] = a;
+
+                    a = b;
+                    a1 = b1;
+                    continue;
+                }
+
+                let chunk_x = (x as i64 + pmap.x) << 1;
+                let chunk_z = (z as i64 + pmap.z) << 1;
+
+                r.set_chunk_seed(chunk_x, chunk_z);
+                let a_or_b = r.choose2(a, b);
+                map.a[((x << 1) + 0, (z << 1) + 0)] = a;
+                map.a[((x << 1) + 0, (z << 1) + 1)] = a_or_b;
+
+                let a_or_a1 = r.choose2(a, a1);
+                map.a[((x << 1) + 1, (z << 1) + 0)] = a_or_a1;
+
+                map.a[((x << 1) + 1, (z << 1) + 1)] = r.select_mode_or_random(a, a1, b, b1);
+
+                a = b;
+                a1 = b1;
+            }
+        }
+
+        map
+    }
+}
+
+pub struct MapZoomFuzzy {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapZoomFuzzy {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapZoomFuzzy {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x >> 1,
+                z: area.z >> 1,
+                w: (area.w >> 1) + 2,
+                h: (area.h >> 1) + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let mut map = self.get_map_from_pmap(&pmap);
+            // TODO: is this correct?
+            let (nx, nz) = ((area.x) & 1, (area.z) & 1);
+            map.x += nx;
+            map.z += nz;
+            let (nx, nz) = (nx as usize, nz as usize);
+            map.a.slice_collapse(s![
+                    nx..nx + area.w as usize,
+                    nz..nz + area.h as usize
+            ]);
+
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let mut r = McRng::default();
+        r.set_base_seed(self.base_seed);
+        r.set_world_seed(self.world_seed);
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x << 1,
+            z: pmap.z << 1,
+            w: ((p_w - 1) << 1) as u64,
+            h: ((p_h - 1) << 1) as u64
+        };
+
+        let mut map = Map::new(area);
+
+        for x in 0..p_w - 1 {
+            let mut a = pmap.a[(x+0, 0)];
+            let mut a1 = pmap.a[(x+1, 0)];
+            for z in 0..p_h - 1 {
+                let b = pmap.a[(x+0, z+1)];
+                let b1 = pmap.a[(x+1, z+1)];
+
+                // Missed optimization (not present in Java):
                 // if a == a1 == b == b1,
                 // buf will always be set to the same value, so skip
                 // all the calculations
                 // Benchmark result:
                 /*
-                map_zoom_fuzzy_xhz      45,678  x 0.93
-                map_zoom_fuzzy_zeros    18,162  x 2.37
-                map_zoom_fuzzy_island   25,166  x 1.70
-                map_zoom_xhz            67,579  x 0.93
-                map_zoom_zeros          17,544  x 1.57
+                map_zoom_fuzzy_island      x 2.68
+                map_zoom_fuzzy_xhz         x 0.99
+                map_zoom_fuzzy_zeros       x 5.03
                 */
                 if a == a1 && a == b && a == b1 {
                     map.a[((x << 1) + 0, (z << 1) + 0)] = a;
@@ -1019,12 +1121,7 @@ impl GetMap for MapZoom {
                 let a_or_a1 = r.choose2(a, a1);
                 map.a[((x << 1) + 1, (z << 1) + 0)] = a_or_a1;
 
-                map.a[((x << 1) + 1, (z << 1) + 1)] = if self.fuzzy {
-                    // For mapIsland
-                    r.choose4(a, a1, b, b1)
-                } else {
-                    r.select_mode_or_random(a, a1, b, b1)
-                };
+                map.a[((x << 1) + 1, (z << 1) + 1)] = r.choose4(a, a1, b, b1);
 
                 a = b;
                 a1 = b1;
@@ -4248,9 +4345,8 @@ pub fn generate_up_to_layer_1_7(a: Area, world_seed: i64, layer: u32) -> Map {
 pub fn generator_up_to_layer_1_7(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return Box::new(g0); }
-    let mut g1 = MapZoom::new(2000, world_seed);
+    let mut g1 = MapZoomFuzzy::new(2000, world_seed);
     g1.parent = Some(Rc::new(g0));
-    g1.fuzzy = true;
     if layer == 1 { return Box::new(g1); }
     let mut g2 = MapAddIsland::new(1, world_seed);
     g2.parent = Some(Rc::new(g1));
@@ -4406,9 +4502,8 @@ pub fn generate_up_to_layer_1_13(a: Area, world_seed: i64, layer: u32) -> Map {
 pub fn generator_up_to_layer_1_13(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return Box::new(g0); }
-    let mut g1 = MapZoom::new(2000, world_seed);
+    let mut g1 = MapZoomFuzzy::new(2000, world_seed);
     g1.parent = Some(Rc::new(g0));
-    g1.fuzzy = true;
     if layer == 1 { return Box::new(g1); }
     let mut g2 = MapAddIsland::new(1, world_seed);
     g2.parent = Some(Rc::new(g1));
@@ -4590,9 +4685,8 @@ pub fn generate_up_to_layer_1_14(a: Area, world_seed: i64, layer: u32) -> Map {
 pub fn generator_up_to_layer_1_14(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return Box::new(g0); }
-    let mut g1 = MapZoom::new(2000, world_seed);
+    let mut g1 = MapZoomFuzzy::new(2000, world_seed);
     g1.parent = Some(Rc::new(g0));
-    g1.fuzzy = true;
     if layer == 1 { return Box::new(g1); }
     let mut g2 = MapAddIsland::new(1, world_seed);
     g2.parent = Some(Rc::new(g1));
@@ -4778,9 +4872,8 @@ pub fn generate_up_to_layer_1_15(a: Area, world_seed: i64, layer: u32) -> Map {
 pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return Box::new(g0); }
-    let mut g1 = MapZoom::new(2000, world_seed);
+    let mut g1 = MapZoomFuzzy::new(2000, world_seed);
     g1.parent = Some(Rc::new(g0));
-    g1.fuzzy = true;
     if layer == 1 { return Box::new(g1); }
     let mut g2 = MapAddIsland::new(1, world_seed);
     g2.parent = Some(Rc::new(g1));
@@ -5283,10 +5376,9 @@ mod tests {
     fn zoom_island_match() {
         let world_seed = 9223090561890311698;
         let base_seed = 2000;
-        let mut gen = MapZoom::new(base_seed, world_seed);
+        let mut gen = MapZoomFuzzy::new(base_seed, world_seed);
         let island = MapIsland::new(1, world_seed);
         gen.parent = Some(Rc::new(island));
-        gen.fuzzy = true;
         let (x, z) = (-3, -2);
         let (w, h) = (6, 4);
         let map = gen.get_map(Area { x, z, w, h });

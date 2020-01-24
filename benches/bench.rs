@@ -70,7 +70,7 @@ fn map_zoom_fuzzy_zeros(b: &mut Bencher) {
     let a = Array2::zeros((w, h));
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
-    bench_map_zoom(b, &m, true);
+    bench_map_zoom_fuzzy(b, &m);
 }
 
 #[bench]
@@ -84,7 +84,7 @@ fn map_zoom_fuzzy_xhz(b: &mut Bencher) {
     }
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
-    bench_map_zoom(b, &m, true);
+    bench_map_zoom_fuzzy(b, &m);
 }
 
 #[bench]
@@ -93,7 +93,7 @@ fn map_zoom_zeros(b: &mut Bencher) {
     let a = Array2::zeros((w, h));
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
-    bench_map_zoom(b, &m, false);
+    bench_map_zoom(b, &m);
 }
 
 #[bench]
@@ -107,7 +107,7 @@ fn map_zoom_xhz(b: &mut Bencher) {
     }
     let mut m = Map::new(Area { x: 0, z: 0, w: 0, h: 0 });
     m.a = a;
-    bench_map_zoom(b, &m, false);
+    bench_map_zoom(b, &m);
 }
 
 // This is a real world benchmark: fuzzy zoom is only used after MapIsland
@@ -119,14 +119,22 @@ fn map_zoom_fuzzy_island(b: &mut Bencher) {
     let (w, h) = DIM2;
     let area = Area { x: 0, z: 0, w: w as u64, h: h as u64 };
     let pmap = island.get_map(area);
-    bench_map_zoom(b, &pmap, true);
+    bench_map_zoom_fuzzy(b, &pmap);
 }
 
-fn bench_map_zoom(b: &mut Bencher, pmap: &Map, fuzzy: bool) {
+fn bench_map_zoom(b: &mut Bencher, pmap: &Map) {
     let base_seed = 2000;
     let world_seed = 1234;
-    let mut gen = MapZoom::new(base_seed, world_seed);
-    gen.fuzzy = fuzzy;
+    let gen = MapZoom::new(base_seed, world_seed);
+    b.iter(|| {
+        gen.get_map_from_pmap(&pmap)
+    });
+}
+
+fn bench_map_zoom_fuzzy(b: &mut Bencher, pmap: &Map) {
+    let base_seed = 2000;
+    let world_seed = 1234;
+    let gen = MapZoomFuzzy::new(base_seed, world_seed);
     b.iter(|| {
         gen.get_map_from_pmap(&pmap)
     });
