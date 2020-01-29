@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+#![allow(unused_labels)]
+
 #[macro_use]
 extern crate ndarray;
 #[cfg(feature = "cubiomes_rs")]
