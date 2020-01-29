@@ -118,25 +118,15 @@ impl McRng {
     }
     // Used by MapZoom
     pub fn select_mode_or_random(&mut self, a: i32, a1: i32, b: i32, b1: i32) -> i32 {
-        if        a1 == b  && b  == b1 {
+        let ca = u8::from(a == a1) + u8::from(a == b) + u8::from(a == b1);
+        let ca1 = u8::from(a1 == b) + u8::from(a1 == b1);
+        let cb = u8::from(b == b1);
+
+        if ca > ca1 && ca > cb {
+            a
+        } else if ca1 > ca {
             a1
-        } else if a  == a1 && a  == b  {
-            a
-        } else if a  == a1 && a  == b1 {
-            a
-        } else if a  == b  && a  == b1 {
-            a
-        } else if a  == a1 && b  != b1 {
-            a
-        } else if a  == b  && a1 != b1 {
-            a
-        } else if a  == b1 && a1 != b  {
-            a
-        } else if a1 == b  && a  != b1 {
-            a1
-        } else if a1 == b1 && a  != b  {
-            a1
-        } else if b  == b1 && a  != a1 {
+        } else if cb > ca {
             b
         } else {
             self.choose4(a, a1, b, b1)
