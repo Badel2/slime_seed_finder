@@ -6,8 +6,16 @@ repository.
 
 ```js
 {
-    "version": "1.7",
+        // Version of the SeedInfo format (0.1)
+    "seedInfo": "0.1",
         // Minecraft version of when the world was generated
+    "version": "1.7",
+        // Seed of the world, if known
+    "worldSeed": "",
+        // Hash of the seed of the world, if known
+    "worldSeedHash": "",
+        // Human readable description of the world
+    "description": "This is the survival world",
     "options": {
         // Tool specific options: error margins and extend48
     },
@@ -21,8 +29,9 @@ repository.
     // Unimplemented.
     "endPillars": [94, 103, 100, 85, 91, 88, 76, 97, 79, 82],
 
-    // structures, with list of chunk coordinates
+    // Structures, with list of chunk coordinates
     "slimeChunks": [[3, 2], [1, 2]],
+    // Unimplemented:
     "mineshafts": [],
     "netherForts": [],
     "strongholds": [],
@@ -56,7 +65,7 @@ repository.
 
 Empty fields can be omited.
 
-The version field currently supports the strings "1.7", "1.8", ... up to "1.14",
+The version field currently supports the strings "1.7", "1.8", ... up to "1.15",
 and it assumes that this is the Java edition.
 
 Coordinates can be specified as a tuple: `[31, 62]`, or as an object:

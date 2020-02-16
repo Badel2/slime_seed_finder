@@ -123,6 +123,8 @@ pub struct SeedInfo {
     pub version: String,
     /// Seed of the world, if known
     pub world_seed: Option<i64>,
+    /// Hashed world seed. Starting from Minecraft 1.15, this is sent by the server
+    pub world_seed_hash: Option<i64>,
     /// Human readable description of the seed
     pub description: String,
     // Extra settings for optimizing the search: error margin, use extend48
@@ -161,6 +163,9 @@ pub struct SeedInfoV0_1 {
     /// Seed of the world, if known
     #[serde(default, skip_serializing_if = "is_default", with = "opt_string")]
     pub world_seed: Option<i64>,
+    /// Hashed world seed. Starting from Minecraft 1.15, this is sent by the server
+    #[serde(default, skip_serializing_if = "is_default", with = "opt_string")]
+    pub world_seed_hash: Option<i64>,
     /// Human readable description of the seed
     #[serde(default, skip_serializing_if = "is_default")]
     pub description: String,
@@ -190,6 +195,7 @@ impl From<SeedInfoV0_1> for SeedInfo {
         SeedInfo {
             version: s.version,
             world_seed: s.world_seed,
+            world_seed_hash: s.world_seed_hash,
             description: s.description,
             options: s.options,
             biomes: s.biomes,
@@ -207,6 +213,7 @@ impl From<SeedInfo> for SeedInfoV0_1 {
         SeedInfoV0_1 {
             version: s.version,
             world_seed: s.world_seed,
+            world_seed_hash: s.world_seed_hash,
             description: s.description,
             options: s.options,
             biomes: s.biomes,
