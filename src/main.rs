@@ -532,6 +532,77 @@ fn main() {
         } => {
             let version = mc_version.parse().unwrap();
 
+            if version == MinecraftVersion::Java1_15 {
+                let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, (center_x, center_z));
+                fn multiply_coord_by_4(x: i64) -> i64 {
+                    // 0 => 2
+                    // 1 => 6
+                    (x * 4) + 2
+                }
+                let rivers: Vec<_> = rivers.into_iter().map(|(x, z)| (multiply_coord_by_4(x), multiply_coord_by_4(z))).collect();
+
+                {
+                    // Save the extracted data as a SeedInfo
+                    // So we can use it later for tests
+                    let mut seed_info = SeedInfo::default();
+                    seed_info.biomes.insert(7, rivers.clone());
+                    seed_info.version = mc_version.to_string();
+                    seed_info.options.not_from_java_next_long = false;
+
+                    for (b_id, b_x, b_z) in extra_biomes.iter().cloned() {
+                        let b_coords = (b_x, b_z);
+                        // Adding more rivers here breaks bounding box detection...
+                        if b_id != 7 {
+                            seed_info.biomes.entry(b_id).or_default().push(b_coords);
+                        }
+                    }
+
+                    // TODO: proper error handling
+                    let buf = serde_json::to_string(&seed_info).expect("Serialization fail");
+                    fs::write("seedinfo_latest.json", buf).expect("Failed to write seedinfo");
+                }
+                let rivers = Arc::new(rivers);
+                let extra_biomes = Arc::new(extra_biomes);
+                let num_threads = if threads == 0 { num_cpus::get() } else { threads };
+
+                let mut threads = vec![];
+                let total_range = 1 << 24;
+                let thread_range = total_range / num_threads;
+                for thread_id in 0..num_threads {
+                    let rivers = Arc::clone(&rivers);
+                    let _extra_biomes = Arc::clone(&extra_biomes);
+                    let range_lo = u32::try_from(thread_range * thread_id).unwrap();
+                    let range_hi = if thread_id + 1 == num_threads {
+                        total_range
+                    } else {
+                        thread_range * (thread_id + 1)
+                    };
+                    let range_hi = u32::try_from(range_hi).unwrap();
+
+                    debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
+                    let handle = thread::spawn(move || {
+                        let r = biome_layers::river_seed_finder_26_range(&rivers, range_lo, range_hi);
+                        debug!("Thread {} finished", thread_id);
+
+                        r
+                    });
+                    threads.push(handle);
+                }
+
+                let seeds: Vec<_> = threads.into_iter().flat_map(|h| h.join().unwrap()).map(|seed| format!("{:07X}", seed)).collect();
+                // TODO: candidates and seeds should always be serialized in hex, as JSON does not
+                // support 64-bit integers
+                println!("Found {} 26-bit candidates:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+                if let Some(of) = output_file {
+                    // TODO: define structure of candidates file
+                    write_candidates_to_file(&seeds, of).expect("Error writing seeds to file");
+                }
+
+                println!("You can now use the seed hash to bruteforce the remaining bits");
+                return;
+            }
+
             let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip(&input_zip, (center_x, center_z));
 
             // TODO: this logic is duplicated in slime_seed_finder_web/src/main.rs
@@ -607,6 +678,31 @@ fn read_seeds_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<u64>, std::io::Er
 // Create a new file and write all the found seeds to it
 // If the file already exists, it gets overwritten
 fn write_seeds_to_file<P: AsRef<Path>>(s: &[i64], path: P) -> Result<(), std::io::Error> {
+    let w = File::create(path)?;
+    serde_json::to_writer(w, s)?;
+
+    Ok(())
+}
+
+enum ReadCandidateError {
+    Io(std::io::Error),
+    ParseInt(std::num::ParseIntError),
+    SerdeJson(serde_json::Error),
+}
+
+// Create a new file and write all the found seeds to it
+// If the file already exists, it gets overwritten
+fn read_candidates_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<u64>, ReadCandidateError> {
+    let file = File::open(path).map_err(ReadCandidateError::Io)?;
+    let s: Vec<String> = serde_json::from_reader(file).map_err(ReadCandidateError::SerdeJson)?;
+    let s: Result<Vec<u64>, _> = s.into_iter().map(|x| u64::from_str_radix(&x, 16)).collect();
+
+    s.map_err(ReadCandidateError::ParseInt)
+}
+
+// Create a new file and write all the found seeds to it
+// If the file already exists, it gets overwritten
+fn write_candidates_to_file<P: AsRef<Path>>(s: &[String], path: P) -> Result<(), std::io::Error> {
     let w = File::create(path)?;
     serde_json::to_writer(w, s)?;
 

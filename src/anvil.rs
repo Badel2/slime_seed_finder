@@ -127,6 +127,12 @@ pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &PathBuf, center_block_ar
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }
 
+pub fn get_rivers_and_some_extra_biomes_zip_1_15(input_zip: &PathBuf, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+    let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+
+    get_rivers_and_some_extra_biomes_1_15(&mut chunk_provider, center_block_arg)
+}
+
 pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
     let blocks_around_center: u32 = 1_000;
 
@@ -221,6 +227,111 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
         }
 
         if rivers.len() < 300 {
+            debug!("Not enough rivers found around {:?}. Please try again with different coords. (found {} rivers)", center_block, rivers.len());
+            continue;
+        }
+
+        debug!("biome_data.len(): {}", biome_data.len());
+
+        let mut extra_biomes = vec![];
+        // Hashmap iteration follows a random order, so take some random biomes
+        extra_biomes.extend(biome_data.iter().map(|((x, z), b)| (*b, *x, *z)).take(30));
+        debug!("extra_biomes: {:?}", extra_biomes);
+
+        return (rivers, extra_biomes);
+    }
+
+    error!("Found zero valid chunks. Is this even a minecraft save?");
+
+    (vec![], vec![])
+}
+
+pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+    let blocks_around_center: u32 = 1_000;
+
+    let mut biome_data = HashMap::new();
+    let mut rivers = vec![];
+    let cheb = spiral::ChebyshevIterator::new(0, 0, u16::max_value());
+    for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
+        if cheb_i == 10 {
+            warn!("This is taking longer than expected");
+            if center_block_arg == (0, 0) {
+                warn!("Please feel free to specify some center coordinates to speed up the process.");
+            } else {
+                warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
+                warn!("Please double check that there are rivers near this block coordinates");
+            }
+        }
+        let center_block = (center_block_arg.0 + i64::from(cheb_x) * i64::from(blocks_around_center), center_block_arg.1 + i64::from(cheb_z) * i64::from(blocks_around_center));
+        debug!("Trying to find chunks around {:?}", center_block);
+        let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
+        if chunks.is_empty() {
+            debug!("Area around {:?} is not present in the saved world", center_block);
+            continue;
+        }
+
+        for c in chunks {
+            let level_compound_tag = c.get_compound_tag("Level").unwrap();
+            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
+            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
+            let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
+                Ok(x) => x,
+                Err(e) => panic!("Unknown format for biomes array: {:?}", e),
+            };
+            match biomes_array.len() {
+                0 => {}
+                1024 => {}
+                n => panic!("Unexpected biomes_array len: {}", n),
+            }
+
+            info!("biomes_array: {:?}", biomes_array);
+
+            let mut use_rivers_from_chunk = true;
+            let mut chunk_rivers = vec![];
+            // Only add at most 1 extra biome per chunk
+            let mut extra_biomes_per_chunk = 1;
+            for (i_b, b) in biomes_array.into_iter().enumerate().take(4 * 4) {
+                // TODO: this is not tested
+                let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
+                let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
+                let b = b.clone();
+
+                match b {
+                    127 => {
+                        // Ignore void biome (set by WorldDownloader for unknown biomes)
+                    }
+                    b => {
+                        // We want to skip rivers near oceanic biomes
+                        use_rivers_from_chunk &= !is_oceanic(b);
+                        // In mushroom islands rivers are converted to shore, so skip them
+                        use_rivers_from_chunk &= b != biome_id::mushroomIslandShore;
+                        // Also skip chunks with frozen rivers, as they may be a problem
+                        use_rivers_from_chunk &= b != biome_id::frozenRiver;
+                        if use_rivers_from_chunk && b == biome_id::river {
+                            // Store all the rivers
+                            chunk_rivers.push((block_x, block_z));
+                        }
+
+                        // Do not insert common biomes
+                        if extra_biomes_per_chunk > 0 && !is_common_biome(b) {
+                            biome_data.insert((block_x, block_z), b);
+                            extra_biomes_per_chunk -= 1;
+                        }
+                    }
+                }
+            }
+
+            if use_rivers_from_chunk {
+                rivers.extend(chunk_rivers);
+            }
+        }
+
+        if biome_data.len() < 50 {
+            debug!("Not enough chunks found around {:?}. Maybe that part of the map is not generated? (found {} biomes)", center_block, biome_data.len());
+            continue;
+        }
+
+        if rivers.len() < 30 {
             debug!("Not enough rivers found around {:?}. Please try again with different coords. (found {} rivers)", center_block, rivers.len());
             continue;
         }
