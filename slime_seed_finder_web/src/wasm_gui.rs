@@ -442,6 +442,14 @@ pub fn generate_fragment_slime_map(
 }
 
 #[js_export]
+pub fn is_i64(seed: String) -> String {
+    match seed.parse::<i64>() {
+        Ok(_) => format!("OK"),
+        Err(e) => format!("ERROR: {}", e.to_string()),
+    }
+}
+
+#[js_export]
 pub fn add_2_n(seed: String, n: u8) -> String {
     if n >= 64 {
         return seed;
@@ -569,15 +577,33 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
 }
 
 #[js_export]
-pub fn anvil_region_to_river_seed_finder(zipped_world: TypedArray<u8>) -> String {
+pub fn anvil_region_to_river_seed_finder(
+    zipped_world: TypedArray<u8>,
+    is_minecraft_1_15: bool,
+) -> String {
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
     let mut zip_chunk_provider =
         ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
     let center_chunk = (0, 0);
-    let (rivers, extra_biomes) =
-        anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_chunk);
+    let (rivers, extra_biomes) = if is_minecraft_1_15 {
+        fn multiply_coord_by_4(x: i64) -> i64 {
+            // 0 => 2
+            // 1 => 6
+            (x * 4) + 2
+        }
+        let (rivers, _extra_biomes) =
+            anvil::get_rivers_and_some_extra_biomes_1_15(&mut zip_chunk_provider, center_chunk);
+        let rivers: Vec<_> = rivers
+            .into_iter()
+            .map(|(x, z)| (multiply_coord_by_4(x), multiply_coord_by_4(z)))
+            .collect();
+
+        (rivers, vec![])
+    } else {
+        anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_chunk)
+    };
 
     let mut s = SeedInfo::default();
     s.biomes.insert(7, rivers);

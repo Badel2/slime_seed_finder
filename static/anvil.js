@@ -97,15 +97,23 @@ function runGui() {
     if (window.Worker) {
         let maxWorkers = navigator.hardwareConcurrency || 4;
         Rust.slime_seed_finder_web.then(function(slime_seed_finder_web) {
+            let isThis115 =
+                document.getElementById("minecraftPlayVersion").value == "1.15";
             let seedInfo_str = slime_seed_finder_web.anvil_region_to_river_seed_finder(
-                region
+                region,
+                isThis115
             );
             console.log("Got seedInfo from wasm:");
             console.log(seedInfo_str);
             let seedInfo = JSON.parse(seedInfo_str);
             seedInfo.version = document.getElementById(
-                "minecraftVersion"
+                "minecraftGenerateVersion"
             ).value;
+            if (isThis115) {
+                seedInfo.worldSeedHash = document.getElementById(
+                    "worldSeedHash"
+                ).value;
+            }
             runWorkers(maxWorkers, seedInfo);
         });
     } else {
