@@ -237,6 +237,17 @@ pub fn find_seed_rivers(o: Options) -> Vec<i64> {
         } else {
             biome_layers::river_seed_finder(rivers, &extra_biomes, version)
         }
+    } else if let Some(rivers) = o
+        .seed_info
+        .biomes_quarter_scale
+        .get(&BiomeId(biome_id::river))
+    {
+        // Only quarter scale biomes: find 26-bit candidates and exit
+        if let Some((range_lo, range_hi)) = o.range {
+            biome_layers::river_seed_finder_26_range(rivers, range_lo, range_hi)
+        } else {
+            biome_layers::river_seed_finder_26_range(rivers, 0, 1 << 24)
+        }
     } else {
         console!(error, "Can't find seed without rivers");
         vec![]
