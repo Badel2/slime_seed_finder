@@ -19,6 +19,7 @@ use std::ffi::OsStr;
 use std::thread;
 use std::convert::TryFrom;
 use std::sync::Arc;
+use std::time::Instant;
 use rand::{thread_rng, Rng as _};
 use log::*;
 
@@ -235,6 +236,35 @@ enum Opt {
         #[structopt(long, default_value = "1.14")]
         mc_version: String,
     },
+
+    /// Bruteforce world seed hash
+    #[structopt(name = "bruteforce-seed-hash")]
+    BruteforceSeedHash {
+        /// Seed hash as 64-bit signed integer.
+        /// To avoid problems with negative seeds, use the following
+        /// syntax: --seed-hash=-2
+        #[structopt(long)]
+        seed_hash: i64,
+        /// When creating a Minecraft world, if the seed field is left blank,
+        /// the seed will be generated randomly using (new Random()).nextLong(),
+        /// which uses only 48 bits of entropy. With this flag, 64 bits of
+        /// entropy will be used, allowing to explore the complete seed space.
+        #[structopt(long)]
+        seed_not_from_java_next_long: bool,
+        /// Path to file containing a list of 26-bit candidates
+        #[structopt(long)]
+        candidates_file: Option<PathBuf>,
+    },
+
+    /// Given a seed, calculate the seed hash
+    #[structopt(name = "seed-hash")]
+    SeedHash {
+        /// Seed as 64-bit signed integer.
+        /// To avoid problems with negative seeds, use the following
+        /// syntax: --seed=-2
+        #[structopt(long)]
+        seed: i64,
+    }
 }
 
 fn main() {
@@ -662,6 +692,84 @@ fn main() {
                 write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
             }
         }
+
+        Opt::BruteforceSeedHash {
+            seed_hash,
+            seed_not_from_java_next_long,
+            candidates_file,
+        } => {
+            fn print_progress_since(start: &Instant, iter_done: u64, iter_total: u64, tried_seeds: u64) {
+                let duration = start.elapsed();
+                let eta = duration.as_secs_f64() / (iter_done as f64) * ((iter_total - iter_done) as f64);
+                let eta_hours = (eta / 3600.0).round();
+                let eta_msg = if eta_hours < 2.0 {format!("{} minutes", (eta / 60.0).round())} else {format!("{} hours", eta_hours)};
+                let mut msg = format!("Not found. Tried {} seeds. ETA {}", tried_seeds, eta_msg);
+                msg.push_str("                                                  ");
+                msg.truncate(70);
+                print!("{}\r", msg);
+            }
+
+            if let Some(candidates_path) = candidates_file {
+                let candidates = read_candidates_from_file(candidates_path).unwrap();
+                let start = Instant::now();
+                let iter = 0..=u32::max_value();
+                let total_iter_len = iter.size_hint().1.unwrap_or(u64::max_value() as usize);
+                for range_lo in iter {
+                    //let found_seed = biome_layers::seed_hash_bruteforce_26_range(seed_hash, &candidates, range_lo, range_lo);
+                    let found_seed = if seed_not_from_java_next_long {
+                        biome_layers::seed_hash_bruteforce_26_range(seed_hash, &candidates, range_lo, range_lo)
+                    } else {
+                        biome_layers::seed_hash_bruteforce_26_java_range(seed_hash, &candidates, range_lo, range_lo)
+                    };
+                    if let Some(seed) = found_seed {
+                        println!("Found seed: {}", seed);
+                        return;
+                    }
+
+                    if (range_lo & ((1 << if seed_not_from_java_next_long { 10 } else { 18 }) - 1)) == 0 {
+                        let tried_seeds = (range_lo as u64) * (1 << 6) * (candidates.len() as u64);
+                        print_progress_since(&start, range_lo as u64, total_iter_len as u64, tried_seeds);
+                    }
+                }
+
+                println!("Zero seeds found");
+            } else {
+                println!("Warning: trying to bruteforce seed from hash without candidates");
+                println!("This will take a few years...");
+
+                let start = Instant::now();
+                let iter = 0..=u64::max_value();
+                let total_iter_len = iter.size_hint().1.unwrap_or(u64::max_value() as usize);
+                for range_lo in iter {
+                    if !seed_not_from_java_next_long {
+                        // if seed_from_java_next_long
+                        if JavaRng::create_from_long(range_lo).is_none() {
+                            if (range_lo & ((1 << 28) - 1)) == 0 {
+                                print_progress_since(&start, range_lo as u64, total_iter_len as u64, range_lo as u64);
+                            }
+                            continue;
+                        }
+                    }
+                    let seed = range_lo as i64;
+                    if biome_layers::sha256_long_to_long(seed) == seed_hash {
+                        println!("Found seed: {}", seed);
+                        return;
+                    }
+
+                    if (range_lo & ((1 << if seed_not_from_java_next_long { 20 } else { 28 }) - 1)) == 0 {
+                        print_progress_since(&start, range_lo as u64, total_iter_len as u64, range_lo as u64);
+                    }
+                }
+
+                println!("Zero seeds found");
+            };
+        }
+
+        Opt::SeedHash {
+            seed,
+        } => {
+            println!("{}", biome_layers::sha256_long_to_long(seed));
+        }
     }
 }
 
@@ -684,6 +792,7 @@ fn write_seeds_to_file<P: AsRef<Path>>(s: &[i64], path: P) -> Result<(), std::io
     Ok(())
 }
 
+#[derive(Debug)]
 enum ReadCandidateError {
     Io(std::io::Error),
     ParseInt(std::num::ParseIntError),

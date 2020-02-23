@@ -33,6 +33,45 @@ pub fn sha256_long_to_long(x: i64) -> i64 {
     i64::from_le_bytes(r[..8].try_into().unwrap())
 }
 
+/// Full range: range_lo = 0, range_hi = u32::max_value()
+pub fn seed_hash_bruteforce_26_java_range(expected_hash: i64, candidates_26: &[u64], range_lo: u32, range_hi: u32) -> Option<i64> {
+    for candidate_26 in candidates_26 {
+        for hi in range_lo..=range_hi {
+            for lo in 0..(1 << 6) {
+                let seed = ((hi as u64) << 32) | ((lo as u64) << 26) | candidate_26;
+                if JavaRng::create_from_long(seed).is_none() {
+                    continue;
+                }
+                let seed = seed as i64;
+                if sha256_long_to_long(seed) == expected_hash {
+                    debug!("Found seed: {} with hash {}", seed, expected_hash);
+                    return Some(seed);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Full range: range_lo = 0, range_hi = u32::max_value()
+pub fn seed_hash_bruteforce_26_range(expected_hash: i64, candidates_26: &[u64], range_lo: u32, range_hi: u32) -> Option<i64> {
+    for candidate_26 in candidates_26 {
+        for hi in range_lo..=range_hi {
+            for lo in 0..(1 << 6) {
+                let seed = ((hi as u64) << 32) | ((lo as u64) << 26) | candidate_26;
+                let seed = seed as i64;
+                if sha256_long_to_long(seed) == expected_hash {
+                    debug!("Found seed: {} with hash {}", seed, expected_hash);
+                    return Some(seed);
+                }
+            }
+        }
+    }
+
+    None
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Area {
     pub x: i64,
