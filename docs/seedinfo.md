@@ -24,6 +24,12 @@ repository.
         "7": [[31, 62], [31, 63], [31, 64]],
         "13": [[31, 65]]
     },
+    "biomesQuarterScale": {
+        // Map of biome_id to list of block coordinates, in 1:4 resolution.
+        // This is how the biomes are stored in the region files starting from Minecraft 1.15.
+        "7": [[7, 15]],
+        "13": [[7, 16]]
+    },
 
     // Height of the end pillars. The order is important.
     // Unimplemented.

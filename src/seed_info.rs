@@ -130,6 +130,7 @@ pub struct SeedInfo {
     // Extra settings for optimizing the search: error margin, use extend48
     pub options: Options,
     pub biomes: HashMap<BiomeId, Vec<Point>>,
+    pub biomes_quarter_scale: HashMap<BiomeId, Vec<Point>>,
     pub end_pillars: Vec<u8>,
     pub treasure_maps: Vec<TreasureMap>,
     pub positive: SeedStructures,
@@ -176,6 +177,9 @@ pub struct SeedInfoV0_1 {
     #[serde(deserialize_with = "deserialize_biomes")]
     pub biomes: HashMap<BiomeId, Vec<Point>>,
     #[serde(default, skip_serializing_if = "is_default")]
+    #[serde(deserialize_with = "deserialize_biomes")]
+    pub biomes_quarter_scale: HashMap<BiomeId, Vec<Point>>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub end_pillars: Vec<u8>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub treasure_maps: Vec<TreasureMap>,
@@ -199,6 +203,7 @@ impl From<SeedInfoV0_1> for SeedInfo {
             description: s.description,
             options: s.options,
             biomes: s.biomes,
+            biomes_quarter_scale: s.biomes_quarter_scale,
             end_pillars: s.end_pillars,
             treasure_maps: s.treasure_maps,
             positive: s.positive,
@@ -217,6 +222,7 @@ impl From<SeedInfo> for SeedInfoV0_1 {
             description: s.description,
             options: s.options,
             biomes: s.biomes,
+            biomes_quarter_scale: s.biomes_quarter_scale,
             end_pillars: s.end_pillars,
             treasure_maps: s.treasure_maps,
             positive: s.positive,
