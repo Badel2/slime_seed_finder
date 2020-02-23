@@ -592,28 +592,30 @@ pub fn anvil_region_to_river_seed_finder(
     let mut zip_chunk_provider =
         ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
     let center_block = Point { x: 0, z: 0 };
-    let (rivers, extra_biomes) = if is_minecraft_1_15 {
+    let s = if is_minecraft_1_15 {
         let (rivers, _extra_biomes) =
             anvil::get_rivers_and_some_extra_biomes_1_15(&mut zip_chunk_provider, center_block);
-        let rivers: Vec<_> = rivers
-            .into_iter()
-            .map(|p4| p4.into_full_resolution())
-            .collect();
 
-        (rivers, vec![])
+        let mut s = SeedInfo::default();
+        s.biomes_quarter_scale.insert(BiomeId(7), rivers);
+
+        s
     } else {
-        anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_block)
-    };
+        let (rivers, extra_biomes) =
+            anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_block);
 
-    let mut s = SeedInfo::default();
-    s.biomes.insert(BiomeId(7), rivers);
+        let mut s = SeedInfo::default();
+        s.biomes.insert(BiomeId(7), rivers);
 
-    for (b_id, b_coords) in extra_biomes {
-        // Adding more rivers here breaks bounding box detection...
-        if b_id != BiomeId(7) {
-            s.biomes.entry(b_id).or_default().push(b_coords);
+        for (b_id, b_coords) in extra_biomes {
+            // Adding more rivers here breaks bounding box detection...
+            if b_id != BiomeId(7) {
+                s.biomes.entry(b_id).or_default().push(b_coords);
+            }
         }
-    }
+
+        s
+    };
 
     serde_json::to_string(&s).unwrap()
 }
