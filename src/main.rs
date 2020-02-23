@@ -709,7 +709,7 @@ fn main() {
                         biome_layers::seed_hash_bruteforce_26_java_range(seed_hash, &candidates, range_lo, range_lo)
                     };
                     if let Some(seed) = found_seed {
-                        println!("Found seed: {}", seed);
+                        println!("\nFound seed: {}", seed);
                         return;
                     }
 
@@ -719,7 +719,7 @@ fn main() {
                     }
                 }
 
-                println!("Zero seeds found");
+                println!("\nZero seeds found");
             } else {
                 println!("Warning: trying to bruteforce seed from hash without candidates");
                 println!("This will take a few years...");
@@ -739,7 +739,7 @@ fn main() {
                     }
                     let seed = range_lo as i64;
                     if biome_layers::sha256_long_to_long(seed) == seed_hash {
-                        println!("Found seed: {}", seed);
+                        println!("\nFound seed: {}", seed);
                         return;
                     }
 
@@ -748,7 +748,7 @@ fn main() {
                     }
                 }
 
-                println!("Zero seeds found");
+                println!("\nZero seeds found");
             };
         }
 
