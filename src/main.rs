@@ -564,12 +564,6 @@ fn main() {
 
             if version == MinecraftVersion::Java1_15 {
                 let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, (center_x, center_z));
-                fn multiply_coord_by_4(x: i64) -> i64 {
-                    // 0 => 2
-                    // 1 => 6
-                    (x * 4) + 2
-                }
-                let rivers: Vec<_> = rivers.into_iter().map(|(x, z)| (multiply_coord_by_4(x), multiply_coord_by_4(z))).collect();
 
                 {
                     // Save the extracted data as a SeedInfo

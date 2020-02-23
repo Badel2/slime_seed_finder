@@ -3426,30 +3426,37 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
     (prevoronoi_coords, hd_coords)
 }
 
+// A.k.a reverse map voronoi zoom
+pub fn convert_hd_coords_into_quarter_scale(coords: &[Point]) -> Vec<Point> {
+    fn divide_by_4(x: i64) -> i64 {
+        (x - 2) / 4
+    }
+
+    let mut prevoronoi_coords = vec![];
+
+    for (x, z) in coords {
+        if *x as u8 % 4 == 2 && *z as u8 % 4 == 2 {
+            prevoronoi_coords.push((divide_by_4(*x), divide_by_4(*z)));
+        }
+    }
+
+    prevoronoi_coords
+}
+
 /// River Seed Finder
 pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], version: MinecraftVersion) -> Vec<i64> {
     river_seed_finder_range(river_coords_voronoi, extra_biomes, version, 0, 1 << 24)
 }
 
-pub fn river_seed_finder_26_range(river_coords_voronoi: &[Point], range_lo: u32, range_hi: u32) -> Vec<i64> {
+pub fn river_seed_finder_26_range(river_coords_quarter_scale: &[Point], range_lo: u32, range_hi: u32) -> Vec<i64> {
     // This iterator has 2**24 elements
     let iter25 = McRng::similar_biome_seed_iterator_bits(25).skip(range_lo as usize).take((range_hi - range_lo) as usize);
-    // prevoronoi_coords are used to find the first 26 bits
-    // But we can use all the coords with reverse_map_voronoi_zoom to get the same result
-    //let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
     let mut target_maps_derived = vec![];
-    let river_fragments = split_rivers_into_fragments(river_coords_voronoi);
+    let river_fragments = split_rivers_into_fragments(river_coords_quarter_scale);
     let initial_num_river_fragments = river_fragments.len();
-    for target_map_voronoi in river_fragments {
-        match reverse_map_voronoi_zoom(&target_map_voronoi) {
-            Ok(x) => {
-                let rivers = count_rivers(&x);
-                target_maps_derived.push((x, rivers));
-            }
-            Err(()) => {
-                debug!("Too few rivers, minimum map size is 8x8");
-            },
-        }
+    for x in river_fragments {
+        let rivers = count_rivers(&x);
+        target_maps_derived.push((x, rivers));
     }
 
     // Sort target maps by river count: most rivers first
@@ -3613,7 +3620,8 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
 
     // Ok, begin bruteforce!
 
-    let candidates_26 = river_seed_finder_26_range(river_coords_voronoi, range_lo, range_hi);
+    let river_coords_quarter_scale = convert_hd_coords_into_quarter_scale(river_coords_voronoi);
+    let candidates_26 = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_hi);
 
     //let target_maps_hd = vec![(target_map_hd, target_map_voronoi_sliced, target_score_voronoi_sliced)];
     // Now use voronoi zoom to bruteforce the remaining (34-26 = 8 bits)
@@ -3730,7 +3738,8 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_h
         }
     }
 
-    let candidates_26 = river_seed_finder_26_range(&river_coords_hd, range_lo, range_hi);
+    let river_coords_quarter_scale = convert_hd_coords_into_quarter_scale(&river_coords_hd);
+    let candidates_26 = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_hi);
 
     let area_tm = Area::from_coords(&river_coords_tm);
     let target_map_tm = map_with_river_at(&river_coords_tm, area_tm);
@@ -5620,7 +5629,8 @@ mod tests {
         let river_coords_voronoi = river_coords_voronoi.iter().cloned().collect::<Vec<_>>();
         let seed26: u32 = 0x03A1F4CC;
         let range_lo = 0xf84c80;
-        let candidates = river_seed_finder_26_range(&river_coords_voronoi, range_lo, range_lo + (1 << 7));
+        let river_coords_quarter_scale = convert_hd_coords_into_quarter_scale(&river_coords_voronoi);
+        let candidates = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_lo + (1 << 7));
         assert!(candidates.contains(&(seed26 as i64)), "{:?}", candidates);
     }
 }
