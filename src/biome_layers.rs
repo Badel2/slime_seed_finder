@@ -1,5 +1,6 @@
 use crate::mc_rng::McRng;
 use crate::noise_generator::NoiseGeneratorPerlin;
+use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use log::debug;
 use ndarray::Array2;
@@ -9,7 +10,9 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use crate::java_rng::JavaRng;
-use crate::seed_info::Point;
+use crate::chunk::Point;
+use crate::chunk::Point2;
+use crate::chunk::Point4;
 use crate::biome_info::biome_id;
 use crate::biome_info::BIOME_COLORS;
 use crate::biome_info::BIOME_INFO;
@@ -99,10 +102,64 @@ impl Area {
         }
 
         let c0 = c0.unwrap();
-        let (mut x_min, mut z_min) = c0;
-        let (mut x_max, mut z_max) = c0;
+        let Point { x: mut x_min, z: mut z_min } = c0;
+        let Point { x: mut x_max, z: mut z_max } = c0;
 
-        for &(x, z) in c {
+        for &Point {x, z} in c {
+            use std::cmp::{min, max};
+            x_min = min(x_min, x);
+            z_min = min(z_min, z);
+            x_max = max(x_max, x);
+            z_max = max(z_max, z);
+        }
+
+        Area { x: x_min, z: z_min, w: (x_max - x_min + 1) as u64, h: (z_max - z_min + 1) as u64 }
+    }
+
+    /// Creates the smallest area that will contain all the coords
+    pub fn from_coords2<'a, I>(c: I) -> Area
+    where
+        I: IntoIterator<Item = &'a Point2>
+    {
+        let mut c = c.into_iter();
+        let c0 = c.next();
+        if c0.is_none() {
+            // On empty coords, return empty area
+            return Area { x: 0, z: 0, w: 0, h: 0 }
+        }
+
+        let c0 = c0.unwrap();
+        let Point2 { x: mut x_min, z: mut z_min } = c0;
+        let Point2 { x: mut x_max, z: mut z_max } = c0;
+
+        for &Point2 {x, z} in c {
+            use std::cmp::{min, max};
+            x_min = min(x_min, x);
+            z_min = min(z_min, z);
+            x_max = max(x_max, x);
+            z_max = max(z_max, z);
+        }
+
+        Area { x: x_min, z: z_min, w: (x_max - x_min + 1) as u64, h: (z_max - z_min + 1) as u64 }
+    }
+
+    /// Creates the smallest area that will contain all the coords
+    pub fn from_coords4<'a, I>(c: I) -> Area
+    where
+        I: IntoIterator<Item = &'a Point4>
+    {
+        let mut c = c.into_iter();
+        let c0 = c.next();
+        if c0.is_none() {
+            // On empty coords, return empty area
+            return Area { x: 0, z: 0, w: 0, h: 0 }
+        }
+
+        let c0 = c0.unwrap();
+        let Point4 { x: mut x_min, z: mut z_min } = c0;
+        let Point4 { x: mut x_max, z: mut z_max } = c0;
+
+        for &Point4 {x, z} in c {
             use std::cmp::{min, max};
             x_min = min(x_min, x);
             z_min = min(z_min, z);
@@ -336,7 +393,7 @@ impl GetMap for TestMapCheckers {
     fn get_map(&self, area: Area) -> Map {
         let colors = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
-        MapFn(|x, z| {
+        MapFn(|Point {x, z}| {
             let rx = x as usize % 4;
             let rz = z as usize % 4;
 
@@ -354,7 +411,7 @@ pub struct TestMapXhz;
 
 impl GetMap for TestMapXhz {
     fn get_map(&self, area: Area) -> Map {
-        MapFn(|x, z| {
+        MapFn(|Point {x, z}| {
             (x.wrapping_mul(area.h as i64) + z) as i32
         }).get_map(area)
     }
@@ -378,12 +435,12 @@ impl GetMap for PanicMap {
 }
 
 /// Generetes a map given a function which takes (x, z) coordinates
-pub struct MapFn<F: Fn(i64, i64) -> i32>(F);
+pub struct MapFn<F: Fn(Point) -> i32>(F);
 
-impl<F: Fn(i64, i64) -> i32> GetMap for MapFn<F> {
+impl<F: Fn(Point) -> i32> GetMap for MapFn<F> {
     fn get_map(&self, area: Area) -> Map {
         Map::from_area_fn(area, |(x, z)| {
-            (self.0)(area.x + x as i64, area.z + z as i64)
+            (self.0)(Point { x: area.x + x as i64, z: area.z + z as i64 })
         })
     }
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
@@ -928,7 +985,7 @@ impl MapIsland {
 impl GetMap for MapIsland {
     fn get_map(&self, area: Area) -> Map {
         let r = McRng::new(self.base_seed, self.world_seed);
-        let mut m = MapFn(|x, z| {
+        let mut m = MapFn(|Point {x, z}| {
             let mut r = r;
             r.set_chunk_seed(x, z);
 
@@ -2728,7 +2785,7 @@ impl MapOceanTemp {
 
 impl GetMap for MapOceanTemp {
     fn get_map(&self, area: Area) -> Map {
-        MapFn(|x, z| {
+        MapFn(|Point {x, z}| {
             use biome_id::*;
 
             let tmp = self.perlin.get_ocean_temp(x as f64 / 8.0, z as f64 / 8.0, 0.0);
@@ -3406,20 +3463,20 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
     // x % 4 == 2 and z % 4 == 2
     let mut prevoronoi_coords = vec![];
     let mut hd_coords = vec![];
-    for (x, z) in coords {
+    for Point {x, z} in coords {
         if x as u8 % 4 == 2 && z as u8 % 4 == 2 {
-            prevoronoi_coords.push((x, z));
+            prevoronoi_coords.push(Point {x, z});
         } else {
-            hd_coords.push((x, z));
+            hd_coords.push(Point {x, z});
         }
     }
 
     // Now, try to build Area from other_coords, and duplicate all the
     // voronoi_coords which are inside this area
     let area = Area::from_coords(&hd_coords);
-    for &(x, z) in &prevoronoi_coords {
+    for &Point {x, z} in &prevoronoi_coords {
         if area.contains(x, z) {
-            hd_coords.push((x, z));
+            hd_coords.push(Point {x, z});
         }
     }
 
@@ -3427,16 +3484,12 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
 }
 
 // A.k.a reverse map voronoi zoom
-pub fn convert_hd_coords_into_quarter_scale(coords: &[Point]) -> Vec<Point> {
-    fn divide_by_4(x: i64) -> i64 {
-        (x - 2) / 4
-    }
-
+pub fn convert_hd_coords_into_quarter_scale(coords: &[Point]) -> Vec<Point4> {
     let mut prevoronoi_coords = vec![];
 
-    for (x, z) in coords {
-        if *x as u8 % 4 == 2 && *z as u8 % 4 == 2 {
-            prevoronoi_coords.push((divide_by_4(*x), divide_by_4(*z)));
+    for p in coords {
+        if let Some(p4) = p.into_quarter_scale() {
+            prevoronoi_coords.push(p4);
         }
     }
 
@@ -3444,15 +3497,15 @@ pub fn convert_hd_coords_into_quarter_scale(coords: &[Point]) -> Vec<Point> {
 }
 
 /// River Seed Finder
-pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], version: MinecraftVersion) -> Vec<i64> {
+pub fn river_seed_finder(river_coords_voronoi: &[Point], extra_biomes: &[(BiomeId, Point)], version: MinecraftVersion) -> Vec<i64> {
     river_seed_finder_range(river_coords_voronoi, extra_biomes, version, 0, 1 << 24)
 }
 
-pub fn river_seed_finder_26_range(river_coords_quarter_scale: &[Point], range_lo: u32, range_hi: u32) -> Vec<i64> {
+pub fn river_seed_finder_26_range(river_coords_quarter_scale: &[Point4], range_lo: u32, range_hi: u32) -> Vec<i64> {
     // This iterator has 2**24 elements
     let iter25 = McRng::similar_biome_seed_iterator_bits(25).skip(range_lo as usize).take((range_hi - range_lo) as usize);
     let mut target_maps_derived = vec![];
-    let river_fragments = split_rivers_into_fragments(river_coords_quarter_scale);
+    let river_fragments = split_rivers_into_fragments4(river_coords_quarter_scale);
     let initial_num_river_fragments = river_fragments.len();
     for x in river_fragments {
         let rivers = count_rivers(&x);
@@ -3578,7 +3631,7 @@ pub fn river_seed_finder_26_range(river_coords_quarter_scale: &[Point], range_lo
 /// range_lo: 0
 /// range_hi: 1 << 24
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
-pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(i32, i64, i64)], version: MinecraftVersion, range_lo: u32, range_hi: u32) -> Vec<i64> {
+pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(BiomeId, Point)], version: MinecraftVersion, range_lo: u32, range_hi: u32) -> Vec<i64> {
     // For the 34-bit voronoi phase we only want to compare hd_coords
     let mut target_maps_hd = vec![];
     let river_fragments = split_rivers_into_fragments(river_coords_voronoi);
@@ -3684,10 +3737,10 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         let mut misses = 0;
         let target = extra_biomes.len() * 90 / 100;
         let max_misses = extra_biomes.len() - target;
-        for (biome, x, z) in extra_biomes.iter().cloned() {
+        for (biome, Point {x, z}) in extra_biomes.iter().cloned() {
             let area = Area { x, z, w: 1, h: 1 };
             let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
-            if g43.a[(0, 0)] == biome {
+            if g43.a[(0, 0)] == biome.0 {
                 hits += 1;
             } else {
                 misses += 1;
@@ -3730,9 +3783,9 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_h
     for x in 0..tarea.w as usize {
         for z in 0..tarea.h as usize {
             if treasure_map.a[(x, z)] == biome_id::river {
-                let p = ((tarea.x + x as i64) * 2, (tarea.z + z as i64) * 2);
+                let p = Point { x: (tarea.x + x as i64) * 2, z: (tarea.z + z as i64) * 2 };
                 river_coords_hd.push(p);
-                let p = ((tarea.x + x as i64) * 1, (tarea.z + z as i64) * 1);
+                let p = Point2 { x: (tarea.x + x as i64) * 1, z: (tarea.z + z as i64) * 1 };
                 river_coords_tm.push(p);
             }
         }
@@ -3741,8 +3794,8 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_h
     let river_coords_quarter_scale = convert_hd_coords_into_quarter_scale(&river_coords_hd);
     let candidates_26 = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_hi);
 
-    let area_tm = Area::from_coords(&river_coords_tm);
-    let target_map_tm = map_with_river_at(&river_coords_tm, area_tm);
+    let area_tm = Area::from_coords2(&river_coords_tm);
+    let target_map_tm = map_with_river_at2(&river_coords_tm, area_tm);
     // Reversing from a HalfVoronoiZoom is more or less equivalent to reversing a MapZoom
     let target_map_pm = reverse_map_half_voronoi(&target_map_tm);
 
@@ -3823,9 +3876,25 @@ fn count_rivers_exact(a: &Map, b: &Map) -> u32 {
     if acc < 0 { 0 } else { acc as u32 }
 }
 
-pub fn map_with_river_at(c: &[(i64, i64)], area: Area) -> Map {
+pub fn map_with_river_at(c: &[Point], area: Area) -> Map {
     let mut m = Map::new(area);
-    for (x, z) in c {
+    for Point {x, z} in c {
+        m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id::river;
+    }
+    m
+}
+
+pub fn map_with_river_at2(c: &[Point2], area: Area) -> Map {
+    let mut m = Map::new(area);
+    for Point2 {x, z} in c {
+        m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id::river;
+    }
+    m
+}
+
+pub fn map_with_river_at4(c: &[Point4], area: Area) -> Map {
+    let mut m = Map::new(area);
+    for Point4 {x, z} in c {
         m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id::river;
     }
     m
@@ -3838,7 +3907,7 @@ pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
     let frag_size = 64;
     // Split points into fragments of size 64x64
     for p in points {
-        let (frag_x, frag_z) = (p.0 / frag_size, p.1 / frag_size);
+        let (frag_x, frag_z) = (p.x / frag_size, p.z / frag_size);
         h.entry((frag_x, frag_z)).or_default().push(*p);
     }
 
@@ -3847,6 +3916,28 @@ pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
     for ps in h.values() {
         let a = Area::from_coords(ps);
         let m = map_with_river_at(ps, a);
+        r.push(m);
+    }
+
+    r
+}
+
+/// Segregate a list of river coordinates into small maps
+pub fn split_rivers_into_fragments4(points: &[Point4]) -> Vec<Map> {
+    let mut h: HashMap<(i64, i64), Vec<Point4>> = HashMap::new();
+
+    let frag_size = 64;
+    // Split points into fragments of size 64x64
+    for p in points {
+        let (frag_x, frag_z) = (p.x / frag_size, p.z / frag_size);
+        h.entry((frag_x, frag_z)).or_default().push(*p);
+    }
+
+    // Convert that fragments into maps
+    let mut r = vec![];
+    for ps in h.values() {
+        let a = Area::from_coords4(ps);
+        let m = map_with_river_at4(ps, a);
         r.push(m);
     }
 
@@ -3893,7 +3984,7 @@ fn can_generate_river_near_steps(pre_voronoi_point: Point, world_seed: i64) -> u
     }
 
     // We can generate a 3x3 area for more or less the same cost that a 1x1 area
-    let a39 = Area { x: pre_voronoi_point.0 - 1, z: pre_voronoi_point.1 - 1, w: 3, h: 3 };
+    let a39 = Area { x: pre_voronoi_point.x - 1, z: pre_voronoi_point.z - 1, w: 3, h: 3 };
     let a38 = prev_area(a39);
     let a37 = prev_area(a38);
     let a36 = prev_area(a37);
@@ -4372,8 +4463,8 @@ pub fn generate_up_to_layer_1_7_extra(a: Area, world_seed: i64, layer: u32) -> M
     g43.parent = Some(Rc::new(g42));
     if layer == 143 { return g43.get_map(a); }
 
-    if layer == 170 { return MapFn(|x, z| {
-        can_generate_river_near_steps((x, z), world_seed) as i32
+    if layer == 170 { return MapFn(|p| {
+        can_generate_river_near_steps(p, world_seed) as i32
     }).get_map(a); }
 
     TestMapZero.get_map(a)
@@ -5093,6 +5184,7 @@ pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32) -> Box<dyn GetMap
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::seed_info::BiomeId;
 
     #[ignore]
     #[test]
@@ -5505,7 +5597,8 @@ mod tests {
     #[test]
     fn reverse_voronoi_small_map() {
         fn rcoords(c: &[(i64, i64)]) -> Result<Map, ()> {
-            let area_voronoi = Area::from_coords(c);
+            let c: Vec<_> = c.iter().map(|c| Point { x: c.0, z: c.1 }).collect();
+            let area_voronoi = Area::from_coords(&c);
             let target_map_voronoi = map_with_river_at(&c, area_voronoi);
             reverse_map_voronoi_zoom(&target_map_voronoi)
         }
@@ -5525,7 +5618,7 @@ mod tests {
         use crate::seed_info::SeedInfo;
         let s = SeedInfo::read("seedinfo_tests/long_river_1_7.json").unwrap();
 
-        let river_coords_voronoi = &s.biomes[&7];
+        let river_coords_voronoi = &s.biomes[&BiomeId(7)];
         let river_coords_voronoi = river_coords_voronoi.iter().cloned().collect::<Vec<_>>();
         let area_voronoi = Area::from_coords(&river_coords_voronoi);
         let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
@@ -5534,7 +5627,7 @@ mod tests {
         println!("{}", draw_map(&target_map));
 
         let river_coords_rv_expected_value = s.options.other["expectedRiversPreviousLayer"].clone();
-        let river_coords_rv_expected: Vec<(i64, i64)> = serde_json::from_value(river_coords_rv_expected_value).unwrap();
+        let river_coords_rv_expected: Vec<Point> = serde_json::from_value(river_coords_rv_expected_value).unwrap();
         let area_rv = Area::from_coords(&river_coords_rv_expected);
         let expected_rv_map = map_with_river_at(&river_coords_rv_expected, area_rv);
         println!("{}", draw_map(&expected_rv_map));
@@ -5567,12 +5660,12 @@ mod tests {
     fn voronoi_1_15() {
         use crate::seed_info::SeedInfo;
         let s = SeedInfo::read("seedinfo_tests/voronoi_1_15.json").unwrap();
-        let river_coords = &s.biomes[&7];
+        let river_coords = &s.biomes[&BiomeId(7)];
         println!("{}", draw_map(&map_with_river_at(river_coords, Area::from_coords(river_coords))));
         let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords), s.world_seed.unwrap());
         println!("{}", draw_map(&m));
         for r in river_coords {
-            let gr = m.get(r.0, r.1);
+            let gr = m.get(r.x, r.z);
             assert!(gr == 7, "{:?} should be river but is {}", r, gr);
         }
     }
@@ -5625,7 +5718,7 @@ mod tests {
         use crate::seed_info::SeedInfo;
         let s = SeedInfo::read("seedinfo_tests/long_river_1_7.json").unwrap();
 
-        let river_coords_voronoi = &s.biomes[&7];
+        let river_coords_voronoi = &s.biomes[&BiomeId(7)];
         let river_coords_voronoi = river_coords_voronoi.iter().cloned().collect::<Vec<_>>();
         let seed26: u32 = 0x03A1F4CC;
         let range_lo = 0xf84c80;

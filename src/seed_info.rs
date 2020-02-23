@@ -1,4 +1,6 @@
 use crate::chunk::Chunk;
+use crate::chunk::Point;
+use crate::chunk::Point4;
 use crate::biome_layers::Area;
 use crate::biome_layers::Map;
 use std::collections::HashMap;
@@ -7,9 +9,16 @@ use std::path::Path;
 use serde::{Deserialize, Deserializer, Serialize, Serializer };
 use serde_json;
 
-// TODO: use real types
-pub type Point = (i64, i64);
-pub type BiomeId = i32;
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Deserialize, Serialize)]
+pub struct BiomeId(pub i32);
+
+impl FromStr for BiomeId {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(x: &str) -> Result<Self, Self::Err> {
+        Ok(Self(x.parse()?))
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MinecraftVersion {
@@ -130,7 +139,7 @@ pub struct SeedInfo {
     // Extra settings for optimizing the search: error margin, use extend48
     pub options: Options,
     pub biomes: HashMap<BiomeId, Vec<Point>>,
-    pub biomes_quarter_scale: HashMap<BiomeId, Vec<Point>>,
+    pub biomes_quarter_scale: HashMap<BiomeId, Vec<Point4>>,
     pub end_pillars: Vec<u8>,
     pub treasure_maps: Vec<TreasureMap>,
     pub positive: SeedStructures,
@@ -177,8 +186,8 @@ pub struct SeedInfoV0_1 {
     #[serde(deserialize_with = "deserialize_biomes")]
     pub biomes: HashMap<BiomeId, Vec<Point>>,
     #[serde(default, skip_serializing_if = "is_default")]
-    #[serde(deserialize_with = "deserialize_biomes")]
-    pub biomes_quarter_scale: HashMap<BiomeId, Vec<Point>>,
+    #[serde(deserialize_with = "deserialize_biomes4")]
+    pub biomes_quarter_scale: HashMap<BiomeId, Vec<Point4>>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub end_pillars: Vec<u8>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -281,6 +290,11 @@ fn deserialize_biomes<'de, D>(d: D) -> Result<HashMap<BiomeId, Vec<Point>>, D::E
     Ok(biomes.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect())
 }
 
+fn deserialize_biomes4<'de, D>(d: D) -> Result<HashMap<BiomeId, Vec<Point4>>, D::Error> where D: Deserializer<'de> {
+    let biomes = HashMap::<String, Vec<Point4>>::deserialize(d)?;
+    Ok(biomes.into_iter().map(|(k, v)| (k.parse().unwrap(), v)).collect())
+}
+
 pub fn biomes_to_map<I>(biomes: I) -> Map
 where
     I: IntoIterator<Item = (BiomeId, Vec<Point>)>
@@ -288,8 +302,8 @@ where
     let h: Vec<_> = biomes.into_iter().flat_map(|(k, v)| v.into_iter().map(move |x| (x, k))).collect();
     let area = Area::from_coords(h.iter().map(|x| &x.0));
     let mut m = Map::new(area);
-    for ((x, z), biome_id) in h {
-        m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id;
+    for (Point {x, z}, biome_id) in h {
+        m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id.0;
     }
     m
 }
@@ -300,8 +314,8 @@ pub fn biomes_from_map(map: &Map) -> HashMap<BiomeId, Vec<Point>> {
     let area = map.area();
     for z in 0..area.h as usize {
         for x in 0..area.w as usize {
-            let biome = map.a[(x, z)];
-            biomes.entry(biome).or_default().push((x as i64 + area.x, z as i64 + area.z))
+            let biome = BiomeId(map.a[(x, z)]);
+            biomes.entry(biome).or_default().push(Point { x: x as i64 + area.x, z: z as i64 + area.z });
         }
     }
 
@@ -363,6 +377,62 @@ impl<'de> Deserialize<'de> for Chunk {
 }
 
 impl Serialize for Chunk {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let x = PointSerialization::from(*self);
+        x.serialize(serializer)
+    }
+}
+
+impl Into<Point> for PointSerialization {
+    fn into(self) -> Point {
+        match self {
+            PointSerialization::Normal { x, z } => Point { x, z },
+            PointSerialization::Tuple((x, z)) => Point { x, z },
+        }
+    }
+}
+
+impl From<Point> for PointSerialization {
+    fn from(c: Point) -> Self {
+        PointSerialization::Tuple((c.x, c.z))
+    }
+}
+
+impl<'de> Deserialize<'de> for Point {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(PointSerialization::deserialize(deserializer)?.into())
+    }
+}
+
+impl Serialize for Point {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let x = PointSerialization::from(*self);
+        x.serialize(serializer)
+    }
+}
+
+impl Into<Point4> for PointSerialization {
+    fn into(self) -> Point4 {
+        match self {
+            PointSerialization::Normal { x, z } => Point4 { x, z },
+            PointSerialization::Tuple((x, z)) => Point4 { x, z },
+        }
+    }
+}
+
+impl From<Point4> for PointSerialization {
+    fn from(c: Point4) -> Self {
+        PointSerialization::Tuple((c.x, c.z))
+    }
+}
+
+impl<'de> Deserialize<'de> for Point4 {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(PointSerialization::deserialize(deserializer)?.into())
+    }
+}
+
+impl Serialize for Point4 {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let x = PointSerialization::from(*self);
         x.serialize(serializer)
@@ -473,7 +543,7 @@ mod tests {
 
         let seed_info: SeedInfo = serde_json::from_str(json).unwrap();
         assert_eq!(seed_info.version, "1.7".to_string());
-        assert_eq!(seed_info.biomes[&7], vec![(0, 0), (2, 2)]);
+        assert_eq!(seed_info.biomes[&BiomeId(7)], vec![Point { x: 0, z: 0 }, Point { x: 2, z: 2 }]);
     }
 
     #[test]

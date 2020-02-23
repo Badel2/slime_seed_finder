@@ -8,8 +8,10 @@ use stdweb::web::TypedArray;
 use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::Map;
+use slime_seed_finder::chunk::Point;
 use slime_seed_finder::java_rng::JavaRng;
 use slime_seed_finder::mc_rng::McRng;
+use slime_seed_finder::seed_info::BiomeId;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::slime::SlimeChunks;
@@ -72,11 +74,14 @@ pub fn draw_rivers(o: String) -> Serde<DrawRivers> {
     // TODO: detect when there are two separate river areas and return a vec of maps?
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
-    let (_prevoronoi_coords, hd_coords) =
-        biome_layers::segregate_coords_prevoronoi_hd(o.seed_info.biomes[&biome_id::river].clone());
-    let area_rivers = Area::from_coords(&o.seed_info.biomes[&biome_id::river]);
-    let target_map =
-        biome_layers::map_with_river_at(&o.seed_info.biomes[&biome_id::river], area_rivers);
+    let (_prevoronoi_coords, hd_coords) = biome_layers::segregate_coords_prevoronoi_hd(
+        o.seed_info.biomes[&BiomeId(biome_id::river)].clone(),
+    );
+    let area_rivers = Area::from_coords(&o.seed_info.biomes[&BiomeId(biome_id::river)]);
+    let target_map = biome_layers::map_with_river_at(
+        &o.seed_info.biomes[&BiomeId(biome_id::river)],
+        area_rivers,
+    );
     let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
 
     let area_hd = Area::from_coords(&hd_coords);
@@ -175,7 +180,7 @@ pub fn extend48(s: &str) -> String {
 pub fn count_rivers(o: String) -> String {
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
-    if let Some(rivers) = o.seed_info.biomes.get(&biome_id::river) {
+    if let Some(rivers) = o.seed_info.biomes.get(&BiomeId(biome_id::river)) {
         format!("{} rivers", rivers.len())
     } else {
         format!("No rivers :(")
@@ -212,15 +217,15 @@ pub fn find_seed_rivers(o: Options) -> Vec<i64> {
         .biomes
         .iter()
         .flat_map(|(id, vec_xz)| {
-            if *id == biome_id::river {
+            if *id == BiomeId(biome_id::river) {
                 vec![]
             } else {
-                vec_xz.iter().map(|(x, z)| (*id, *x, *z)).collect()
+                vec_xz.iter().map(|p| (*id, *p)).collect()
             }
         })
         .collect();
     let version = o.seed_info.version.parse().unwrap();
-    if let Some(rivers) = o.seed_info.biomes.get(&biome_id::river) {
+    if let Some(rivers) = o.seed_info.biomes.get(&BiomeId(biome_id::river)) {
         if let Some((range_lo, range_hi)) = o.range {
             biome_layers::river_seed_finder_range(
                 rivers,
@@ -586,32 +591,26 @@ pub fn anvil_region_to_river_seed_finder(
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
     let mut zip_chunk_provider =
         ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
-    let center_chunk = (0, 0);
+    let center_block = Point { x: 0, z: 0 };
     let (rivers, extra_biomes) = if is_minecraft_1_15 {
-        fn multiply_coord_by_4(x: i64) -> i64 {
-            // 0 => 2
-            // 1 => 6
-            (x * 4) + 2
-        }
         let (rivers, _extra_biomes) =
-            anvil::get_rivers_and_some_extra_biomes_1_15(&mut zip_chunk_provider, center_chunk);
+            anvil::get_rivers_and_some_extra_biomes_1_15(&mut zip_chunk_provider, center_block);
         let rivers: Vec<_> = rivers
             .into_iter()
-            .map(|(x, z)| (multiply_coord_by_4(x), multiply_coord_by_4(z)))
+            .map(|p4| p4.into_full_resolution())
             .collect();
 
         (rivers, vec![])
     } else {
-        anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_chunk)
+        anvil::get_rivers_and_some_extra_biomes(&mut zip_chunk_provider, center_block)
     };
 
     let mut s = SeedInfo::default();
-    s.biomes.insert(7, rivers);
+    s.biomes.insert(BiomeId(7), rivers);
 
-    for (b_id, b_x, b_z) in extra_biomes {
-        let b_coords = (b_x, b_z);
+    for (b_id, b_coords) in extra_biomes {
         // Adding more rivers here breaks bounding box detection...
-        if b_id != 7 {
+        if b_id != BiomeId(7) {
             s.biomes.entry(b_id).or_default().push(b_coords);
         }
     }

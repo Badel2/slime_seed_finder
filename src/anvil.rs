@@ -15,10 +15,13 @@ use std::path::PathBuf;
 use log::*;
 use crate::biome_layers::is_oceanic;
 use crate::biome_info::biome_id;
+use crate::chunk::Point;
+use crate::chunk::Point4;
+use crate::seed_info::BiomeId;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
-pub fn read_area_around<A: AnvilChunkProvider>(chunk_provider: &mut A, area_size: u64, (block_x, block_z): (i64, i64)) -> Result<Vec<CompoundTag>, ChunkLoadError> {
+pub fn read_area_around<A: AnvilChunkProvider>(chunk_provider: &mut A, area_size: u64, Point { x: block_x, z: block_z }: Point) -> Result<Vec<CompoundTag>, ChunkLoadError> {
     let mut r = vec![];
     let start_x = (block_x / 16) as i32;
     let start_z = (block_z / 16) as i32;
@@ -61,11 +64,11 @@ pub fn read_from_region_file<F: Seek+Read+Write>(region: &mut AnvilRegion<F>) ->
     Ok(r)
 }
 
-fn is_common_biome(b: i32) -> bool {
+fn is_common_biome(b: BiomeId) -> bool {
     // These biomes have more than a 90% chance of appearing inside
     // a 2000x2000-block square around (0, 0) for any random seed
     // So they make a bad filter because 90% of all seeds can have this biomes
-    match b {
+    match b.0 {
         // Skip plains (1) and forest (4)
         // And also skip rivers (7) because they can break some code that
         // assumes all rivers are used for river_seed_finder...
@@ -115,25 +118,25 @@ pub fn best_river_chunk(river_chunks: &HashMap<(i32, i32), u8>) -> Option<(i32, 
 /// * Return a few extra biomes
 ///
 /// This is meant to be used together with river_seed_finder.
-pub fn get_rivers_and_some_extra_biomes_folder(input_dir: &PathBuf, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+pub fn get_rivers_and_some_extra_biomes_folder(input_dir: &PathBuf, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
     let mut chunk_provider = FolderChunkProvider::new(input_dir.to_str().unwrap());
 
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }
 
-pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &PathBuf, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &PathBuf, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
 
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }
 
-pub fn get_rivers_and_some_extra_biomes_zip_1_15(input_zip: &PathBuf, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+pub fn get_rivers_and_some_extra_biomes_zip_1_15(input_zip: &PathBuf, center_block_arg: Point) -> (Vec<Point4>, Vec<(BiomeId, Point4)>) {
     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
 
     get_rivers_and_some_extra_biomes_1_15(&mut chunk_provider, center_block_arg)
 }
 
-pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
     let blocks_around_center: u32 = 1_000;
 
     let mut biome_data = HashMap::new();
@@ -142,14 +145,14 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
     for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
         if cheb_i == 10 {
             warn!("This is taking longer than expected");
-            if center_block_arg == (0, 0) {
+            if let Point { x: 0, z: 0 } = center_block_arg {
                 warn!("Please feel free to specify some center coordinates to speed up the process.");
             } else {
                 warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
                 warn!("Please double check that there are rivers near this block coordinates");
             }
         }
-        let center_block = (center_block_arg.0 + i64::from(cheb_x) * i64::from(blocks_around_center), center_block_arg.1 + i64::from(cheb_z) * i64::from(blocks_around_center));
+        let center_block = Point { x: center_block_arg.x + i64::from(cheb_x) * i64::from(blocks_around_center), z: center_block_arg.z + i64::from(cheb_z) * i64::from(blocks_around_center) };
         debug!("Trying to find chunks around {:?}", center_block);
         let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
         if chunks.is_empty() {
@@ -204,12 +207,12 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
                         use_rivers_from_chunk &= b != biome_id::frozenRiver;
                         if use_rivers_from_chunk && b == biome_id::river {
                             // Store all the rivers
-                            chunk_rivers.push((block_x, block_z));
+                            chunk_rivers.push(Point { x: block_x, z: block_z });
                         }
 
                         // Do not insert common biomes
-                        if extra_biomes_per_chunk > 0 && !is_common_biome(b) {
-                            biome_data.insert((block_x, block_z), b);
+                        if extra_biomes_per_chunk > 0 && !is_common_biome(BiomeId(b)) {
+                            biome_data.insert(Point { x: block_x, z: block_z }, BiomeId(b));
                             extra_biomes_per_chunk -= 1;
                         }
                     }
@@ -235,7 +238,7 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
 
         let mut extra_biomes = vec![];
         // Hashmap iteration follows a random order, so take some random biomes
-        extra_biomes.extend(biome_data.iter().map(|((x, z), b)| (*b, *x, *z)).take(30));
+        extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)).take(30));
         debug!("extra_biomes: {:?}", extra_biomes);
 
         return (rivers, extra_biomes);
@@ -246,7 +249,7 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
     (vec![], vec![])
 }
 
-pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: (i64, i64)) -> (Vec<(i64, i64)>, Vec<(i32, i64, i64)>) {
+pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: Point) -> (Vec<Point4>, Vec<(BiomeId, Point4)>) {
     let blocks_around_center: u32 = 1_000;
 
     let mut biome_data = HashMap::new();
@@ -255,14 +258,14 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
     for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
         if cheb_i == 10 {
             warn!("This is taking longer than expected");
-            if center_block_arg == (0, 0) {
+            if let Point { x: 0, z: 0 } = center_block_arg {
                 warn!("Please feel free to specify some center coordinates to speed up the process.");
             } else {
                 warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
                 warn!("Please double check that there are rivers near this block coordinates");
             }
         }
-        let center_block = (center_block_arg.0 + i64::from(cheb_x) * i64::from(blocks_around_center), center_block_arg.1 + i64::from(cheb_z) * i64::from(blocks_around_center));
+        let center_block = Point { x: center_block_arg.x + i64::from(cheb_x) * i64::from(blocks_around_center), z: center_block_arg.z + i64::from(cheb_z) * i64::from(blocks_around_center) };
         debug!("Trying to find chunks around {:?}", center_block);
         let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
         if chunks.is_empty() {
@@ -309,12 +312,12 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
                         use_rivers_from_chunk &= b != biome_id::frozenRiver;
                         if use_rivers_from_chunk && b == biome_id::river {
                             // Store all the rivers
-                            chunk_rivers.push((block_x, block_z));
+                            chunk_rivers.push(Point4 { x: block_x, z: block_z });
                         }
 
                         // Do not insert common biomes
-                        if extra_biomes_per_chunk > 0 && !is_common_biome(b) {
-                            biome_data.insert((block_x, block_z), b);
+                        if extra_biomes_per_chunk > 0 && !is_common_biome(BiomeId(b)) {
+                            biome_data.insert(Point4 { x: block_x, z: block_z }, BiomeId(b));
                             extra_biomes_per_chunk -= 1;
                         }
                     }
@@ -340,7 +343,7 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
 
         let mut extra_biomes = vec![];
         // Hashmap iteration follows a random order, so take some random biomes
-        extra_biomes.extend(biome_data.iter().map(|((x, z), b)| (*b, *x, *z)).take(30));
+        extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)).take(30));
         debug!("extra_biomes: {:?}", extra_biomes);
 
         return (rivers, extra_biomes);

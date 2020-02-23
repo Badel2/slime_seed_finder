@@ -5,9 +5,11 @@ use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::Map;
+use slime_seed_finder::chunk::Point;
 use slime_seed_finder::slime::seed_from_slime_chunks;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
 use slime_seed_finder::seed_info::biomes_from_map;
+use slime_seed_finder::seed_info::BiomeId;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::java_rng::JavaRng;
@@ -389,15 +391,15 @@ fn main() {
             let version = seed_info.version.parse().unwrap();
             // TODO: integrate the river seed finder into the "find" subcommand
             let extra_biomes: Vec<_> = seed_info.biomes.iter().flat_map(|(id, vec_xz)| {
-                if *id == biome_id::river {
+                if *id == BiomeId(biome_id::river) {
                     vec![]
                 } else {
-                    vec_xz.iter().map(|(x, z)| (*id, *x, *z)).collect()
+                    vec_xz.iter().map(|p| (*id, *p)).collect()
                 }
             }).collect();
 
             // All possible 64 bit seeds
-            let seeds = if let Some(rivers) = seed_info.biomes.get(&biome_id::river) {
+            let seeds = if let Some(rivers) = seed_info.biomes.get(&BiomeId(biome_id::river)) {
                 biome_layers::river_seed_finder(rivers, &extra_biomes, version)
             } else {
                 error!("No rivers in seedInfo");
@@ -515,7 +517,7 @@ fn main() {
             }
             let version = mc_version.parse().unwrap();
 
-            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_folder(&input_dir, (center_x, center_z));
+            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_folder(&input_dir, Point { x: center_x, z: center_z });
             let rivers = Arc::new(rivers);
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
@@ -563,23 +565,15 @@ fn main() {
             let version = mc_version.parse().unwrap();
 
             if version == MinecraftVersion::Java1_15 {
-                let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, (center_x, center_z));
+                let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, Point { x: center_x, z: center_z });
 
                 {
                     // Save the extracted data as a SeedInfo
                     // So we can use it later for tests
                     let mut seed_info = SeedInfo::default();
-                    seed_info.biomes.insert(7, rivers.clone());
+                    seed_info.biomes_quarter_scale.insert(BiomeId(7), rivers.clone());
                     seed_info.version = mc_version.to_string();
                     seed_info.options.not_from_java_next_long = false;
-
-                    for (b_id, b_x, b_z) in extra_biomes.iter().cloned() {
-                        let b_coords = (b_x, b_z);
-                        // Adding more rivers here breaks bounding box detection...
-                        if b_id != 7 {
-                            seed_info.biomes.entry(b_id).or_default().push(b_coords);
-                        }
-                    }
 
                     // TODO: proper error handling
                     let buf = serde_json::to_string(&seed_info).expect("Serialization fail");
@@ -627,21 +621,20 @@ fn main() {
                 return;
             }
 
-            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip(&input_zip, (center_x, center_z));
+            let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip(&input_zip, Point { x: center_x, z: center_z });
 
             // TODO: this logic is duplicated in slime_seed_finder_web/src/main.rs
             {
                 // Save the extracted data as a SeedInfo
                 // So we can use it later for tests
                 let mut seed_info = SeedInfo::default();
-                seed_info.biomes.insert(7, rivers.clone());
+                seed_info.biomes.insert(BiomeId(7), rivers.clone());
                 seed_info.version = mc_version.to_string();
                 seed_info.options.not_from_java_next_long = false;
 
-                for (b_id, b_x, b_z) in extra_biomes.iter().cloned() {
-                    let b_coords = (b_x, b_z);
+                for (b_id, b_coords) in extra_biomes.iter().cloned() {
                     // Adding more rivers here breaks bounding box detection...
-                    if b_id != 7 {
+                    if b_id != BiomeId(7) {
                         seed_info.biomes.entry(b_id).or_default().push(b_coords);
                     }
                 }
