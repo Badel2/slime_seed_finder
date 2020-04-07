@@ -481,7 +481,7 @@ fn main() {
             let area = Area { x, z, w: width as u64, h: height as u64 };
             let vec_rgba = biome_layers::generate_image_up_to_layer(version, area, seed, last_layer);
             assert_eq!(vec_rgba.len(), (width * height * 4) as usize);
-            image::save_buffer(output_file.clone(), &vec_rgba, width, height, image::ColorType::RGBA(8)).unwrap();
+            image::save_buffer(output_file.clone(), &vec_rgba, width, height, image::ColorType::Rgba8).unwrap();
             println!("Saved image to {}", output_file.to_string_lossy());
         }
 
@@ -499,7 +499,7 @@ fn main() {
             });
             let vec_rgba = biome_layers::generate_image_treasure_map_at(MinecraftVersion::Java1_13, seed, fragment_x, fragment_z);
             assert_eq!(vec_rgba.len(), 128 * 128 * 4);
-            image::save_buffer(output_file.clone(), &vec_rgba, 128, 128, image::ColorType::RGBA(8)).unwrap();
+            image::save_buffer(output_file.clone(), &vec_rgba, 128, 128, image::ColorType::Rgba8).unwrap();
             println!("Saved image to {}", output_file.to_string_lossy());
         }
 

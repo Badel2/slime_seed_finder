@@ -16,12 +16,12 @@ main = ["structopt", "rand", "image", "num_cpus"]
 
 [dependencies]
 ansi_term = "0.12.1"
-anvil-region = { git = "https://github.com/Badel2/anvil-region", rev = "b1edb94ca3ef8e0a74ef85eca169c995b4947e74", features = ["zip"] }
+anvil-region = { git = "https://github.com/Badel2/anvil-region", rev = "bd267699fbd52a7b9b8ba1cb482e57fe6ccc9712", features = ["zip"] }
 named-binary-tag = "0.2.3"
 spiral = "0.1.9"
 num_cpus = { version = "1.11.1", optional = true }
 structopt = { version = "0.3.7", optional = true }
-image = { version = "0.22.3", optional = true }
+image = { version = "0.23.3", optional = true }
 libc = { version = "0.2.66", optional = true }
 log = { version = "0.4.8", features = ["std"] }
 serde = { version = "1.0.104", features = ["derive"] }
