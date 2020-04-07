@@ -93,15 +93,16 @@ Found 64-bit seeds will appear here.</textarea
         <script src="select_map.js"></script>
         <script type="text/javascript" src="slime_seed_finder_web.js"></script>
         <script>
+            let myWorker = null;
             if (window.Worker) {
-                let myWorker = new Worker("worker.js");
+                myWorker = new Worker("worker.js");
             }
             function runGui() {
                 let seltextarea = document.getElementById("selection_output");
                 let seedInfo = JSON.parse(seltextarea.value);
                 let outta = document.getElementById("output_textarea");
                 outta.value = "Calculating...";
-                if (window.Worker) {
+                if (myWorker) {
                     myWorker.postMessage({ seedInfo: seedInfo });
                     console.log("Message posted to worker");
                     myWorker.onmessage = function(e) {
