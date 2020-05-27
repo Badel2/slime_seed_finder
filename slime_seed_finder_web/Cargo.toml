@@ -11,6 +11,6 @@ slime_seed_finder = { "path" = ".." }
 ansi_term = "0.12.1"
 log = { version = "0.4.8", features = ["std"] }
 palette = "0.5.0"
-serde = { version = "1.0.104", features = ["derive"] }
-serde_json = "1.0.44"
+serde = { version = "1.0.111", features = ["derive"] }
+serde_json = "1.0.53"
 stdweb = "0.4.20"

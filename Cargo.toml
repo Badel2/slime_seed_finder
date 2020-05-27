@@ -19,17 +19,17 @@ ansi_term = "0.12.1"
 anvil-region = { git = "https://github.com/Badel2/anvil-region", rev = "bd267699fbd52a7b9b8ba1cb482e57fe6ccc9712", features = ["zip"] }
 named-binary-tag = "0.2.3"
 spiral = "0.1.9"
-num_cpus = { version = "1.11.1", optional = true }
-structopt = { version = "0.3.7", optional = true }
-image = { version = "0.23.3", optional = true }
-libc = { version = "0.2.66", optional = true }
+num_cpus = { version = "1.13.0", optional = true }
+structopt = { version = "0.3.14", optional = true }
+image = { version = "0.23.4", optional = true }
+libc = { version = "0.2.71", optional = true }
 log = { version = "0.4.8", features = ["std"] }
-serde = { version = "1.0.104", features = ["derive"] }
-serde_json = { version = "1.0.44", optional = false }
-ndarray = "0.13.0"
-rand = { version = "0.7.2", optional = true }
-pretty_env_logger = "0.3.1"
-sha2 = "0.8.1"
+serde = { version = "1.0.111", features = ["derive"] }
+serde_json = { version = "1.0.53", optional = false }
+ndarray = "0.13.1"
+rand = { version = "0.7.3", optional = true }
+pretty_env_logger = "0.4.0"
+sha2 = "0.8.2"
 
 [[bin]]
 name = "slime_seed_finder"
