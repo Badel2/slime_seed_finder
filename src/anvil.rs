@@ -8,15 +8,19 @@ pub use anvil_region::FolderChunkProvider;
 pub use anvil_region::ZipChunkProvider;
 use anvil_region::ChunkLoadError;
 use nbt::CompoundTag;
+use zip::ZipArchive;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::path::PathBuf;
+use std::fs::OpenOptions;
 use log::*;
 use crate::biome_layers::is_oceanic;
 use crate::biome_info::biome_id;
 use crate::chunk::Point;
 use crate::chunk::Point4;
 use crate::seed_info::BiomeId;
+use std::io::Read;
+use std::io::Seek;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -335,4 +339,132 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
     error!("Found zero valid chunks. Is this even a minecraft save?");
 
     (vec![], vec![])
+}
+
+pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: Point) -> Vec<(BiomeId, Point4)> {
+    let blocks_around_center: u32 = 1_000;
+
+    let mut biome_data = HashMap::new();
+    let cheb = spiral::ChebyshevIterator::new(0, 0, u16::max_value());
+    for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
+        if cheb_i == 10 {
+            warn!("This is taking longer than expected");
+            if let Point { x: 0, z: 0 } = center_block_arg {
+                warn!("Please feel free to specify some center coordinates to speed up the process.");
+            } else {
+                warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
+            }
+        }
+        let center_block = Point { x: center_block_arg.x + i64::from(cheb_x) * i64::from(blocks_around_center), z: center_block_arg.z + i64::from(cheb_z) * i64::from(blocks_around_center) };
+        debug!("Trying to find chunks around {:?}", center_block);
+        let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
+        if chunks.is_empty() {
+            debug!("Area around {:?} is not present in the saved world", center_block);
+            continue;
+        }
+
+        for c in chunks {
+            let level_compound_tag = c.get_compound_tag("Level").unwrap();
+            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
+            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
+            let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
+                Ok(x) => x,
+                Err(e) => panic!("Unknown format for biomes array: {:?}", e),
+            };
+            match biomes_array.len() {
+                0 => {}
+                1024 => {}
+                n => panic!("Unexpected biomes_array len: {}", n),
+            }
+
+            for (i_b, b) in biomes_array.into_iter().enumerate().take(4 * 4) {
+                // TODO: this is not tested
+                let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
+                let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
+                let b = b.clone();
+
+                match b {
+                    127 => {
+                        // Ignore void biome (set by WorldDownloader for unknown biomes)
+                    }
+                    b => {
+                        biome_data.insert(Point4 { x: block_x, z: block_z }, BiomeId(b));
+                    }
+                }
+            }
+        }
+
+        if biome_data.len() < 50 {
+            debug!("Not enough chunks found around {:?}. Maybe that part of the map is not generated? (found {} biomes)", center_block, biome_data.len());
+            continue;
+        }
+
+        debug!("biome_data.len(): {}", biome_data.len());
+
+        let mut extra_biomes = vec![];
+        extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
+        //debug!("extra_biomes: {:?}", extra_biomes);
+
+        return extra_biomes;
+    }
+
+    error!("Found zero valid chunks. Is this even a minecraft save?");
+
+    vec![]
+}
+
+pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf) -> Result<i64, String> {
+    let reader = OpenOptions::new()
+        .write(false)
+        .read(true)
+        .create(false)
+        .open(input_zip)
+        .map_err(|e| format!("Failed to open file: {:?}", e))?;
+
+    let mut zip_archive = ZipArchive::new(reader).map_err(|e| format!("Failed to read zip: {:?}", e))?;
+    let level_dat_path = find_level_dat(&mut zip_archive)?;
+    let mut level_dat = zip_archive.by_name(&level_dat_path).map_err(|e| format!("level.dat path incorrectly set: {:?}", e))?;
+
+    read_seed_from_level_dat(&mut level_dat)
+}
+
+pub fn read_seed_from_level_dat<R: Read>(r: &mut R) -> Result<i64, String> {
+    let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
+    let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;
+    let seed = data_tag.get_i64("RandomSeed").map_err(|e| format!("Failed to read {:?} tag: {:?}", "RandomSeed", e))?;
+
+    Ok(seed)
+}
+
+// Find the path of the level.dat file inside the zip archive.
+// For example: "level.dat", "world/level.dat" or "saves/world/level.dat"
+// Returns error if no region folder is found
+// Returns error if more than one folder is found
+fn find_level_dat<R: Read + Seek>(
+    zip_archive: &mut ZipArchive<R>,
+) -> Result<String, String> {
+    let mut found_path = String::from("/");
+    let mut found_file_count = 0;
+    for i in 0..zip_archive.len() {
+        // This unwrap is safe because we are iterating from 0 to len
+        let file = zip_archive.by_index(i).unwrap();
+        let full_path = file.sanitized_name();
+        // file_name() returns None when the path ends with "/.."
+        // we handle that case as an empty string
+        let file_name = full_path.file_name().unwrap_or_default();
+        if file_name == "level.dat" {
+            found_file_count += 1;
+            found_path = file.name().to_string();
+            // Keep searching after finding the first folder, to make sure
+            // there is only one region/ folder
+        }
+    }
+    if found_file_count == 0 {
+        return Err("level.dat not found in zip archive".to_string());
+    }
+    if found_file_count > 1 {
+        return Err("More than one level.dat file found in zip archive".to_string());
+    }
+
+    Ok(found_path)
 }

@@ -37,7 +37,7 @@ dependencies = [
 [[package]]
 name = "anvil-region"
 version = "0.3.0"
-source = "git+https://github.com/Badel2/anvil-region?rev=bd267699fbd52a7b9b8ba1cb482e57fe6ccc9712#bd267699fbd52a7b9b8ba1cb482e57fe6ccc9712"
+source = "git+https://github.com/Badel2/anvil-region?rev=6b8cc7e782f41d53d7ea5d708c760e8d4cb95e7c#6b8cc7e782f41d53d7ea5d708c760e8d4cb95e7c"
 dependencies = [
  "bitvec 0.17.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -945,7 +945,7 @@ name = "slime_seed_finder"
 version = "0.1.0"
 dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "anvil-region 0.3.0 (git+https://github.com/Badel2/anvil-region?rev=bd267699fbd52a7b9b8ba1cb482e57fe6ccc9712)",
+ "anvil-region 0.3.0 (git+https://github.com/Badel2/anvil-region?rev=6b8cc7e782f41d53d7ea5d708c760e8d4cb95e7c)",
  "image 0.23.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -959,6 +959,7 @@ dependencies = [
  "sha2 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "spiral 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "zip 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -1250,7 +1251,7 @@ dependencies = [
 "checksum aho-corasick 0.7.6 (registry+https://github.com/rust-lang/crates.io-index)" = "58fb5e95d83b38284460a5fda7d6470aa0b8844d283a0b614b8535e880800d2d"
 "checksum ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ee49baf6cb617b853aa8d93bf420db2383fab46d314482ca2803b40d5fde979b"
 "checksum ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d52a9bb7ec0cf484c551830a7ce27bd20d67eac647e1befb56b0be4ee39a55d2"
-"checksum anvil-region 0.3.0 (git+https://github.com/Badel2/anvil-region?rev=bd267699fbd52a7b9b8ba1cb482e57fe6ccc9712)" = "<none>"
+"checksum anvil-region 0.3.0 (git+https://github.com/Badel2/anvil-region?rev=6b8cc7e782f41d53d7ea5d708c760e8d4cb95e7c)" = "<none>"
 "checksum approx 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f0e60b75072ecd4168020818c0107f2857bb6c4e64252d8d3983f6263b40a5c3"
 "checksum atty 0.2.13 (registry+https://github.com/rust-lang/crates.io-index)" = "1803c647a3ec87095e7ae7acfca019e98de5ec9a7d01343f611cf3152ed71a90"
 "checksum autocfg 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "1d49d90015b3c36167a20fe2810c5cd875ad504b39cff3d4eae7977e6b7c1cb2"
