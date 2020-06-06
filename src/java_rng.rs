@@ -1,5 +1,3 @@
-use std::num::Wrapping;
-
 // The constants used by the Linear Congruential Generator
 pub mod lcg_const {
     pub const A: u64 = 0x5DEECE66D;
@@ -355,18 +353,29 @@ impl JavaRng {
 }
 
 // Calculate base^exp (mod 2^64).
-fn pow_wrapping(base: u64, exp: u64) -> u64 {
-    let mut result = Wrapping(1);
-    let mut exp = Wrapping(exp);
-    let mut base = Wrapping(base);
-    while exp.0 > 0 {
-        if exp.0 % 2 == 1 {
-            result = result * base;
-        }
-        exp = exp >> 1;
-        base = base * base;
-    }
-    result.0
+// Copied from the standard library, but the wrapping_pow implemented there uses u32 for the
+// exponent. We could use some property like a^(b*(2^32) + c) = ((a^b)^(2^32)) * (a^c)
+// But just copying the implementation and changing one type seems easier
+// https://github.com/rust-lang/rust/blob/118b50524b79e565f017e08bce9b90a16c63634f/src/libcore/num/mod.rs#L1611
+fn pow_wrapping(mut base: u64, mut exp: u64) -> u64 {
+	let mut acc: u64 = 1;
+
+	while exp > 1 {
+		if (exp & 1) == 1 {
+			acc = acc.wrapping_mul(base);
+		}
+		exp /= 2;
+		base = base.wrapping_mul(base);
+	}
+
+	// Deal with the final bit of the exponent separately, since
+	// squaring the base afterwards is not necessary and may cause a
+	// needless overflow.
+	if exp == 1 {
+		acc = acc.wrapping_mul(base);
+	}
+
+	acc
 }
 
 // Borrowed from rosetta code
