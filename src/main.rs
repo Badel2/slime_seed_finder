@@ -542,12 +542,10 @@ fn main() {
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
 
-            let mut threads = vec![];
             let total_range = 1 << 24;
             let thread_range = total_range / num_threads;
-            for thread_id in 0..num_threads {
-                let rivers = Arc::clone(&rivers);
-                let extra_biomes = Arc::clone(&extra_biomes);
+
+            let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
                 let range_lo = u32::try_from(thread_range * thread_id).unwrap();
                 let range_hi = if thread_id + 1 == num_threads {
                     total_range
@@ -555,22 +553,16 @@ fn main() {
                     thread_range * (thread_id + 1)
                 };
                 let range_hi = u32::try_from(range_hi).unwrap();
-
                 debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
-                let handle = thread::spawn(move || {
-                    let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
-                    debug!("Thread {} finished", thread_id);
+                let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
+                debug!("Thread {} finished", thread_id);
 
-                    r
-                });
-                threads.push(handle);
-            }
-
-            let seeds: Vec<_> = threads.into_iter().flat_map(|h| h.join().unwrap()).collect();
+                r
+            }).unwrap().into_iter().flat_map(|x| x).map(|seed| format!("{:016X}", seed)).collect();
             println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
 
             if let Some(of) = output_file {
-                write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
+                write_candidates_to_file(&seeds, of).expect("Error writing seeds to file");
             }
         }
 
@@ -585,7 +577,7 @@ fn main() {
             let version = mc_version.parse().unwrap();
 
             if version == MinecraftVersion::Java1_15 {
-                let (rivers, extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, Point { x: center_x, z: center_z });
+                let (rivers, _extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, Point { x: center_x, z: center_z });
 
                 {
                     // Save the extracted data as a SeedInfo
@@ -600,15 +592,12 @@ fn main() {
                     fs::write("seedinfo_latest.json", buf).expect("Failed to write seedinfo");
                 }
                 let rivers = Arc::new(rivers);
-                let extra_biomes = Arc::new(extra_biomes);
                 let num_threads = if threads == 0 { num_cpus::get() } else { threads };
 
-                let mut threads = vec![];
                 let total_range = 1 << 24;
                 let thread_range = total_range / num_threads;
-                for thread_id in 0..num_threads {
-                    let rivers = Arc::clone(&rivers);
-                    let _extra_biomes = Arc::clone(&extra_biomes);
+
+                let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
                     let range_lo = u32::try_from(thread_range * thread_id).unwrap();
                     let range_hi = if thread_id + 1 == num_threads {
                         total_range
@@ -616,18 +605,12 @@ fn main() {
                         thread_range * (thread_id + 1)
                     };
                     let range_hi = u32::try_from(range_hi).unwrap();
-
                     debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
-                    let handle = thread::spawn(move || {
-                        let r = biome_layers::river_seed_finder_26_range(&rivers, range_lo, range_hi);
-                        debug!("Thread {} finished", thread_id);
+                    let r = biome_layers::river_seed_finder_26_range(&rivers, range_lo, range_hi);
+                    debug!("Thread {} finished", thread_id);
 
-                        r
-                    });
-                    threads.push(handle);
-                }
-
-                let seeds: Vec<_> = threads.into_iter().flat_map(|h| h.join().unwrap()).map(|seed| format!("{:07X}", seed)).collect();
+                    r
+                }).unwrap().into_iter().flat_map(|x| x).map(|seed| format!("{:07X}", seed)).collect();
                 // TODO: candidates and seeds should always be serialized in hex, as JSON does not
                 // support 64-bit integers
                 println!("Found {} 26-bit candidates:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
@@ -668,12 +651,10 @@ fn main() {
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
 
-            let mut threads = vec![];
             let total_range = 1 << 24;
             let thread_range = total_range / num_threads;
-            for thread_id in 0..num_threads {
-                let rivers = Arc::clone(&rivers);
-                let extra_biomes = Arc::clone(&extra_biomes);
+
+            let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
                 let range_lo = u32::try_from(thread_range * thread_id).unwrap();
                 let range_hi = if thread_id + 1 == num_threads {
                     total_range
@@ -681,22 +662,16 @@ fn main() {
                     thread_range * (thread_id + 1)
                 };
                 let range_hi = u32::try_from(range_hi).unwrap();
-
                 debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
-                let handle = thread::spawn(move || {
-                    let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
-                    debug!("Thread {} finished", thread_id);
+                let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
+                debug!("Thread {} finished", thread_id);
 
-                    r
-                });
-                threads.push(handle);
-            }
-
-            let seeds: Vec<_> = threads.into_iter().flat_map(|h| h.join().unwrap()).collect();
+                r
+            }).unwrap().into_iter().flat_map(|x| x).map(|seed| format!("{:016X}", seed as u64)).collect();
             println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
 
             if let Some(of) = output_file {
-                write_seeds_to_file(&seeds, of).expect("Error writing seeds to file");
+                write_candidates_to_file(&seeds, of).expect("Error writing seeds to file");
             }
         }
 
@@ -825,3 +800,31 @@ fn write_candidates_to_file<P: AsRef<Path>>(s: &[String], path: P) -> Result<(),
     Ok(())
 }
 
+// Spawn n threads and wait for them to finish, returning a vector of the results
+// Optimization: when n is 1 do not spawn any threads and run the computation on the current thread
+fn run_threads<F, T>(num_threads: usize, f: F) -> Result<Vec<T>, Box<dyn std::any::Any + Send>>
+where
+    F: FnOnce(usize) -> T,
+    F: Clone + Send + 'static,
+    T: Send + 'static,
+{
+    if num_threads == 1 {
+        return Ok(vec![f(0)]);
+    }
+
+    let mut threads = vec![];
+    for thread_id in 0..num_threads {
+        let ff = f.clone();
+        let handle = thread::spawn(move || {
+            ff(thread_id)
+        });
+        threads.push(handle);
+    }
+
+    let mut r = vec![];
+    for h in threads {
+        r.push(h.join()?);
+    }
+
+    Ok(r)
+}
