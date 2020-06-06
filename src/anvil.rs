@@ -275,10 +275,14 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
 
         for c in chunks {
             let level_compound_tag = c.get_compound_tag("Level").unwrap();
-            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
-            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
             let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
                 Ok(x) => x,
+                Err(nbt::CompoundTagError::TagNotFound { .. }) => {
+                    // Starting from 1.16, it is possible that the "Biomes" tag is missing from
+                    // chunks that are not fully generated yet. We simply ignore these chunks as if
+                    // they did not exist
+                    continue;
+                }
                 Err(e) => panic!("Unknown format for biomes array: {:?}", e),
             };
             match biomes_array.len() {
@@ -288,6 +292,8 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
             }
 
             info!("biomes_array: {:?}", biomes_array);
+            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
+            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
 
             let mut use_rivers_from_chunk = true;
             let mut chunk_rivers = vec![];
