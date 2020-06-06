@@ -22,8 +22,28 @@ use std::thread;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::Instant;
-use rand::{thread_rng, Rng as _};
 use log::*;
+#[cfg(feature = "rand")]
+use rand::{thread_rng, Rng as _};
+
+// This is needed because the getrandom crate uses a different version of wasi
+// https://github.com/bytecodealliance/wasi/issues/37
+#[cfg(not(feature = "rand"))]
+use wasm_rand::*;
+#[cfg(not(feature = "rand"))]
+mod wasm_rand {
+    pub struct MockRng;
+
+    pub fn thread_rng() -> MockRng {
+        MockRng
+    }
+
+    impl MockRng {
+        pub fn gen<T>(&mut self) -> T {
+            panic!("Random number generator not available in this platform")
+        }
+    }
+}
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "slime_seed_finder", rename_all = "kebab-case")]
