@@ -24,7 +24,7 @@ pub mod lcg_const_extra {
 /// assert_eq!(fifteen & mask(3), 0b0111);
 /// assert_eq!(fifteen & mask(4), 0b1111);
 /// ```
-pub const fn mask(n: usize) -> u64 {
+pub const fn mask(n: u8) -> u64 {
     (1 << n) - 1
 }
 
@@ -36,11 +36,6 @@ pub struct JavaRng {
 }
 
 impl JavaRng {
-    pub fn new() -> JavaRng {
-        let seed = 0; // TODO: let this be random
-        JavaRng { seed }
-    }
-
     pub fn with_seed(s: u64) -> JavaRng {
         let mut r = JavaRng { seed: 0 };
         r.set_seed(s);
@@ -69,7 +64,7 @@ impl JavaRng {
         self.seed & mask(48)
     }
 
-    pub fn next(&mut self, bits: usize) -> i32 {
+    pub fn next(&mut self, bits: u8) -> i32 {
         self.seed = Self::next_state(self.seed);
         ((self.seed & mask(48)) >> (48 - bits)) as i32
     }
@@ -80,7 +75,7 @@ impl JavaRng {
     }
 
     // Returns the same as the last call to next
-    pub fn last_next(&self, bits: usize) -> i32 {
+    pub fn last_next(&self, bits: u8) -> i32 {
         ((self.seed & mask(48)) >> (48 - bits)) as i32
     }
 
@@ -89,7 +84,7 @@ impl JavaRng {
     // s*A*A + C*A + C
     // s*A*A*A + C*A*A + C*A + C
     // Equivalent to n calls to next
-    pub fn next_n_calls(&mut self, n: usize) {
+    pub fn next_n_calls(&mut self, n: u64) {
         // I doubt this function will ever be useful, but
         // at least I had fun making it.
         match n {
@@ -104,7 +99,7 @@ impl JavaRng {
         let a = lcg_const::A;
         // Modular multiplicative inverse of a-1
         let a_1_inv = lcg_const_extra::INV_A_1;
-        let an = pow_wrapping(a, n as u64);
+        let an = pow_wrapping(a, n);
         //let aes = (an - 1) / (a - 1);
         // a % 4 == 1, so (a^n - 1) % 4 == 0
         let aes = (an.wrapping_sub(1) >> 2).wrapping_mul(a_1_inv);
@@ -215,7 +210,7 @@ impl JavaRng {
      * S * D + D**0 = D**n + S
      * S * (D - 1) = D**n - D**0
      * S = (D**n - 1) / (D - 1) */
-    pub fn previous_n_calls(&mut self, n: usize) {
+    pub fn previous_n_calls(&mut self, n: u64) {
         // I doubt this function will ever be useful, but
         // at least I had fun making it.
         match n {
@@ -228,7 +223,7 @@ impl JavaRng {
         let d: u64 = lcg_const_extra::INV_A;
         // Modular multiplicative inverse of d-1
         let d_1_inv = lcg_const_extra::INV__INV_A__1;
-        let dn = pow_wrapping(d, n as u64);
+        let dn = pow_wrapping(d, n);
         //let des = (dn - 1) / (d - 1);
         let des = (dn.wrapping_sub(1) >> 2).wrapping_mul(d_1_inv);
         let cdd = c.wrapping_mul(d).wrapping_mul(des);
@@ -243,7 +238,7 @@ impl JavaRng {
         p2 ^ (self.seed as u32)
     }
 
-    pub fn previous_verify_n(&self, target: u64, mut n: usize) -> u64 {
+    pub fn previous_verify_n(&self, target: u64, mut n: u8) -> u64 {
         if n > 48 {
             n = 48;
         }
@@ -435,8 +430,7 @@ mod tests {
 
     #[test]
     fn create_from_long() {
-        let mut r = JavaRng::new();
-        r.set_raw_seed(12345);
+        let mut r = JavaRng::with_raw_seed(12345);
         let l = r.next_long();
         let rs = JavaRng::create_from_long(l as u64);
         assert_eq!(rs.unwrap().get_raw_seed(), 12345);
