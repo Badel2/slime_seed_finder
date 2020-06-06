@@ -1,0 +1,15 @@
+[package]
+name = "badel2/slime_seed_finder"
+version = "0.1.1"
+description = "Reverse engineer minecraft world seeds using known locations"
+license = "GPL-3.0"
+repository = "https://github.com/Badel2/slime_seed_finder"
+
+[[module]]
+name = "slime_seed_finder"
+source = "target/wasm32-wasi/release/slime_seed_finder.wasm"
+abi = "wasi"
+
+[[command]]
+name = "slime_seed_finder"
+module = "slime_seed_finder"

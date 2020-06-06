@@ -112,6 +112,11 @@ In this case each 48-bit seed has 1 corresponding 64-bit seed, but it can be 0,
 1 or 2 seeds. This has the implications that the only way to create a new
 Minecraft world with seed 1 or 2 is to manually set the seed to that number.
 
+### Theory
+
+[RNG Basics](https://github.com/Badel2/slime_seed_finder/blob/master/docs/rng_basics.md)
+[Slime Chunks](https://github.com/Badel2/slime_seed_finder/blob/master/docs/slime_chunks.md)
+
 ### Building WebAssembly demo
 
 In order to locally test the web demos:
@@ -131,10 +136,29 @@ cd static
 python3 server.py
 ```
 
-### Theory
+### Experimental WAPM support
 
-[RNG Basics](https://github.com/Badel2/slime_seed_finder/blob/master/docs/rng_basics.md)
-[Slime Chunks](https://github.com/Badel2/slime_seed_finder/blob/master/docs/slime_chunks.md)
+This package is published on WAPM:
+
+<https://wapm.io/package/badel2/slime_seed_finder>
+
+Most of the functionalities of the CLI version should work, albeit slower.
+Also, it doesn't support multithreading so using it to bruteforce seeds will be
+slower than the web demo. And I will probably forget to update it.
+
+Use this shell, you can use drag and drop to upload files, and use the
+"download" command to get the files back:
+
+<https://webassembly.sh/?run-command=wapm%20install%20badel2/slime_seed_finder>
+
+For example, you can use it to render biome maps:
+
+```sh
+$ slime_seed_finder rendermap --seed=1234
+Saved image to biome_map_1.14_1234_0_0_1024x640.png
+$ download biome_map_1.14_1234_0_0_1024x640.png
+Downloading the file...
+```
 
 ### See also
 https://github.com/pruby/slime-seed - A project with the same goal and similar optimizations

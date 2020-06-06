@@ -3,6 +3,10 @@ name = "slime_seed_finder"
 version = "0.1.0"
 authors = ["Badel2 <2badel2@gmail.com>"]
 edition = "2018"
+[package.metadata]
+# Disable wasm-opt because it not works with cargo wasi
+# https://github.com/bytecodealliance/cargo-wasi/issues/49
+wasm-opt = false
 
 [lib]
 name = "slime_seed_finder"
