@@ -1,13 +1,12 @@
 //! This module contains functions related to reading saved words
 //!
-//! Anvil is the name of the format used by Minecraft to store word files.
+//! Anvil is the name of the format used by Minecraft to store world files.
 //! It contains all the block data, entities, and biome info of each chunk.
 
 pub use anvil_region::AnvilChunkProvider;
 pub use anvil_region::FolderChunkProvider;
 pub use anvil_region::ZipChunkProvider;
 use anvil_region::ChunkLoadError;
-use anvil_region::AnvilRegion;
 use nbt::CompoundTag;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -29,28 +28,6 @@ pub fn read_area_around<A: AnvilChunkProvider>(chunk_provider: &mut A, area_size
     for chunk_x in -ahc..=ahc {
         for chunk_z in -ahc..=ahc {
             match chunk_provider.load_chunk(start_x + chunk_x, start_z + chunk_z) {
-                Ok(c) => r.push(c),
-                // Expected errors: region or chunk do not exist
-                Err(ChunkLoadError::RegionNotFound { .. }) => {}
-                Err(ChunkLoadError::ChunkNotFound { .. }) => {}
-                // Unexpected errors:
-                Err(e) => return Err(e),
-            }
-        }
-    }
-
-    Ok(r)
-}
-
-use std::io::{Seek, Read, Write};
-/// Read all the chunks in region file
-/// 32*32 chunks
-pub fn read_from_region_file<F: Seek+Read+Write>(region: &mut AnvilRegion<F>) -> Result<Vec<CompoundTag>, ChunkLoadError> {
-    let mut r = vec![];
-
-    for x in 0..32 {
-        for z in 0..32 {
-            match region.read_chunk(x, z) {
                 Ok(c) => r.push(c),
                 // Expected errors: region or chunk do not exist
                 Err(ChunkLoadError::RegionNotFound { .. }) => {}
