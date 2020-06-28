@@ -99,6 +99,7 @@ function startGame(lastLayer) {
     let elements = [];
     let dragging = null;
     let prev_impetus = [];
+    let prev_mousemove = [];
 
     // Add event listener for `click` events.
     // TODO: touchstart for mobile support
@@ -154,6 +155,7 @@ function startGame(lastLayer) {
                 let pointer = pointerEventToXY(e);
                 let x = pointer.x - elemLeft,
                     y = pointer.y - elemTop;
+                prev_mousemove = [x, y];
                 let txty = Game.mouse_coords_to_game_coords_float(x, y);
                 let tx = txty[0];
                 let ty = txty[1];
@@ -240,6 +242,46 @@ function startGame(lastLayer) {
         );
     });
 
+    // Zoom inspired by
+    // https://stackoverflow.com/a/5526721
+    ["DOMMouseScroll", "mousewheel"].forEach(function(n) {
+        elem.addEventListener(
+            n,
+            function(e) {
+                let delta = e.wheelDelta
+                    ? e.wheelDelta / 40
+                    : e.detail
+                    ? -e.detail
+                    : 0;
+                if (delta) {
+                    let factor = Math.pow(1.05, delta);
+                    let canvasW = elem.clientWidth;
+                    let canvasH = elem.clientHeight;
+                    if (prev_mousemove.length == 2 && canvasW && canvasH) {
+                        let tx = prev_mousemove[0] - canvasW / 2;
+                        let ty = prev_mousemove[1] - canvasH / 2;
+                        Game.scrollBy(tx, ty);
+                        Game.zoomBy(factor);
+                        Game.scrollBy(-tx, -ty);
+                    } else {
+                        // Zoom around center
+                        Game.zoomBy(factor);
+                    }
+                }
+                return e.preventDefault() && false;
+            },
+            false
+        );
+    });
+    var zoom = function(clicks) {
+        var pt = ctx.transformedPoint(lastX, lastY);
+        ctx.translate(pt.x, pt.y);
+        var factor = Math.pow(scaleFactor, clicks);
+        ctx.scale(factor, factor);
+        ctx.translate(-pt.x, -pt.y);
+        redraw();
+    };
+
     // Update selection textarea
     let seltextarea = document.getElementById("selection_output");
     if (seltextarea && seltextarea.value == "") {
@@ -294,6 +336,7 @@ function startGame(lastLayer) {
     });
 
     let tsize = 256;
+    // TODO: canvasW and canvasH are not used
     let canvasW = elem.style.width;
     let canvasH = elem.style.height;
     Game.run(context, tsize, canvasW, canvasH, lastLayer);
