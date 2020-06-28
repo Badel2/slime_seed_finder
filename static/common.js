@@ -194,12 +194,6 @@ function startGame(lastLayer) {
                 let x = pointer.x - elemLeft,
                     y = pointer.y - elemTop;
 
-                if (dragging == null) {
-                    // The window event handler was executed first, gg
-                    console.error(
-                        "BUG: The window event handler was executed before the elem event handler for event mouseup"
-                    );
-                }
                 if (dragging && dragging.actuallyScrolling == false) {
                     Game.clickTile(x, y);
 
@@ -238,7 +232,7 @@ function startGame(lastLayer) {
                     // This breaks the page
                     //e.preventDefault();
                 }
-                if (dragging.actuallyScrolling === false) {
+                if (dragging && dragging.actuallyScrolling === false) {
                     dragging.actuallyScrolling = null;
                 }
             },
