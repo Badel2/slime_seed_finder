@@ -25,6 +25,7 @@ pub mod structures;
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
 pub mod biome_info;
+pub mod population;
 
 
 use crate::slime::is_slime_chunk;
