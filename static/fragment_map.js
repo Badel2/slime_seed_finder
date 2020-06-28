@@ -99,6 +99,7 @@ Camera.prototype.zoom = function(newF) {
     let old_center_y = (this.y + this.height / 2) / this.tsize - 0.5;
     this.scale *= newF;
     this.scale = Math.max(this.scale, 0.01);
+    this.scale = Math.min(this.scale, 2000);
     this.tsize = Math.round(map.tsize * this.scale);
     // Move camera so that center stays constant
     this.centerAt(old_center_x, old_center_y);
@@ -173,7 +174,11 @@ Game.update = function(delta) {
     // maybe scroll here?
 };
 
-Game._drawLayer = function(layer) {
+Game._limitZoomToMaxNumFragments = function() {
+    // TODO: instead of doing this, just get a rough estimate of the zoom factor needed to draw
+    // this.maxNumFragmentsOnScreen, and if the current zoom factor is greater than that, limit
+    // it. This is the cause of the stuttering when zooming out to the zoom limit
+
     // + 1 because when the width is not a multiple of tsize things get weird
     let startCol = Math.floor(this.camera.x / this.camera.tsize);
     let endCol = startCol + this.camera.width / this.camera.tsize + 1;
@@ -196,6 +201,19 @@ Game._drawLayer = function(layer) {
         offsetY = -this.camera.y + startRow * this.camera.tsize;
         numFragments = (endCol - startCol + 1) * (endRow - startRow + 1);
     }
+};
+
+Game._drawLayer = function(layer) {
+    this._limitZoomToMaxNumFragments();
+    // + 1 because when the width is not a multiple of tsize things get weird
+    let startCol = Math.floor(this.camera.x / this.camera.tsize);
+    let endCol = startCol + this.camera.width / this.camera.tsize + 1;
+    let startRow = Math.floor(this.camera.y / this.camera.tsize);
+    let endRow = startRow + this.camera.height / this.camera.tsize + 1;
+    let offsetX = -this.camera.x + startCol * this.camera.tsize;
+    let offsetY = -this.camera.y + startRow * this.camera.tsize;
+
+    //console.log([startCol, endCol, startRow, endRow, offsetX, offsetY]);
     let i = 0;
     for (let c = startCol; c <= endCol; c++) {
         for (let r = startRow; r <= endRow; r++) {
@@ -364,6 +382,7 @@ Game.scrollBy = function(x, y) {
 Game.zoomBy = function(f) {
     this.dirty = true;
     this.camera.zoom(f);
+    this._limitZoomToMaxNumFragments();
 };
 
 Game.centerAt = function(x, y) {
