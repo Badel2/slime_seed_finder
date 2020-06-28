@@ -98,6 +98,7 @@ function startGame(lastLayer) {
     let context = elem.getContext("2d");
     let elements = [];
     let dragging = null;
+    let prev_impetus = [];
 
     // Add event listener for `click` events.
     // TODO: touchstart for mobile support
@@ -140,7 +141,7 @@ function startGame(lastLayer) {
                 let x = pointer.x - elemLeft,
                     y = pointer.y - elemTop;
 
-                dragging = { x: x, y: y, actuallyScrolling: false };
+                dragging = { x: null, y: null, actuallyScrolling: false };
             },
             false
         );
@@ -175,33 +176,6 @@ function startGame(lastLayer) {
                         Math.floor(tx * 16) +
                         ", z: " +
                         Math.floor(ty * 16);
-                }
-            },
-            false
-        );
-    });
-
-    ["touchmove", "mousemove"].forEach(function(n) {
-        window.addEventListener(
-            n,
-            function(e) {
-                if (dragging) {
-                    let pointer = pointerEventToXY(e);
-                    let x = pointer.x - elemLeft,
-                        y = pointer.y - elemTop;
-                    if (
-                        dragging.actuallyScrolling == false &&
-                        (Math.abs(dragging.x - x) > 10 ||
-                            Math.abs(dragging.y - y) > 10)
-                    ) {
-                        // Moving more than 10 pixels from the initial position starts the scrolling
-                        dragging.actuallyScrolling = true;
-                    }
-                    if (dragging.actuallyScrolling) {
-                        Game.scrollBy(dragging.x - x, dragging.y - y);
-                        dragging.x = x;
-                        dragging.y = y;
-                    }
                 }
             },
             false
@@ -246,8 +220,11 @@ function startGame(lastLayer) {
                             { maxLength: 20 }
                         );
                     }
+                    // This disables scrolling until the next "mousedown" event
+                    // It is needed to ensure that scrolling will not start after the mousedown
+                    // because of momentum
+                    dragging.actuallyScrolling = null;
                 }
-                dragging = null;
             },
             false
         );
@@ -261,7 +238,9 @@ function startGame(lastLayer) {
                     // This breaks the page
                     //e.preventDefault();
                 }
-                dragging = null;
+                if (dragging.actuallyScrolling === false) {
+                    dragging.actuallyScrolling = null;
+                }
             },
             false
         );
@@ -282,6 +261,43 @@ function startGame(lastLayer) {
             { maxLength: 20 }
         );
     }
+
+    Game.impetus = new Impetus({
+        source: elem,
+        friction: 0.92,
+        update: function(imp_x, imp_y) {
+            if (dragging && dragging.actuallyScrolling === false) {
+                if (dragging.x == null && dragging.y == null) {
+                    dragging.x = imp_x;
+                    dragging.y = imp_y;
+                }
+                // Start scrolling after moving 15 units away from the starting point
+                if (
+                    Math.abs(dragging.x - imp_x) > 15 ||
+                    Math.abs(dragging.y - imp_y) > 15
+                ) {
+                    dragging.actuallyScrolling = true;
+                }
+            }
+            let x = imp_x - prev_impetus[0];
+            let y = imp_y - prev_impetus[1];
+            if (prev_impetus.length == 2 && dragging.actuallyScrolling) {
+                // Movement threshold set to 0.1 units, moving 0.0 units should not cause a redraw
+                if (!(Math.abs(x) < 0.1 && Math.abs(y) < 0.1)) {
+                    // Maximum movement set to 500 units
+                    let scale = 1;
+                    if (x > 500 && x >= y) {
+                        scale = 500 / x;
+                    } else if (y > 500) {
+                        scale = 500 / y;
+                    }
+
+                    Game.scrollBy(x * -scale, y * -scale);
+                }
+            }
+            prev_impetus = [imp_x, imp_y];
+        },
+    });
 
     let tsize = 256;
     let canvasW = elem.style.width;
