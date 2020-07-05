@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Chunk {
     pub x: i32,
@@ -8,11 +10,14 @@ impl Chunk {
     pub fn new(x: i32, z: i32) -> Chunk {
         Chunk { x, z }
     }
-    // TODO this is untested
-    pub fn from_coordinates(x: i32, z: i32) -> Chunk {
+    /// Panics if the chunk coordinates do not fit in i32
+    pub fn from_point(Point { x, z }: Point) -> Chunk {
+        // x / 16 is not correct because it rounds x=-1 to 0 instead of -1
+        // (x - 15) / 16 is not correct because it rounds x=16 to 0 instead of 1
+        // Euclidian division by 16 would be correct, but we just use a simple bit shift
         Chunk {
-            x: (x + 16) / 16 - 1,
-            z: (z + 16) / 16 - 1,
+            x: i32::try_from(x >> 4).unwrap(),
+            z: i32::try_from(z >> 4).unwrap(),
         }
     }
 }
@@ -56,5 +61,29 @@ impl Point4 {
         }
 
         Point { x: multiply_by_4(self.x), z: multiply_by_4(self.z) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn chunk_from_coordinates_x() {
+        for i in 0-32..=15-32 {
+            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: -2, z: 0 });
+        }
+        for i in 0-16..=15-16 {
+            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: -1, z: 0 });
+        }
+        for i in 0..=15 {
+            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: 0, z: 0 });
+        }
+        for i in 0+16..=15+16 {
+            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: 1, z: 0 });
+        }
+        for i in 0+32..=15+32 {
+            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: 2, z: 0 });
+        }
     }
 }

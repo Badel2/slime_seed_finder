@@ -22,9 +22,9 @@ use crate::seed_info::BiomeId;
 /// `(block_x, block_z)`.
 pub fn read_area_around<A: AnvilChunkProvider>(chunk_provider: &mut A, area_size: u64, Point { x: block_x, z: block_z }: Point) -> Result<Vec<CompoundTag>, ChunkLoadError> {
     let mut r = vec![];
-    let start_x = (block_x / 16) as i32;
-    let start_z = (block_z / 16) as i32;
-    let ahc = i32::try_from((area_size / 16) / 2).unwrap();
+    let start_x = (block_x >> 4) as i32;
+    let start_z = (block_z >> 4) as i32;
+    let ahc = i32::try_from((area_size >> 4) >> 1).unwrap();
     for chunk_x in -ahc..=ahc {
         for chunk_z in -ahc..=ahc {
             match chunk_provider.load_chunk(start_x + chunk_x, start_z + chunk_z) {

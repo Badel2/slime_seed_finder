@@ -3904,10 +3904,10 @@ pub fn map_with_river_at4(c: &[Point4], area: Area) -> Map {
 pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
     let mut h: HashMap<(i64, i64), Vec<Point>> = HashMap::new();
 
-    let frag_size = 64;
+    let frag_size_log2 = 6;
     // Split points into fragments of size 64x64
     for p in points {
-        let (frag_x, frag_z) = (p.x / frag_size, p.z / frag_size);
+        let (frag_x, frag_z) = (p.x >> frag_size_log2, p.z >> frag_size_log2);
         h.entry((frag_x, frag_z)).or_default().push(*p);
     }
 
@@ -3926,10 +3926,10 @@ pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
 pub fn split_rivers_into_fragments4(points: &[Point4]) -> Vec<Map> {
     let mut h: HashMap<(i64, i64), Vec<Point4>> = HashMap::new();
 
-    let frag_size = 64;
+    let frag_size_log2 = 6;
     // Split points into fragments of size 64x64
     for p in points {
-        let (frag_x, frag_z) = (p.x / frag_size, p.z / frag_size);
+        let (frag_x, frag_z) = (p.x >> frag_size_log2, p.z >> frag_size_log2);
         h.entry((frag_x, frag_z)).or_default().push(*p);
     }
 
@@ -5725,5 +5725,23 @@ mod tests {
         let river_coords_quarter_scale = convert_hd_coords_into_quarter_scale(&river_coords_voronoi);
         let candidates = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_lo + (1 << 7));
         assert!(candidates.contains(&(seed26 as i64)), "{:?}", candidates);
+    }
+
+    #[test]
+    fn split_rivers_into_fragments_integer_division() {
+        let p = vec![Point { x: 0, z: 0 }, Point { x: -1, z: 0 }];
+        // This function used to make one big fragment near (0, 0) because of using / instead of >>
+        let x = split_rivers_into_fragments(&p);
+        // The correct implementation should create 2 fragments
+        assert_eq!(x.len(), 2);
+    }
+
+    #[test]
+    fn split_rivers_into_fragments4_integer_division() {
+        let p = vec![Point4 { x: 0, z: 0 }, Point4 { x: -1, z: 0 }];
+        // This function used to make one big fragment near (0, 0) because of using / instead of >>
+        let x = split_rivers_into_fragments4(&p);
+        // The correct implementation should create 2 fragments
+        assert_eq!(x.len(), 2);
     }
 }
