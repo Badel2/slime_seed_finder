@@ -210,7 +210,7 @@ pub struct MossyFloor {
 impl MossyFloor {
     /// Parse mossy floor from human readable string
     ///
-    /// ```norun
+    /// ```ignore
     /// MMMCCAC??
     /// MMCMCCM??
     /// ```
@@ -224,7 +224,7 @@ impl MossyFloor {
     /// This is because the algorithm starts from the most negative x, z corner which is the top
     /// right:
     ///
-    /// ```norun
+    /// ```ignore
     /// 7654321
     /// .....98
     /// ```
@@ -644,7 +644,7 @@ fn all_unique<T: PartialEq>(a: &[T]) -> bool {
 
 /// Given 3 different (population_seed, chunk_x, chunk_z), find world_seed:
 ///
-/// ```norun
+/// ```ignore
 /// population_seed1 = (x1 * M + z1 * N) ^ world_seed
 /// population_seed2 = (x2 * M + z2 * N) ^ world_seed
 /// population_seed3 = (x3 * M + z3 * N) ^ world_seed
