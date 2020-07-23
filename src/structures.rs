@@ -32,6 +32,17 @@ fn seeded_rng_with_data(seed: i64, x: i64) -> JavaRng {
     JavaRng::with_seed(s as u64)
 }
 
+// Perform the reverse of seeded_rng_with_data. Note that only the bottom 48 bits will be
+// recovered.
+//
+// ```ignore
+// seed = seed & mask(48);
+// assert!(reverse_seeded_rng_with_data(&seeded_rng_with_data(seed, x), x) == seed);
+// ```
+fn reverse_seeded_rng_with_data(r: &JavaRng, x: i64) -> i64 {
+    (r.get_seed() as i64).wrapping_sub(x) & mask(48) as i64
+}
+
 fn is_treasure_data(seed: i64, x: i64) -> bool {
     let i = treasure_chunk_check_data(seed, x);
 
@@ -66,21 +77,17 @@ pub fn treasure_expand42(seed: i64, c: &Chunk) -> i64 {
 
 pub fn treasure_expand42_data(seed: i64, d: i64) -> i64 {
     let lower_42 = seed & mask(42) as i64;
-    let mut high_6 = 0u8;
-    // TODO: this for can probably be replaced with simple arithmetic
-    for i in 0..6 {
-        // This returns bits [47, 24] of the raw seed of the PRNG
-        let i0 = treasure_chunk_check_data(((high_6 as i64) << 42) | lower_42, d);
-        // We want to check bits [47, 42], so add 18 to the right shift
-        if ((i0 >> (18 + i)) & 1) == 0 {
-            // Good
-        } else {
-            // Bad, flip bit
-            high_6 ^= 1 << i;
-        }
-    }
 
-    ((high_6 as i64) << 42) | lower_42
+    let mut r = seeded_rng_with_data(lower_42, d);
+    // Simulate call to next_float()
+    r.next_float();
+    // Set bits [47, 42] to 0
+    r.set_raw_seed(r.get_raw_seed() & mask(42));
+    // Undo next_float()
+    r.previous();
+
+    // Recover seed from rng and data
+    reverse_seeded_rng_with_data(&r, d)
 }
 
 pub fn treasure_seed_finder(treasure_chunks: &[Chunk], max_errors: usize) -> Vec<i64> {
@@ -107,10 +114,10 @@ impl TreasureChunks {
 
     pub fn find_seed_range(&self, lo: u64, hi: u64) -> Vec<i64> {
         let mut r = vec![];
-        let first = self.treasure_chunks[0];
+        let first = self.treasure_data[0];
 
         'nextseed: for lower_42 in lo..hi {
-            let seed = treasure_expand42(lower_42 as i64, &first);
+            let seed = treasure_expand42_data(lower_42 as i64, first);
             let mut errors = 0;
             for t in &self.treasure_data {
                 if !is_treasure_data(seed, *t) {
@@ -195,6 +202,15 @@ mod tests {
         let chunk = Chunk::new(19, 12);
         let s = treasure_expand42(lower_42, &chunk);
         assert_eq!(s, 1 << 42);
+    }
+
+    #[test]
+    fn treasure_expand42_returns_48_bits() {
+        // This test will fail if you remove the "& mask(48)" from reverse_seeded_rng_with_data
+        let seed = 1234;
+        let chunk = Chunk::new(-47, -28);
+        let expanded_seed = treasure_expand42(seed, &chunk) as u64;
+        assert!(expanded_seed < (1u64 << 48));
     }
 
     // Success! Consecutive seeds have almost the same treasures
