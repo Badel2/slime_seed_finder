@@ -118,6 +118,16 @@ impl SlimeChunks {
     pub fn num_low_18_candidates(&self) -> usize {
         self.low_18_candidates.len()
     }
+
+    // Assumes the low 18 bits were already checked
+    // Use this only if the input iterator has less than 2^30 candidates
+    pub fn bruteforce_iter_u48<'a, I>(&'a self, iter_u48: I) -> impl Iterator<Item = u64> + 'a
+        where I: IntoIterator<Item = u64> + 'a,
+    {
+        iter_u48.into_iter().filter(move |&seed| {
+            self.try_seed_skip_18(seed)
+        })
+    }
 }
 
 mod slime_const {
@@ -160,9 +170,17 @@ fn rng_with_slime_data(seed: u64, x: u64) -> JavaRng {
     JavaRng::with_seed(s)
 }
 
-fn slime_candidates_18(slimedata: &[u64], max_errors: usize) -> Vec<u32> {
-    // Find all the 18 bit combinations that could generate these slime chunks
-    (0..(1u32 << 18)).filter(|&seed| {
+/// Find all the 18-bit seeds that could generate these slime chunks
+pub fn slime_candidates_18(slimedata: &[u64], max_errors: usize) -> Vec<u32> {
+    slime_candidates_18_iter(0..(1u32 << 18), slimedata, max_errors).collect()
+}
+
+/// Parallel version of slime_candidates_18. iter_u18 should be an iterator over all the possible
+/// 18-bit integers, or a subset of them.
+pub fn slime_candidates_18_iter<'a, I>(iter_u18: I, slimedata: &'a [u64], max_errors: usize) -> impl Iterator<Item = u32> + 'a
+    where I: IntoIterator<Item = u32> + 'a,
+{
+    iter_u18.into_iter().filter(move |&seed| {
         let mut errors = 0;
         for &x in slimedata {
             let mut r = rng_with_slime_data(seed as u64, x);
@@ -183,15 +201,14 @@ fn slime_candidates_18(slimedata: &[u64], max_errors: usize) -> Vec<u32> {
 
         // This seed wasn't discarted, so we keep it
         true
-    }).collect()
+    })
 }
 
-/* Find all the seeds that have this slime chunks. Params:
- * slimechunks: list of slime chunks
- * max_errors: error margin, 0 means you're 100% sure that the slime chunks are correct
- * noslimechunks: list of chunks that aren't slime chunks
- * max_noerrors: error margin but for noslimechunks, I'm bad at naming stuff
- */
+/// Find all the seeds that have this slime chunks. Params:
+/// * slimechunks: list of slime chunks
+/// * max_errors: error margin, 0 means you're 100% sure that the slime chunks are correct
+/// * noslimechunks: list of chunks that aren't slime chunks
+/// * max_noerrors: error margin but for noslimechunks, I'm bad at naming stuff
 pub fn seed_from_slime_chunks(
     slimechunks: &[Chunk],
     max_errors: usize,
@@ -221,6 +238,7 @@ pub fn seed_from_slime_chunks_and_candidates(
         .collect()
 }
 
+/// Generate a Map where slime chunks are set to 1 and non slime chunks are set to 0
 pub fn gen_map_from_seed(area: Area, seed: u64) -> Map {
     let mut m = Map::new(area);
     for i in 0..area.w as usize {
@@ -230,6 +248,32 @@ pub fn gen_map_from_seed(area: Area, seed: u64) -> Map {
     }
 
     m
+}
+
+/// Generate a list of slime chunks and not slime chunks using the given seed
+pub fn generate_slime_chunks_and_not(seed: i64, limit_yes: usize, limit_no: usize) -> (Vec<Chunk>, Vec<Chunk>) {
+    let mut vy = Vec::with_capacity(limit_yes);
+    let mut vn = Vec::with_capacity(limit_no);
+    for x in 0.. { // yeah just go on forever
+        for z in -99..100 {
+            let c = Chunk::new(x, z);
+            if is_slime_chunk(seed as u64, &c) {
+                if vy.len() < limit_yes {
+                    vy.push(c);
+                }
+            } else {
+                if vn.len() < limit_no {
+                    vn.push(c);
+                }
+            }
+            if vy.len() == limit_yes && vn.len() == limit_no {
+                return (vy, vn);
+            }
+        }
+    }
+
+    // unreachable
+    (vec![], vec![])
 }
 
 #[cfg(test)]
