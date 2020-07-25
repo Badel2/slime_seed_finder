@@ -232,7 +232,7 @@ impl MossyFloor {
         let mut line_size = None;
         let mut tiles = vec![];
         let mut num_lines = 0;
-        for line in x.lines() {
+        for line in x.split_terminator(|c| c == '\n' || c == ';') {
             if let Some(line_size) = line_size {
                 if line.len() != line_size {
                     return Err(format!("All lines should have the same length"));
