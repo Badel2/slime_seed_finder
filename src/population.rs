@@ -593,17 +593,17 @@ pub fn reverse_round_to_odd_bits(m: i64, bits: u8) -> Vec<i64> {
 /// Given a world seed, calculate the chunk population seed for the given chunk coordinates.
 /// Works for versions <= Minecraft Java 1.12.
 /// For 1.13 and above, use world_seed_to_chunk_population_seed_1_13.
-pub fn world_seed_to_chunk_population_seed(world_seed: i64, chunk_x: i32, chunk_z: i32) -> i64 {
+pub fn world_seed_to_chunk_population_seed(world_seed: i64, chunk_x: i32, chunk_z: i32) -> u64 {
     let mut r = JavaRng::with_seed(world_seed as u64);
 
     let m = round_to_odd(r.next_long() as i64);
     let n = round_to_odd(r.next_long() as i64);
 
     // (x * m + z * n) ^ world_seed
-    ((chunk_x as i64)
+    (((chunk_x as i64)
         .wrapping_mul(m)
         .wrapping_add((chunk_z as i64).wrapping_mul(n)))
-        ^ world_seed
+        ^ world_seed) as u64
 }
 
 /// Given a world seed, calculate the chunk population seed for the given chunk coordinates.
@@ -613,7 +613,7 @@ pub fn world_seed_to_chunk_population_seed_1_13(
     world_seed: i64,
     chunk_x: i32,
     chunk_z: i32,
-) -> i64 {
+) -> u64 {
     let mut r = JavaRng::with_seed(world_seed as u64);
 
     // This is much easier to reverse than round_to_odd
@@ -622,10 +622,10 @@ pub fn world_seed_to_chunk_population_seed_1_13(
     let n = r.next_long() | 1;
 
     // (x * i1 + z * j1) ^ world_seed
-    ((chunk_x as i64)
+    (((chunk_x as i64)
         .wrapping_mul(m)
         .wrapping_add((chunk_z as i64).wrapping_mul(n)))
-        ^ world_seed
+        ^ world_seed) as u64
 }
 
 // Returns true if all the elements of a slice are different.
@@ -663,9 +663,9 @@ fn all_unique<T: PartialEq>(a: &[T]) -> bool {
 // know some bits of M. Investigate this, it should be possible to implement a function like this
 // that only needs 2 chunk population seeds, and maybe even 1.
 pub fn chunk_population_seed_to_world_seed(
-    i1: (i64, i32, i32),
-    i2: (i64, i32, i32),
-    i3: (i64, i32, i32),
+    i1: (u64, i32, i32),
+    i2: (u64, i32, i32),
+    i3: (u64, i32, i32),
 ) -> Vec<i64> {
     let (p1, x1, z1) = i1;
     let (p2, x2, z2) = i2;
@@ -676,9 +676,9 @@ pub fn chunk_population_seed_to_world_seed(
         panic!("Input chunks must be different, otherwise this function explodes quadratically. Found inputs: {:?}", (i1, i2, i3));
     }
 
-    let p1 = p1 & ((1 << 48) - 1);
-    let p2 = p2 & ((1 << 48) - 1);
-    let p3 = p3 & ((1 << 48) - 1);
+    let p1 = p1 as i64 & ((1 << 48) - 1);
+    let p2 = p2 as i64 & ((1 << 48) - 1);
+    let p3 = p3 as i64 & ((1 << 48) - 1);
 
     // p12 = (x1 * M + z1 * N) ^ (x2 * M + z2 * N)
     // p13 = (x1 * M + z1 * N) ^ (x3 * M + z3 * N)
@@ -990,16 +990,16 @@ fn chunk_population_seed_to_world_seed_one(
 /// seed. This is accomplished by using `r.previous()` to reverse the population process, and then
 /// using chunk_population_seed_to_world_seed to find the world seed.
 pub fn dungeon_seed_to_world_seed_alpha_1_2_6(
-    i1: (i64, i32, i32),
-    i2: (i64, i32, i32),
-    i3: (i64, i32, i32),
+    i1: (u64, i32, i32),
+    i2: (u64, i32, i32),
+    i3: (u64, i32, i32),
 ) -> Vec<i64> {
     let (s1, x1, z1) = i1;
     let (s2, x2, z2) = i2;
     let (s3, x3, z3) = i3;
-    let p1d = JavaRng::with_seed(s1 as u64);
-    let p2d = JavaRng::with_seed(s2 as u64);
-    let p3d = JavaRng::with_seed(s3 as u64);
+    let p1d = JavaRng::with_seed(s1);
+    let p2d = JavaRng::with_seed(s2);
+    let p3d = JavaRng::with_seed(s3);
 
     // Max number of calls to previous:
     // 5 per dungeon try, 7 dungeon tries max
@@ -1024,9 +1024,9 @@ pub fn dungeon_seed_to_world_seed_alpha_1_2_6(
                 p3.previous();
 
                 let seeds = chunk_population_seed_to_world_seed(
-                    (p1.get_seed() as i64, x1, z1),
-                    (p2.get_seed() as i64, x2, z2),
-                    (p3.get_seed() as i64, x3, z3),
+                    (p1.get_seed(), x1, z1),
+                    (p2.get_seed(), x2, z2),
+                    (p3.get_seed(), x3, z3),
                 );
 
                 if seeds.len() > 0 {
@@ -1528,7 +1528,8 @@ mod tests {
         let Chunk { x: x2, z: z2 } = spawner_coordinates_to_chunk(x2, z2);
         let Chunk { x: x3, z: z3 } = spawner_coordinates_to_chunk(x3, z3);
 
-        let found_seed = dungeon_seed_to_world_seed_alpha_1_2_6((s1, x1, z1), (s2, x2, z2), (s3, x3, z3));
+        let found_seed =
+            dungeon_seed_to_world_seed_alpha_1_2_6((s1, x1, z1), (s2, x2, z2), (s3, x3, z3));
 
         assert_eq!(found_seed, vec![world_seed]);
     }
@@ -1815,7 +1816,8 @@ mod tests {
         let Chunk { x: x2, z: z2 } = spawner_coordinates_to_chunk(x2, z2);
         let Chunk { x: x3, z: z3 } = spawner_coordinates_to_chunk(x3, z3);
 
-        let found_seed = dungeon_seed_to_world_seed_alpha_1_2_6((s1, x1, z1), (s2, x2, z2), (s3, x3, z3));
+        let found_seed =
+            dungeon_seed_to_world_seed_alpha_1_2_6((s1, x1, z1), (s2, x2, z2), (s3, x3, z3));
 
         assert_eq!(found_seed, vec![world_seed]);
     }
