@@ -590,6 +590,31 @@ pub fn reverse_round_to_odd_bits(m: i64, bits: u8) -> Vec<i64> {
     }
 }
 
+/// Reverse the operation `m | 1`.
+pub fn reverse_bitwise_or_1_bits(m: i64, bits: u8) -> Vec<i64> {
+    match bits {
+        0 => vec![],
+        bits => {
+            let msk = (1i64 << bits).wrapping_sub(1);
+            vec![m & msk, (m ^ 1) & msk]
+        }
+    }
+}
+
+/// Reverse both `round_to_odd(m)` and `m | 1`.
+// This is identical to  reverse_round_to_odd_bits expect when bits = 64
+pub fn reverse_round_to_odd_bits_any_version(m: i64, bits: u8) -> Vec<i64> {
+    match bits {
+        0 => vec![],
+        1 => vec![0, 1],
+        bits => {
+            let msk = (1i64 << bits).wrapping_sub(1);
+            vec![(m - 2) & msk, (m - 1) & msk, m & msk]
+        }
+    }
+}
+
+
 /// Given a world seed, calculate the chunk population seed for the given chunk coordinates.
 /// Works for versions <= Minecraft Java 1.12.
 /// For 1.13 and above, use world_seed_to_chunk_population_seed_1_13.
@@ -763,14 +788,14 @@ pub fn chunk_population_seed_to_world_seed(
     let ws = cc
         .into_iter()
         .map(|(m, n)| {
-            let vm: Vec<_> = reverse_round_to_odd_bits(m, 48)
+            let vm: Vec<_> = reverse_round_to_odd_bits_any_version(m, 48)
                 .into_iter()
                 .flat_map(|x| JavaRng::extend_long_48(x as u64))
                 .map(|x| x as i64)
                 .collect();
             // TODO: maybe we can avoid this call to reverse and check if
             // round_to_odd(r.next_long()) == n
-            let vn: Vec<_> = reverse_round_to_odd_bits(n, 48)
+            let vn: Vec<_> = reverse_round_to_odd_bits_any_version(n, 48)
                 .into_iter()
                 .flat_map(|x| JavaRng::extend_long_48(x as u64))
                 .map(|x| x as i64)
@@ -1039,6 +1064,59 @@ pub fn dungeon_seed_to_world_seed_alpha_1_2_6(
     vec![]
 }
 
+/// Use 3 different (dungeon_seed, chunk_x, chunk_z, max_calls_to_previous) to find the world seed
+/// The algorithm works by bruteforcing all the possible chunk population seeds given a dungeon
+/// seed. This is accomplished by using `r.previous()` to reverse the population process, and then
+/// using chunk_population_seed_to_world_seed to find the world seed.
+///
+/// The value of max_calls_to_previous depends on the minecraft version and the other features of
+/// the chunk. For example, a water lake in the same chunk as the dungeon increases the limit by
+/// 88. 128 is considered to be a safe limit, but if the chunk contains a lava lake, the limit can
+/// increase by an additional 1024 in the worst case scenario.
+// TODO: the number of checks is max_calls_to_previous**3. If we can implement this using 2 dungeon
+// seeds instead of 3, the number of check will be max_calls_to_previous**2.
+pub fn dungeon_seed_to_world_seed_any_version(
+    i1: (u64, i32, i32, u32),
+    i2: (u64, i32, i32, u32),
+    i3: (u64, i32, i32, u32),
+) -> Vec<i64> {
+    let (s1, x1, z1, l1) = i1;
+    let (s2, x2, z2, l2) = i2;
+    let (s3, x3, z3, l3) = i3;
+    let p1d = JavaRng::with_seed(s1);
+    let p2d = JavaRng::with_seed(s2);
+    let p3d = JavaRng::with_seed(s3);
+
+    let mut p1 = p1d;
+    // Call next() to cancel out the first call to previous
+    p1.next(32);
+    for _ in 0..=l1 {
+        p1.previous();
+        let mut p2 = p2d;
+        p2.next(32);
+        for _ in 0..=l2 {
+            p2.previous();
+            let mut p3 = p3d;
+            p3.next(32);
+            for _ in 0..=l3 {
+                p3.previous();
+
+                let seeds = chunk_population_seed_to_world_seed(
+                    (p1.get_seed(), x1, z1),
+                    (p2.get_seed(), x2, z2),
+                    (p3.get_seed(), x3, z3),
+                );
+
+                if seeds.len() > 0 {
+                    return seeds;
+                }
+            }
+        }
+    }
+
+    vec![]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1112,18 +1190,30 @@ mod tests {
     #[test]
     fn population_seed_reverse() {
         // Benchmark: approx 2 ms per run with debug logs
-        let world_seed = 1236;
+        let world_seed = 2;
         let (x1, z1) = (1, 2);
         let (x2, z2) = (4, 3);
         let (x3, z3) = (16, 14);
-        let p1 = world_seed_to_chunk_population_seed(world_seed, x1, z1);
-        let p2 = world_seed_to_chunk_population_seed(world_seed, x2, z2);
-        let p3 = world_seed_to_chunk_population_seed(world_seed, x3, z3);
+        let p1 = world_seed_to_chunk_population_seed_1_13(world_seed, x1, z1);
+        let p2 = world_seed_to_chunk_population_seed_1_13(world_seed, x2, z2);
+        let p3 = world_seed_to_chunk_population_seed_1_13(world_seed, x3, z3);
+        let old_p1 = world_seed_to_chunk_population_seed(world_seed, x1, z1);
+        let old_p2 = world_seed_to_chunk_population_seed(world_seed, x2, z2);
+        let old_p3 = world_seed_to_chunk_population_seed(world_seed, x3, z3);
+        // Check that the chunk population seed has changed in 1.13
+        assert_ne!(p1, old_p1);
+        assert_ne!(p2, old_p2);
+        assert_ne!(p3, old_p3);
 
+        // But both the old seed and the new seed results in one candidate, the world seed
         let candidates =
             chunk_population_seed_to_world_seed((p1, x1, z1), (p2, x2, z2), (p3, x3, z3));
         assert_eq!(candidates, vec![world_seed]);
+        let old_candidates =
+            chunk_population_seed_to_world_seed((old_p1, x1, z1), (old_p2, x2, z2), (old_p3, x3, z3));
+        assert_eq!(old_candidates, vec![world_seed]);
     }
+
 
     #[test]
     #[should_panic = "Input chunks must be different, otherwise this function explodes quadratically."]
@@ -1887,6 +1977,25 @@ mod tests {
         )
         .unwrap();
         check_rng_dungeon(dungeon_rng, (wx as i32, wy as i32, wz as i32), &floor);
+    }
+
+    #[test]
+    #[ignore] // TODO: implement 1.14 populate?
+    fn test_case_1_14() {
+        let world_seed: i64 = 5012404560470663646;
+        let (wx, wy, wz) = (-72, 28, 218);
+        let floor = MossyFloor::parse(
+            "???????\n\
+             CMM????\n\
+             ?MM???C\n\
+             MMCMMMM\n\
+             ?MCMMMM\n\
+             MCMCMMM\n\
+             MMMCMMM\n\
+             MCCMMMM\n\
+             MMMMMMC\n",
+        )
+        .unwrap();
     }
 
     #[test]
