@@ -202,6 +202,7 @@ impl DungeonSize {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct MossyFloor {
     size: DungeonSize,
     tiles: Vec<DungeonFloorTile>,
@@ -274,6 +275,51 @@ impl MossyFloor {
         };
 
         Ok(Self { size, tiles })
+    }
+
+    /// Draw a rectangular representation of the dungeon floor
+    pub fn to_pretty_string(&self) -> String {
+        let mut s = String::new();
+
+        let elems_per_row = match self.size {
+            DungeonSize::X7Z7 | DungeonSize::X9Z7 => 7,
+            DungeonSize::X7Z9 | DungeonSize::X9Z9 => 9,
+        };
+        for row in self.tiles.chunks(elems_per_row) {
+            for t in row.into_iter().rev() {
+                let c = match t {
+                    DungeonFloorTile::Air => 'A',
+                    DungeonFloorTile::Cobble => 'C',
+                    DungeonFloorTile::Mossy => 'M',
+                    DungeonFloorTile::Unknown => '?',
+                };
+                s.push(c);
+            }
+            s.push('\n');
+        }
+
+        s
+    }
+
+    /// Returns the corners of the floor when given the spawner coordinates. The order is (top
+    /// left, top right, bottom left, bottom right). The y coordinate is not returned because it is
+    /// the same for all corners, and it is just spawner_y - 1.
+    pub fn corner_coords(
+        &self,
+        x: i64,
+        _y: i64,
+        z: i64,
+    ) -> ((i64, i64), (i64, i64), (i64, i64), (i64, i64)) {
+        let (a, b) = self.size.next_ints();
+        let (a, b) = (a + 3, b + 3);
+        let (a, b) = (a as i64, b as i64);
+
+        (
+            (x - a, z + b),
+            (x - a, z - b),
+            (x + a, z + b),
+            (x + a, z - b),
+        )
     }
 
     fn all_mossy(size: DungeonSize) -> Self {

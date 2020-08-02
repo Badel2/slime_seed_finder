@@ -81,6 +81,13 @@ never on a world that is currently open by Minecraft, as it may corrupt it.
 
 See also: [web version](https://badel2.github.io/slime_seed_finder/anvil.html)
 
+#### Recover the seed of an Alpha world
+
+This tool can also find the seed using only dungeons. This can be useful to
+recover the seed of a corrupted alpha world. Check out this
+[guide](https://github.com/Badel2/slime_seed_finder/blob/master/docs/dungeons.md)
+.
+
 #### extend48
 
 To convert 48-bit seeds into 64-bit seeds (by assuming that the seed was generated

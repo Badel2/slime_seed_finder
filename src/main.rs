@@ -5,6 +5,7 @@ use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::Map;
+use slime_seed_finder::chunk::Chunk;
 use slime_seed_finder::chunk::Point;
 use slime_seed_finder::slime::generate_slime_chunks_and_not;
 use slime_seed_finder::slime::seed_from_slime_chunks;
@@ -14,6 +15,7 @@ use slime_seed_finder::seed_info::BiomeId;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::java_rng::JavaRng;
+use slime_seed_finder::population::MossyFloor;
 use std::fs::File;
 use std::fs;
 use std::path::Path;
@@ -287,7 +289,60 @@ enum Opt {
         /// syntax: --seed=-2
         #[structopt(long)]
         seed: i64,
-    }
+    },
+
+    /// Given the coordinates and floor of a dungeon, calculate the corresponding dungeon seed.
+    /// The benefit of this command is that it works on any minecraft version since dungeons were
+    /// first introduced.
+    /// The dungeon seed is not the world seed, you will need to use dungeon-seed-to-world-seed
+    /// with the output of this command.
+    #[structopt(name = "dungeon-seed")]
+    DungeonSeed {
+        #[structopt(short="x", long)]
+        spawner_x: i64,
+        #[structopt(short="y", long)]
+        spawner_y: i64,
+        /// Coordinates of the dungeon spawner.
+        ///
+        /// Use the "looking at block" section from the F3 screen. To avoid problems with negative
+        /// coordinates, use the following syntax: --spawner-z=-2
+        #[structopt(short="z", long)]
+        spawner_z: i64,
+        /// Block layout of the dungeon floor. The orientation should be the most negative
+        /// coordinate at the top right.
+        ///
+        /// C: cobblestone
+        /// M: mossy cobblestone
+        /// A: air
+        /// ?: unknown
+        /// ; next row
+        ///
+        /// Remember to include the floor that is below the walls, or
+        /// add a margin of "?".
+        ///
+        /// Example:
+        ///
+        /// "MMMMCMM;M?????M;C?????M;M?????M;C?????M;M?????C;CMMMMMM;"
+        ///
+        #[structopt(short="f", long)]
+        floor: String,
+        /// Number of threads to use. By default, same as number of CPUs
+        #[structopt(short = "j", long, default_value = "0")]
+        threads: usize,
+    },
+
+    /// Given 3 dungeon seeds in the format "159,23,-290,982513219448", find the world seed.
+    /// To avoid problems with negative seeds, use -- before the arguments: slime_seed_finder
+    /// dungeon-seed-to-world-seed -- "159,23,-290,982513219448"
+    #[structopt(name = "dungeon-seed-to-world-seed")]
+    DungeonSeedToWorldSeed {
+        /// Maximum number of calls to rng.previous(). Try increasing this value if the seed could
+        /// not be found. You can also set a different limit for one particular dungeon by
+        /// appending the limit to the dungeon seed: "159,23,-290,982513219448,1500" will have l=1500
+        #[structopt(short = "l", long, default_value = "128")]
+        limit_steps_back: u32,
+        dungeon_seeds: Vec<String>,
+    },
 }
 
 fn main() {
@@ -752,6 +807,117 @@ fn main() {
             seed,
         } => {
             println!("{}", biome_layers::sha256_long_to_long(seed));
+        }
+
+        Opt::DungeonSeed {
+            spawner_x,
+            spawner_y,
+            spawner_z,
+            floor,
+            threads,
+        } => {
+            let floor = MossyFloor::parse(&floor).expect("error parsing floor");
+            let (wx, wy, wz) = (spawner_x, spawner_y, spawner_z);
+            let (x, y, z) = population::spawner_coordinates_to_next_int(wx, wy, wz);
+            let (top_left, top_right, bottom_left, bottom_right) = floor.corner_coords(wx, wy, wz);
+
+            println!("Please double check that the entered data is correct:");
+            println!("The coordinates of the spawner are x: {}, y: {}, z: {}", spawner_x, spawner_y, spawner_z);
+            println!("When standing on the floor, the y coordinate of the player should be {}", wy);
+            println!("This is the dungeon floor, and the coordinates of each corner are:");
+            println!("{:?} ::: {:?}", top_left, top_right);
+            println!("");
+            println!("    {}", floor.to_pretty_string().replace("\n", "\n    "));
+            println!("{:?} ::: {:?}", bottom_left, bottom_right);
+            println!("");
+            let num_threads = if threads == 0 { num_cpus::get() } else { threads };
+            println!("Started brutefroce using {} threads. Estimated time: around {} minutes", num_threads, 240 / num_threads);
+
+            let total_range = 1 << 40;
+            let thread_range = total_range / num_threads;
+            let floor = Arc::new(floor);
+            let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
+                let range_lo = u64::try_from(thread_range * thread_id).unwrap();
+                let range_hi = if thread_id + 1 == num_threads {
+                    total_range
+                } else {
+                    thread_range * (thread_id + 1)
+                };
+                let range_hi = u64::try_from(range_hi).unwrap();
+                debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
+                let dungeon_rngs = population::dungeon_rng_bruteforce_range((x, y, z), &floor, range_lo, range_hi);
+                debug!("Thread {} finished", thread_id);
+
+                dungeon_rngs
+            }).unwrap().into_iter().flat_map(|x| x).map(|dungeon_rng| format!("{},{},{},{}", spawner_x, spawner_y, spawner_z, dungeon_rng.get_seed())).collect();
+
+            let num_candidates = seeds.len();
+
+            println!("Found {} dungeon seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+            match num_candidates {
+                0 => println!("Help: try to double check that the coordinates and the floor are correct"),
+                1 => println!("Help: once you have the seeds of 3 different dungeons, you can use the dungeon-seed-to-world-seed command to find the world seed"),
+                _ => println!("Help: you can try to reduce the number of candidates by removing '?' from the dungeon floor"),
+            }
+        }
+
+        Opt::DungeonSeedToWorldSeed {
+            limit_steps_back,
+            dungeon_seeds,
+        } => {
+            /// Parse the string output of the dungeon-seed command into (dungeon_seed, chunk_x,
+            /// chunk_z, limit_steps_back).
+            ///
+            /// Example: `"159,23,-290,982513219448"` is parsed into `(159, 23, -290, 982513219448, default_l)`
+            // Actually, l is only an argument because the syntax to convert a tuple with 4
+            // elements into a tuple of 5 elements is super ugly, so it looks better to just return
+            // a 5 element tuple here
+            fn parse_dungeon_seed(s: &str, default_l: u32) -> Result<(i64, i64, i64, u64, u32), ()> {
+                let mut parts = s.split(',');
+                let x = parts.next().ok_or(())?;
+                let y = parts.next().ok_or(())?;
+                let z = parts.next().ok_or(())?;
+                let seed = parts.next().ok_or(())?;
+                let l = parts.next();
+                if parts.next().is_some() {
+                    // Trailing ','
+                    return Err(());
+                }
+
+                let x = x.parse().map_err(|_| ())?;
+                let y = y.parse().map_err(|_| ())?;
+                let z = z.parse().map_err(|_| ())?;
+                let seed = seed.parse().map_err(|_| ())?;
+                let l = if let Some(l) = l {
+                    l.parse().map_err(|_| ())?
+                } else {
+                    default_l
+                };
+
+                Ok((x, y, z, seed, l))
+            }
+
+            let dungeon_seeds: Vec<_> = dungeon_seeds.into_iter().map(|d| {
+                parse_dungeon_seed(&d, limit_steps_back).map(|(x, _y, z, seed, l)| {
+                    let Chunk { x: chunk_x, z: chunk_z } = population::spawner_coordinates_to_chunk(x, z);
+                    (seed, chunk_x, chunk_z, l)
+                }).unwrap_or_else(|_| {
+                    panic!("Error parsing \"{}\": dungeon seed should follow the format \"{}\"`", d, "3916208062072,2,-5");
+                })
+            }).collect();
+            if dungeon_seeds.len() < 3 {
+                println!("Need at least 3 dungeon seeds");
+                return;
+            }
+            println!("{:?}", dungeon_seeds);
+
+            let i1 = dungeon_seeds[0];
+            let i2 = dungeon_seeds[1];
+            let i3 = dungeon_seeds[2];
+            let world_seeds = population::dungeon_seed_to_world_seed_any_version(i1, i2, i3);
+            println!("Found {} world seeds:", world_seeds.len());
+            println!("{:?}", world_seeds);
         }
     }
 }
