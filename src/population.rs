@@ -287,7 +287,7 @@ impl MossyFloor {
 /// Find a rng state that will generate the dungeon with the correct chunk offset coordinates,
 /// size, and floor.
 ///
-/// range: [0, 1 << 41)
+/// range: [0, 1 << 40)
 pub fn dungeon_rng_bruteforce_range(
     (x, y, z): (u8, u8, u8),
     floor: &MossyFloor,
@@ -295,61 +295,159 @@ pub fn dungeon_rng_bruteforce_range(
     range_hi: u64,
 ) -> Vec<JavaRng> {
     let (wx, wz) = floor.size.next_ints();
-    assert!(range_hi <= (1 << 41));
+    assert!(range_hi <= (1 << 40));
     let mut v = vec![];
     'nextseed: for seed in range_lo..range_hi {
-        // Use with_raw_seed using y as the top bits of the seed. This is because the value of the
-        // internal seed is the result of the previous call to next. So this way we assure that the
-        // y coordinate is correct, and we save 7 bits to bruteforce. We still need 41 extra bits
-        let mut r = JavaRng::with_raw_seed(((y as u64) << (48 - 7)) | seed);
-        // r.next_int would return the z coordinate, so go back 2 times
-        r.previous_n_calls(2);
+        // Given a RNG that will return x on r.next_int_n(128),
+        // return the RNG that will generate (x, y, z) or (x, z, y)
+        // And mutates the input r so that r.next_int_n(2) == wx
+        // TODO: benchmark this function returning Vec vs returning ArrayVec vs returning iterator
+        let check_any_version = || -> Vec<(JavaRng, JavaRng)> {
+            let mut v = vec![];
+            // The first step of the algorithm is slightly different starting from Minecraft 1.7
+            for version in 0.. {
+                match version {
+                    0 => {
+                        if y >= 128 {
+                            continue;
+                        }
+                        // Before Minecraft 1.7, the y coordinate uses nextInt(128), therefore we
+                        // can only use 7 bits of y, not 8. Here we bruteforce the one extra bit
+                        for t in 0..=1 {
+                            // Use with_raw_seed using y as the top bits of the seed. This is because the value of the
+                            // internal seed is the result of the previous call to next. So this way we assure that the
+                            // y coordinate is correct, and we save 7 bits to bruteforce. We still need 41 extra bits
+                            let mut r = JavaRng::with_raw_seed(((y as u64) << (48 - 7)) | (t << 40) | seed);
+                            // r.next_int would return the z coordinate, so go back 2 times
+                            r.previous_n_calls(2);
+                            let r_clone = r;
+                            if r.next_int_n(16) != x as i32 {
+                                continue;
+                            }
+                            if r.next_int_n(128) != y as i32 {
+                                unreachable!();
+                            }
+                            if r.next_int_n(16) != z as i32 {
+                                continue;
+                            }
+                            v.push((r_clone, r));
+                        }
+                    }
+                    1 => {
+                        // Starting from Minecraft 1.7, the y coordinate uses next_int_n(256)
+                        // Therefore we only need to bruteforce 40 bits.
+                        let mut r = JavaRng::with_raw_seed(((y as u64) << (48 - 8)) | seed);
+                        // r.next_int would return the z coordinate, so go back 2 times
+                        r.previous_n_calls(2);
+                        let r_clone = r;
+                        if r.next_int_n(16) != x as i32 {
+                            continue;
+                        }
+                        if r.next_int_n(256) != y as i32 {
+                            unreachable!();
+                        }
+                        if r.next_int_n(16) != z as i32 {
+                            continue;
+                        }
+                        v.push((r_clone, r));
+                    }
+                    // In theory this is all that's needed to support 1.13 and 1.15, but each
+                    // additional version makes the bruteforce slower. And since the conversion
+                    // from 1.13 dungeon seed to world seed is not implemented yet, it doesnt make
+                    // much sense to support this.
+                    // But we could add a mc_version parameter to this function and enable this.
+                    /*
+                    2 => {
+                        // Starting from Minecraft 1.13, the dungeon coordinates x and z need to be
+                        // added +8.
+                        // TODO: check if chunk coordinates also need to be modified
+                        let x = (x + 8) & 0xF;
+                        let z = (z + 8) & 0xF;
+                        let mut r = JavaRng::with_raw_seed(((y as u64) << (48 - 8)) | seed);
+
+                        // r.next_int would return the z coordinate, so go back 2 times
+                        r.previous_n_calls(2);
+                        let r_clone = r;
+                        if r.next_int_n(16) != x as i32 {
+                            continue;
+                        }
+                        if r.next_int_n(256) != y as i32 {
+                            unreachable!();
+                            continue;
+                        }
+                        if r.next_int_n(16) != z as i32 {
+                            continue;
+                        }
+                        v.push((r_clone, r));
+                    }
+                    3 => {
+                        // Starting from Minecraft 1.15, the order of y and z is swapped
+                        // So try the new order if the old fails
+                        let x = (x + 8) & 0xF;
+                        let z = (z + 8) & 0xF;
+                        let mut r = JavaRng::with_raw_seed(((y as u64) << (48 - 8)) | seed);
+
+                        // r.next_int would return wx, so go back 3 times
+                        r.previous_n_calls(3);
+                        let r_clone = r;
+                        if r.next_int_n(16) != x as i32 {
+                            continue;
+                        }
+                        if r.next_int_n(16) != z as i32 {
+                            continue;
+                        }
+                        if r.next_int_n(256) != y as i32 {
+                            unreachable!();
+                            continue;
+                        }
+                        v.push((r_clone, r));
+                    }
+                    */
+                    _ => break,
+                }
+            }
+
+            return v;
+        };
+
         // r_clone.get_seed() is what we refer to as "dungeon seed": it will generate the correct
         // dungeon starting from the x value
-        let r_clone = r.clone();
-        if r.next_int_n(16) != x as i32 {
-            continue;
-        }
-        if r.next_int_n(128) != y as i32 {
-            // If JavaRng::with_raw_seed is correct, this is unreachable
-            continue;
-        }
-        if r.next_int_n(16) != z as i32 {
-            continue;
-        }
-        if r.next_int_n(2) != wx as i32 {
-            continue;
-        }
-        if r.next_int_n(2) != wz as i32 {
-            continue;
-        }
-
-        // Check floor
-        'nexttile: for mt in &floor.tiles {
-            match mt {
-                DungeonFloorTile::Mossy => {
-                    if r.next_int_n(4) == 0 {
-                        continue 'nextseed;
-                    }
-                }
-                DungeonFloorTile::Cobble => {
-                    if r.next_int_n(4) != 0 {
-                        continue 'nextseed;
-                    }
-                }
-                DungeonFloorTile::Unknown => {
-                    // This is only correct when the tile was originally Mossy or Cobble
-                    // If the tile was Air, it will give the wrong result
-                    // Since the probability of the tile being Air is small, we assume it never
-                    // happens
-                    r.next_int_n(4);
-                }
-                DungeonFloorTile::Air => {}
+        for (r_clone, mut r) in check_any_version() {
+            if r.next_int_n(2) != wx as i32 {
+                continue;
             }
-        }
+            if r.next_int_n(2) != wz as i32 {
+                continue;
+            }
 
-        // Everything correct, this is a candidate seed
-        v.push(r_clone);
+            // Check floor
+            'nexttile: for mt in &floor.tiles {
+                match mt {
+                    DungeonFloorTile::Mossy => {
+                        if r.next_int_n(4) == 0 {
+                            continue 'nextseed;
+                        }
+                    }
+                    DungeonFloorTile::Cobble => {
+                        if r.next_int_n(4) != 0 {
+                            continue 'nextseed;
+                        }
+                    }
+                    DungeonFloorTile::Unknown => {
+                        // This is only correct when the tile was originally Mossy or Cobble
+                        // If the tile was Air, it will give the wrong result
+                        // Since the probability of the tile being Air is small, we assume it never
+                        // happens
+                        r.next_int_n(4);
+                    }
+                    DungeonFloorTile::Air => {}
+                }
+            }
+
+            // Everything correct, this is a candidate seed
+            println!("Found candidate dungeon seed {}", r_clone.get_seed());
+            v.push(r_clone);
+        }
     }
 
     v
@@ -526,7 +624,7 @@ pub fn spawner_coordinates_to_chunk(spawner_x: i64, spawner_z: i64) -> Chunk {
 /// Convert the block coordinates of a dungeon spawner to the number returned by the corresponding
 /// call to nextInt.
 // chunk_x * 16 + random.nextInt(16) + 8
-// random.nextInt(128)
+// random.nextInt(128) or random.nextInt(256)
 // chunk_z * 16 + random.nextInt(16) + 8
 pub fn spawner_coordinates_to_next_int(
     spawner_x: i64,
@@ -1410,7 +1508,7 @@ mod tests {
         coords: (u8, u8, u8),
         floor: &MossyFloor,
     ) -> Option<JavaRng> {
-        let v = dungeon_rng_bruteforce_range(coords, floor, *seed, *seed + 1);
+        let v = dungeon_rng_bruteforce_range(coords, floor, *seed & ((1 << 40) - 1), (*seed & ((1 << 40) - 1)) + 1);
         *seed = *seed + 1;
         if v.is_empty() {
             None
@@ -1996,6 +2094,50 @@ mod tests {
              MMMMMMC\n",
         )
         .unwrap();
+        panic!("Ignore unused variable warnings: {:?}", (world_seed, (wx, wy, wz), floor));
+    }
+
+    #[test]
+    #[ignore] // TODO: implement 1.14 populate?
+    fn test_case2_1_14() {
+        // slime_seed_finder dungeon-seed --spawner-x=-272 --spawner-y=24 --spawner-z=-17 --floor="CMMMMMC;MMCMMMM;CMCMMMC;MMMMMCM;MMCMMMM;CMMMMMM;CCMMMMM;"
+        // "-272,24,-17,93895796360180"
+        let world_seed: i64 = 4969430222601064613;
+        let (wx, wy, wz) = (-272, 24, -17);
+        let floor = MossyFloor::parse(
+            "CMMMMMC\n\
+             MMCMMMM\n\
+             CMCMMMC\n\
+             MMMMMCM\n\
+             MMCMMMM\n\
+             CMMMMMM\n\
+             CCMMMMM\n",
+        )
+        .unwrap();
+        panic!("Ignore unused variable warnings: {:?}", (world_seed, (wx, wy, wz), floor));
+    }
+
+    #[test]
+    #[ignore] // TODO: implement 1.7 populate?
+    fn test_case_1_7() {
+        // slime_seed_finder dungeon-seed --spawner-x=-348 --spawner-y=16 --spawner-z=132 --floor="MMMMCMMMM;CMMMMMMMM;MCMMMMCCM;CMMCMMMCM;CCMMCMMMM;MMCCMMCMM;CMCCCCCMC;MMMMMMMCM;CMMCMMCCC;"
+        // ["191650212348642,-23,7"]
+        //
+        let world_seed: i64 = 4969430222601064613;
+        let (wx, wy, wz) = (-348, 16, 132);
+        let floor = MossyFloor::parse(
+            "MMMMCMMMM\n\
+             CMMMMMMMM\n\
+             MCMMMMCCM\n\
+             CMMCMMMCM\n\
+             CCMMCMMMM\n\
+             MMCCMMCMM\n\
+             CMCCCCCMC\n\
+             MMMMMMMCM\n\
+             CMMCMMCCC\n",
+        )
+        .unwrap();
+        panic!("Ignore unused variable warnings: {:?}", (world_seed, (wx, wy, wz), floor));
     }
 
     #[test]
