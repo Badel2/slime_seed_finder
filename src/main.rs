@@ -568,12 +568,11 @@ fn main() {
             output_file,
             mc_version,
         } => {
-            // TODO: implement minecraft version selection
-            let _version: MinecraftVersion = mc_version.parse().unwrap();
+            let mc_version: MinecraftVersion = mc_version.parse().unwrap();
             let output_file = output_file.unwrap_or_else(|| {
                 format!("treasure_map_{}_{}_{}.png", seed, fragment_x, fragment_z).into()
             });
-            let vec_rgba = biome_layers::generate_image_treasure_map_at(MinecraftVersion::Java1_13, seed, fragment_x, fragment_z);
+            let vec_rgba = biome_layers::generate_image_treasure_map_at(mc_version, seed, fragment_x, fragment_z);
             assert_eq!(vec_rgba.len(), 128 * 128 * 4);
             image::save_buffer(output_file.clone(), &vec_rgba, 128, 128, image::ColorType::Rgba8).unwrap();
             println!("Saved image to {}", output_file.to_string_lossy());
