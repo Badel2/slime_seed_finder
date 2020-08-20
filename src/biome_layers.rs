@@ -555,7 +555,69 @@ impl GetMap for MapHalfVoronoiZoom {
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         // Naive implementation: apply MapVoronoiZoom and rescale
         let vmap = MapVoronoiZoom::new(self.base_seed, self.world_seed).get_map_from_pmap(pmap);
-        // Scale from 1:1 to 1:2
+        // Scale from 1:1 to 2:1
+        let varea = vmap.area();
+        let marea = Area {
+            x: varea.x >> 1,
+            z: varea.z >> 1,
+            w: varea.w >> 1,
+            h: varea.h >> 1,
+        };
+        let mut m = Map::new(marea);
+        for x in 0..marea.w as usize {
+            for z in 0..marea.h as usize {
+                // TODO: check if we need offset here
+                m.a[(x, z)] = vmap.a[(x * 2, z * 2)];
+            }
+        }
+
+        m
+    }
+}
+
+pub struct MapHalfVoronoiZoom115 {
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapHalfVoronoiZoom115 {
+    pub fn new(world_seed: i64) -> Self {
+        Self { world_seed, parent: None }
+    }
+}
+
+// TODO: tests
+impl GetMap for MapHalfVoronoiZoom115 {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x >> 1,
+                z: area.z >> 1,
+                w: (area.w >> 1) + 2,
+                h: (area.h >> 1) + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let mut map = self.get_map_from_pmap(&pmap);
+            // TODO: is this correct?
+            let (nx, nz) = ((area.x) & 1, (area.z) & 1);
+            map.x += nx;
+            map.z += nz;
+            let (nx, nz) = (nx as usize, nz as usize);
+            map.a.slice_collapse(s![
+                    nx..nx + area.w as usize,
+                    nz..nz + area.h as usize
+            ]);
+
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        // Naive implementation: apply MapVoronoiZoom and rescale
+        let vmap = MapVoronoiZoom115::new(self.world_seed).get_map_from_pmap(pmap);
+        // Scale from 1:1 to 2:1
         let varea = vmap.area();
         let marea = Area {
             x: varea.x >> 1,
@@ -4274,19 +4336,36 @@ pub fn generate_image_treasure_map_at(version: MinecraftVersion, seed: i64, frag
 }
 
 pub fn generate_fragment_treasure_map(version: MinecraftVersion, area: Area, seed: i64) -> Map {
-    // Parent: right before VoronoiZoom
-    // TODO: this is incorrect, the parent is VoronoiZoom but the scale
-    // is 1:2 instead of 1:1
-    let parent = match version {
-        MinecraftVersion::Java1_13 => Rc::from(generator_up_to_layer_1_13(seed, 50)),
-        MinecraftVersion::Java1_14 => Rc::from(generator_up_to_layer_1_14(seed, 50)),
-        MinecraftVersion::Java1_15 => Rc::from(generator_up_to_layer_1_15(seed, 50)),
+    // mhv: MapHalfVoronoi
+    // Its the result of replacing the last layer (MapVoronoiZoom) which performs a 1:4 scale
+    // operation, with MapHalfVoronoiZoom which performs a 1:2 scale. This should be equivalent to
+    // doing a 2:1 scale after MapVoronoiZoom, but MapHalfVoronoiZoom can be optimized.
+    let mhv: Rc<dyn GetMap> = match version {
+        MinecraftVersion::Java1_13 => {
+            let mut mhv = MapHalfVoronoiZoom::new(10, seed);
+            let parent = Rc::from(generator_up_to_layer_1_13(seed, 50));
+            mhv.parent = Some(parent);
+
+            Rc::from(mhv)
+        }
+        MinecraftVersion::Java1_14 => {
+            let mut mhv = MapHalfVoronoiZoom::new(10, seed);
+            let parent = Rc::from(generator_up_to_layer_1_14(seed, 50));
+            mhv.parent = Some(parent);
+
+            Rc::from(mhv)
+        }
+        MinecraftVersion::Java1_15 => {
+            let mut mhv = MapHalfVoronoiZoom115::new(seed);
+            let parent = Rc::from(generator_up_to_layer_1_15(seed, 50));
+            mhv.parent = Some(parent);
+
+            Rc::from(mhv)
+        }
         _ => panic!("Treasure map generation in version {:?} is not implemented", version),
     };
-    let mut mhv = MapHalfVoronoiZoom::new(10, seed);
-    mhv.parent = Some(parent);
     let mt = MapTreasure {
-        parent: Rc::from(mhv),
+        parent: mhv,
     };
 
     mt.get_map(area)
