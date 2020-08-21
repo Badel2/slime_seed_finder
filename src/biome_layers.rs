@@ -538,9 +538,9 @@ impl GetMap for MapHalfVoronoiZoom {
 
             let mut map = self.get_map_from_pmap(&pmap);
             // TODO: is this correct?
-            let (nx, nz) = ((area.x) & 1, (area.z) & 1);
-            map.x += nx;
-            map.z += nz;
+            let (nx, nz) = ((area.x + 1) & 1, (area.z + 1) & 1);
+            map.x -= nx;
+            map.z -= nz;
             let (nx, nz) = (nx as usize, nz as usize);
             map.a.slice_collapse(s![
                     nx..nx + area.w as usize,
@@ -600,9 +600,9 @@ impl GetMap for MapHalfVoronoiZoom115 {
 
             let mut map = self.get_map_from_pmap(&pmap);
             // TODO: is this correct?
-            let (nx, nz) = ((area.x) & 1, (area.z) & 1);
-            map.x += nx;
-            map.z += nz;
+            let (nx, nz) = ((area.x + 1) & 1, (area.z + 1) & 1);
+            map.x -= nx;
+            map.z -= nz;
             let (nx, nz) = (nx as usize, nz as usize);
             map.a.slice_collapse(s![
                     nx..nx + area.w as usize,
@@ -3168,88 +3168,21 @@ fn is_land_biome(biome_id: i32) -> bool {
     BIOME_INFO[biome_id as usize].height >= 0.0
 }
 
-pub fn treasure_map_at(fragment_x: i64, fragment_z: i64, pmap: &Map) -> Map {
-    // 0: -64
-    // 1: 192
-    // pmap must be 256x256, but the treasure map is always 128x128
-    // with 1 pixel missing on each border, so in practice it is 126x126
-    // TODO: only 1:1 maps are implemented
-    // Since layer 50 is 1:4 scale, we would need to modify the indexing of
-    // pmap, and the x and z coordinates in parea, but for testing it is easier
-    // to just scale the map.
-    //let pmap = MapSkip::new(Rc::from(generator_up_to_layer_1_14(seed, 50)), 2).get_map(parea);
-    let corner_x = (fragment_x * 256 - 64) / 2;
-    let corner_z = (fragment_z * 256 - 64) / 2;
-    let area = Area {
-        x: corner_x,
-        z: corner_z,
-        w: 128,
-        h: 128,
-    };
-    let mut m = Map::new(area);
+/// Set the border pixels to a particular value
+/// This is used to add 1-pixel padding to treasure maps, since ingame maps always have 128x128
+/// resolution, but treasure maps are 126x126
+fn set_pixels_at_margin(map: &mut Map, value: i32) {
+    let area = map.area();
 
-    for x in 1..(area.w - 1) as usize {
-        for z in 1..(area.h - 1) as usize {
-            let mut num_water_neighbors = 8;
-
-            for i in 0..3 {
-                for j in 0..3 {
-                    if i == 1 && j == 1 {
-                        continue;
-                    }
-                    if is_land_biome(pmap.a[((x-1+i)*2, (z-1+j)*2)]) {
-                        num_water_neighbors -= 1;
-                    }
-                }
-            }
-
-            // Land color. Default: black (transparent).
-            let color_land = 0;
-            // Water color.
-            let color_water = 15;
-            // Land-water border color.
-            let color_shore = 26;
-            let mut color = color_land;
-            let mut color_variant = 3;
-
-            let v11 = pmap.a[((x+0)*2, (z+0)*2)];
-
-            if !is_land_biome(v11) {
-                color = color_water;
-                if num_water_neighbors > 7 && z % 2 == 0 {
-                    color_variant = ((x % 128) as i32 + (fast_sin(((z % 128) as f32) + 0.0) * 7.0) as i32) / 8 % 5;
-                    // Map color_variant from (0, 1, 2, 3, 4) to (0, 1, 2, 1, 0)
-                    if color_variant == 3 {
-                        color_variant = 1;
-                    } else if color_variant == 4 {
-                        color_variant = 0;
-                    }
-                } else if num_water_neighbors > 7 {
-                    color = color_land;
-                } else if num_water_neighbors > 5 {
-                    color_variant = 1;
-                } else if num_water_neighbors > 3 {
-                    color_variant = 0;
-                } else if num_water_neighbors > 1 {
-                    color_variant = 0;
-                }
-            } else if num_water_neighbors > 0 {
-                color = color_shore;
-                if num_water_neighbors > 3 {
-                    color_variant = 1;
-                } else {
-                    color_variant = 3;
-                }
-            }
-
-            if color != color_land {
-                // color_variant is always in [0, 3]
-                m.a[(x, z)] = color * 4 + color_variant;
-            }
-        }
+    for x in 0..area.h as usize {
+        map.a[(x, 0)] = value;
+        map.a[(x, area.w as usize - 1)] = value;
     }
 
-    m
+    for z in 0..area.w as usize {
+        map.a[(0, z)] = value;
+        map.a[(area.h as usize - 1, z)] = value;
+    }
 }
 
 /// Apply the unexplored treasure map filter
@@ -3285,6 +3218,11 @@ impl GetMap for MapTreasure {
             w: p_w as u64 - 2,
             h: p_h as u64 - 2
         };
+        let coords_in_fragment = |x: i64, z: i64| -> (u8, u8) {
+            // Input: from -32 + (128 * kx) to 95 + (128 * kz)
+            // Output: from 0 to 127
+            (((x + 32) & 0x7F) as u8, ((z + 32) & 0x7F) as u8)
+        };
         let mut m = Map::new(area);
 
         for x in 0..area.w as usize {
@@ -3315,8 +3253,11 @@ impl GetMap for MapTreasure {
 
                 if !is_land_biome(v11) {
                     color = color_water;
-                    if num_water_neighbors > 7 && z % 2 == 0 {
-                        color_variant = ((x % 128) as i32 + (fast_sin(((z % 128) as f32) + 0.0) * 7.0) as i32) / 8 % 5;
+                    // xf and zf are the coordinates inside the map fragment
+                    // must be in range [0, 127]
+                    let (xf, zf) = coords_in_fragment(area.x + x as i64, area.z + z as i64);
+                    if num_water_neighbors > 7 && zf % 2 == 0 {
+                        color_variant = (xf as i32 + (fast_sin((zf as f32) + 0.0) * 7.0) as i32) / 8 % 5;
                         // Map color_variant from (0, 1, 2, 3, 4) to (0, 1, 2, 1, 0)
                         if color_variant == 3 {
                             color_variant = 1;
@@ -4315,23 +4256,22 @@ pub fn generate_image_treasure_map(version: MinecraftVersion, area: Area, seed: 
 
 /// Generate a treasure map with the same scale and aligment as ingame maps.
 pub fn generate_image_treasure_map_at(version: MinecraftVersion, seed: i64, fragment_x: i64, fragment_z: i64) -> Vec<u8> {
-    let corner_x = fragment_x * 256 - 64;
-    let corner_z = fragment_z * 256 - 64;
+    let corner_x = (fragment_x * 256 - 64) >> 1;
+    let corner_z = (fragment_z * 256 - 64) >> 1;
     let parea = Area {
         x: corner_x,
         z: corner_z,
-        w: 256,
-        h: 256,
+        w: 128,
+        h: 128,
     };
-    let parent = match version {
-        MinecraftVersion::Java1_13 => (generator_up_to_layer_1_13(seed, 51)),
-        MinecraftVersion::Java1_14 => (generator_up_to_layer_1_14(seed, 51)),
-        MinecraftVersion::Java1_15 => (generator_up_to_layer_1_15(seed, 51)),
-        _ => panic!("Treasure map generation in version {:?} is not implemented", version),
-    };
-    let pmap = parent.get_map(parea);
-    let map = treasure_map_at(fragment_x, fragment_z, &pmap);
+    // Generate a 128x128 treasure map
+    let mut map = generate_fragment_treasure_map(version, parea, seed);
+    // But treasure maps have 126x126 resulution, so delete border pixels
+    set_pixels_at_margin(&mut map, 0);
 
+    // And convert the resulting map to a RGBA image
+    // We could generate a 126x126 map and add the padding during the conversion to image, but that
+    // would require a draw_treasure_map_image_with_padding function
     draw_treasure_map_image(&map)
 }
 
@@ -5613,21 +5553,9 @@ mod tests {
         assert_eq!(t, map.a);
     }
 
-    // Check that all the layers generate the correct area
-    #[test]
-    fn preserve_area() {
-        let world_seed = 9223090561890311698;
-        let base_seed = 2000;
-        let parent: Option<Rc<dyn GetMap>> = Some(Rc::new(TestMapZero));
-        let g0 = MapIsland::new(base_seed, world_seed);
-        let mut g1 = MapZoom::new(base_seed, world_seed);
-        g1.parent = parent.clone();
-        let mut g2 = MapAddIsland::new(base_seed, world_seed);
-        g2.parent = parent.clone();
-        let mut g3 = MapVoronoiZoom::new(base_seed, world_seed);
-        g3.parent = parent.clone();
-        let gv: Vec<&dyn GetMap> = vec![&TestMapZero, &TestMapXhz, &g0, &g1, &g2, &g3];
-        let mut av = vec![];
+    // Helper function to check that a layer generates the correct area
+    fn preserve_area(g: &dyn GetMap) {
+        let mut av = Vec::with_capacity(9*9*10*10 * 2 + 2);
         av.push(Area { x: 0, z: 0, w: 0, h: 0 });
         av.push(Area { x: 1, z: 2, w: 0, h: 0 });
         for x in -5..5 {
@@ -5648,14 +5576,49 @@ mod tests {
                 }
             }
         }
-        for gen in gv {
-            for a in &av {
-                let map = gen.get_map(*a);
-                assert_eq!(map.a.dim(), (a.w as usize, a.h as usize));
-                assert_eq!(map.x, a.x);
-                assert_eq!(map.z, a.z);
-            }
+        for a in &av {
+            let map = g.get_map(*a);
+            assert_eq!(map.area(), *a);
         }
+    }
+
+    #[test]
+    fn preserve_area_t() {
+        let world_seed = 9223090561890311698;
+        let base_seed = 2000;
+        let parent: Option<Rc<dyn GetMap>> = Some(Rc::new(TestMapZero));
+        let g0 = MapIsland::new(base_seed, world_seed);
+        preserve_area(&g0);
+
+        let mut g1 = MapZoom::new(base_seed, world_seed);
+        g1.parent = parent.clone();
+        preserve_area(&g1);
+
+        let mut g2 = MapAddIsland::new(base_seed, world_seed);
+        g2.parent = parent.clone();
+        preserve_area(&g2);
+
+        let mut g3 = MapVoronoiZoom::new(base_seed, world_seed);
+        g3.parent = parent.clone();
+        preserve_area(&g3);
+    }
+
+    #[test]
+    fn preserve_area_simple() {
+        preserve_area(&TestMapZero);
+        preserve_area(&TestMapXhz);
+    }
+
+    #[test]
+    fn preserve_area_half_voronoi() {
+        let seed = 1234;
+        let mut g0 = MapHalfVoronoiZoom::new(10, seed);
+        g0.parent = Some(Rc::new(TestMapZero));
+        preserve_area(&g0);
+
+        let mut g1 = MapHalfVoronoiZoom115::new(seed);
+        g1.parent = Some(Rc::new(TestMapZero));
+        preserve_area(&g1);
     }
 
     #[test]
@@ -5822,5 +5785,39 @@ mod tests {
         let x = split_rivers_into_fragments4(&p);
         // The correct implementation should create 2 fragments
         assert_eq!(x.len(), 2);
+    }
+
+    #[test]
+    fn treasure_map_1_13_test_case() {
+        let seed = -7014733495468514438;
+        let fragment_x = 2;
+        let fragment_z = -2;
+        let map_bytes = generate_image_treasure_map_at(MinecraftVersion::Java1_13, seed, fragment_x, fragment_z);
+
+        assert_eq!(map_bytes.len(), 128 * 128 * 4);
+
+        // TODO: instead of using the hash of the image, store the treasure map in SeedInfo format
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.input(&map_bytes);
+        let r = hasher.result();
+        assert_eq!(r.to_vec(), vec![2, 164, 56, 89, 18, 20, 220, 103, 112, 230, 180, 212, 73, 255, 209, 131, 125, 156, 151, 14, 110, 104, 67, 247, 31, 50, 114, 198, 244, 85, 4, 116]);
+    }
+
+    #[test]
+    fn treasure_map_1_15_test_case() {
+        let seed = -7014733495468514438;
+        let fragment_x = 2;
+        let fragment_z = -2;
+        let map_bytes = generate_image_treasure_map_at(MinecraftVersion::Java1_15, seed, fragment_x, fragment_z);
+
+        assert_eq!(map_bytes.len(), 128 * 128 * 4);
+
+        // TODO: instead of using the hash of the image, store the treasure map in SeedInfo format
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.input(&map_bytes);
+        let r = hasher.result();
+        assert_eq!(r.to_vec(), vec![22, 23, 27, 71, 87, 221, 197, 105, 176, 3, 90, 34, 222, 117, 239, 165, 169, 117, 157, 35, 0, 177, 27, 253, 76, 154, 247, 248, 197, 175, 50, 246]);
     }
 }
