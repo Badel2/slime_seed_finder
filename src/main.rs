@@ -597,17 +597,16 @@ fn main() {
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
 
-            let total_range = 1 << 24;
-            let thread_range = total_range / num_threads;
+            let total_range = 1u32 << 24;
+            let thread_range = total_range / u32::try_from(num_threads).unwrap();
 
             let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
-                let range_lo = u32::try_from(thread_range * thread_id).unwrap();
+                let range_lo = thread_range * u32::try_from(thread_id).unwrap();
                 let range_hi = if thread_id + 1 == num_threads {
                     total_range
                 } else {
-                    thread_range * (thread_id + 1)
+                    thread_range * u32::try_from(thread_id + 1).unwrap()
                 };
-                let range_hi = u32::try_from(range_hi).unwrap();
                 debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
                 let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
                 debug!("Thread {} finished", thread_id);
@@ -649,17 +648,16 @@ fn main() {
                 let rivers = Arc::new(rivers);
                 let num_threads = if threads == 0 { num_cpus::get() } else { threads };
 
-                let total_range = 1 << 24;
-                let thread_range = total_range / num_threads;
+                let total_range = 1u32 << 24;
+                let thread_range = total_range / u32::try_from(num_threads).unwrap();
 
                 let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
-                    let range_lo = u32::try_from(thread_range * thread_id).unwrap();
+                    let range_lo = thread_range * u32::try_from(thread_id).unwrap();
                     let range_hi = if thread_id + 1 == num_threads {
                         total_range
                     } else {
-                        thread_range * (thread_id + 1)
+                        thread_range * u32::try_from(thread_id + 1).unwrap()
                     };
-                    let range_hi = u32::try_from(range_hi).unwrap();
                     debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
                     let r = biome_layers::river_seed_finder_26_range(&rivers, range_lo, range_hi);
                     debug!("Thread {} finished", thread_id);
@@ -706,17 +704,16 @@ fn main() {
             let extra_biomes = Arc::new(extra_biomes);
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
 
-            let total_range = 1 << 24;
-            let thread_range = total_range / num_threads;
+            let total_range = 1u32 << 24;
+            let thread_range = total_range / u32::try_from(num_threads).unwrap();
 
             let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
-                let range_lo = u32::try_from(thread_range * thread_id).unwrap();
+                let range_lo = thread_range * u32::try_from(thread_id).unwrap();
                 let range_hi = if thread_id + 1 == num_threads {
                     total_range
                 } else {
-                    thread_range * (thread_id + 1)
+                    thread_range * u32::try_from(thread_id + 1).unwrap()
                 };
-                let range_hi = u32::try_from(range_hi).unwrap();
                 debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
                 let r = biome_layers::river_seed_finder_range(&rivers, &extra_biomes, version, range_lo, range_hi);
                 debug!("Thread {} finished", thread_id);
@@ -832,15 +829,15 @@ fn main() {
             let num_threads = if threads == 0 { num_cpus::get() } else { threads };
             println!("Started brutefroce using {} threads. Estimated time: around {} minutes", num_threads, 240 / num_threads);
 
-            let total_range = 1 << 40;
-            let thread_range = total_range / num_threads;
+            let total_range = 1u64 << 40;
+            let thread_range = total_range / u64::try_from(num_threads).unwrap();
             let floor = Arc::new(floor);
             let seeds: Vec<String> = run_threads(num_threads, move |thread_id| {
-                let range_lo = u64::try_from(thread_range * thread_id).unwrap();
+                let range_lo = thread_range * u64::try_from(thread_id).unwrap();
                 let range_hi = if thread_id + 1 == num_threads {
                     total_range
                 } else {
-                    thread_range * (thread_id + 1)
+                    thread_range * u64::try_from(thread_id + 1).unwrap()
                 };
                 let range_hi = u64::try_from(range_hi).unwrap();
                 debug!("Spawning thread {} from {:X} to {:X}", thread_id, range_lo, range_hi);
