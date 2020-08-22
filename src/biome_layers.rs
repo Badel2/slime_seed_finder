@@ -3185,6 +3185,28 @@ fn set_pixels_at_margin(map: &mut Map, value: i32) {
     }
 }
 
+pub fn add_margin_to_map(map: &Map, value: i32) -> Map {
+    let parea = map.area();
+    let area = Area {
+        x: parea.x - 1,
+        z: parea.x - 1,
+        w: parea.w + 2,
+        h: parea.h + 2,
+    };
+
+    let mut m = Map::new(area);
+
+    for x in 0..parea.w as usize {
+        for z in 0..parea.h as usize {
+            m.a[(x + 1, z + 1)] = map.a[(x, z)];
+        }
+    }
+
+    set_pixels_at_margin(&mut m, value);
+
+    m
+}
+
 /// Apply the unexplored treasure map filter
 // This is not a world generation layer
 // The output of this Map is not biome_id, but color_id.

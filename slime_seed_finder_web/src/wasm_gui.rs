@@ -7,7 +7,10 @@ use stdweb::web::TypedArray;
 
 use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers::Area;
+use slime_seed_finder::biome_layers::GetMap;
 use slime_seed_finder::biome_layers::Map;
+use slime_seed_finder::biome_layers::MapTreasure;
+use slime_seed_finder::biome_layers::PanicMap;
 use slime_seed_finder::chunk::Point;
 use slime_seed_finder::java_rng::JavaRng;
 use slime_seed_finder::mc_rng::McRng;
@@ -16,6 +19,8 @@ use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::*;
+
+use std::rc::Rc;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -525,8 +530,8 @@ pub fn draw_treasure_map(o: String) -> Vec<u8> {
     let o = o.unwrap();
     let first_treasure_map = &o.seed_info.treasure_maps[0];
     let mut pmap = Map::new(Area {
-        x: 0,
-        z: 0,
+        x: -32,
+        z: -32,
         w: 128,
         h: 128,
     });
@@ -540,23 +545,14 @@ pub fn draw_treasure_map(o: String) -> Vec<u8> {
             _ => panic!("Invalid id: {}", v),
         };
     }
-    // Double map size from 128x128 to 256x256
-    let mut pmap2 = Map::new(Area {
-        x: 0,
-        z: 0,
-        w: 256,
-        h: 256,
-    });
-    for x in 0..256 {
-        for z in 0..256 {
-            pmap2.a[(x, z)] = pmap.a[(x / 2, z / 2)];
-        }
-    }
-    let tmap = biome_layers::treasure_map_at(
-        first_treasure_map.fragment_x,
-        first_treasure_map.fragment_z,
-        &pmap2,
-    );
+    let mt = MapTreasure {
+        parent: Rc::from(PanicMap),
+    };
+
+    let tmap_no_margin = mt.get_map_from_pmap(&pmap);
+
+    // tmap_no_margin has 126x126 size but the output of this function should have 128x128 size
+    let tmap = biome_layers::add_margin_to_map(&tmap_no_margin, 0);
 
     biome_layers::draw_treasure_map_image(&tmap)
 }
