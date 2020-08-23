@@ -3268,40 +3268,54 @@ impl GetMap for MapTreasure {
                 let color_water = 15;
                 // Land-water border color.
                 let color_shore = 26;
-                let mut color = color_land;
-                let mut color_variant = 3;
+                let color;
+                let color_variant;
 
                 let v11 = pmap.a[(x+1, z+1)];
 
                 if !is_land_biome(v11) {
-                    color = color_water;
+                    // If v11 is water
                     // xf and zf are the coordinates inside the map fragment
                     // must be in range [0, 127]
                     let (xf, zf) = coords_in_fragment(area.x + x as i64, area.z + z as i64);
                     if num_water_neighbors > 7 && zf % 2 == 0 {
-                        color_variant = (xf as i32 + (fast_sin((zf as f32) + 0.0) * 7.0) as i32) / 8 % 5;
+                        color = color_water;
+                        let mut random_int_5 = (xf as i32 + (fast_sin((zf as f32) + 0.0) * 7.0) as i32) / 8 % 5;
                         // Map color_variant from (0, 1, 2, 3, 4) to (0, 1, 2, 1, 0)
-                        if color_variant == 3 {
-                            color_variant = 1;
-                        } else if color_variant == 4 {
-                            color_variant = 0;
+                        if random_int_5 == 3 {
+                            random_int_5 = 1;
+                        } else if random_int_5 == 4 {
+                            random_int_5 = 0;
                         }
+                        color_variant = random_int_5;
                     } else if num_water_neighbors > 7 {
                         color = color_land;
+                        color_variant = 3;
                     } else if num_water_neighbors > 5 {
+                        color = color_water;
                         color_variant = 1;
                     } else if num_water_neighbors > 3 {
+                        color = color_water;
                         color_variant = 0;
                     } else if num_water_neighbors > 1 {
+                        color = color_water;
                         color_variant = 0;
+                    } else {
+                        color = color_water;
+                        color_variant = 3;
                     }
                 } else if num_water_neighbors > 0 {
+                    // If v11 is land but at least one of the 8-connected neighbors is water
                     color = color_shore;
                     if num_water_neighbors > 3 {
                         color_variant = 1;
                     } else {
                         color_variant = 3;
                     }
+                } else {
+                    // If v11 is land and all of the 8-connected neighbors are also land
+                    color = color_land;
+                    color_variant = 3;
                 }
 
                 if color != color_land {
