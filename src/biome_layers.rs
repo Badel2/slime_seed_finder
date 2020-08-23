@@ -3328,6 +3328,102 @@ impl GetMap for MapTreasure {
         m
     }
 }
+
+pub fn reverse_map_treasure(m: &Map) -> Map {
+    // Input: color and variant
+    // Output: ocean or plains
+    //
+    // Possible inputs:
+    // * color_land: v11 is land and all of the 8-connected neighbors are also land
+    //     or v11 is water and all of the 8-connected neighbors are water
+    // * color_shore: v11 is land but some of the 8-connected neighbors are water
+    //     * variant=1: num_water_neighbors >= 4
+    //     * variant=3: num_water_neighbors < 4
+    // * color_water: v11 is water
+    let area = m.area();
+    let mut o = Map::new(area);
+
+    // Land color. Default: black (transparent).
+    const COLOR_LAND: i32 = 0;
+    // Water color.
+    const COLOR_WATER: i32 = 15;
+    // Land-water border color.
+    const COLOR_SHORE: i32 = 26;
+
+    let into_color_and_variant = |x| {
+        (x / 4, x % 4)
+    };
+
+    let water = 0;
+    let land = 1;
+    let unknown = 2;
+
+    // Set output map to unknown
+    for x in 0..area.w as usize {
+        for z in 0..area.h as usize {
+            o.a[(x, z)] = unknown;
+        }
+    }
+
+    // Set shore to land and water to water
+    for x in 0..area.w as usize {
+        for z in 0..area.h as usize {
+            match into_color_and_variant(m.a[(x, z)]) {
+                (COLOR_SHORE, _variant) => o.a[(x, z)] = land,
+                (COLOR_WATER, _variant) => o.a[(x, z)] = water,
+                _ => (),
+            }
+        }
+    }
+
+    // color_land indicates that the pixel should have the same value as all of its 8 neighbors
+    // This is probably the least efficient way to implement this, but it is correct
+    let mut map_changed = true;
+    while map_changed {
+        map_changed = false;
+        for x in 1..(area.w - 1) as usize {
+            for z in 1..(area.h - 1) as usize {
+                match into_color_and_variant(m.a[(x, z)]) {
+                    (COLOR_LAND, 0) => {
+                        // Check the 8 neighbors to see if any of them has value different from
+                        // "unknown". If so, assume that this is the value of the entire group.
+                        let mut n_value = unknown;
+
+                        for i in 0..3 {
+                            for j in 0..3 {
+                                let value = o.a[(x+i-1, z+j-1)];
+                                if value != unknown {
+                                    if n_value == unknown {
+                                        n_value = value;
+                                    } else if n_value != value {
+                                        panic!("Not all 8 neighbors have the same value but they should. This treasure map is malformed");
+                                    }
+                                }
+                            }
+                        }
+
+                        if n_value != unknown {
+                            // Set value of pixel and of all its neighbors
+                            for i in 0..3 {
+                                for j in 0..3 {
+                                    let old_value = o.a[(x+i-1, z+j-1)];
+                                    if old_value != n_value {
+                                        map_changed = true;
+                                    }
+                                    o.a[(x+i-1, z+j-1)] = n_value;
+                                }
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            }
+        }
+    }
+
+    o
+}
+
 // TODO: this function must do the reverse of edge detection
 pub fn reverse_map_river(m: &Map) -> Map {
     let (w, h) = m.a.dim();
@@ -5855,5 +5951,69 @@ mod tests {
         hasher.input(&map_bytes);
         let r = hasher.result();
         assert_eq!(r.to_vec(), vec![22, 23, 27, 71, 87, 221, 197, 105, 176, 3, 90, 34, 222, 117, 239, 165, 169, 117, 157, 35, 0, 177, 27, 253, 76, 154, 247, 248, 197, 175, 50, 246]);
+    }
+
+    #[test]
+    fn reverse_treasure_map() {
+        let seed = 1239;
+        let parea = Area {
+            x: -32,
+            z: -32,
+            w: 128,
+            h: 128,
+        };
+        // Generate a 128x128 treasure map
+        let mhv: Rc<dyn GetMap> = {
+            let mut mhv = MapHalfVoronoiZoom::new(10, seed);
+            let parent = Rc::from(generator_up_to_layer_1_13(seed, 50));
+            mhv.parent = Some(parent);
+
+            Rc::from(mhv)
+        };
+
+        fn is_land_biome_12(x: i32) -> i32 {
+            if is_land_biome(x) {
+                1
+            } else {
+                0
+            }
+        }
+
+        let mm = MapMap {
+            parent: Rc::clone(&mhv),
+            f: is_land_biome_12,
+        };
+        let parea2 = Area {
+            // TODO: the x,z coords are wrong?
+            x: -34,
+            z: -34,
+            w: 128,
+            h: 128,
+        };
+        let mut pmap = mm.get_map(parea2);
+        // Set the pixels at margin to unknown, we will ignore them anyway
+        set_pixels_at_margin(&mut pmap, 2);
+
+        let mt = MapTreasure {
+            parent: mhv,
+        };
+
+        let mut map = mt.get_map(parea);
+
+        // But treasure maps have 126x126 resulution, so delete border pixels
+        set_pixels_at_margin(&mut map, 0);
+
+        let mut reversed_map = reverse_map_treasure(&map);
+        // Set the pixels at margin to unknown, we will ignore them anyway
+        set_pixels_at_margin(&mut reversed_map, 2);
+
+        println!("{}", draw_map(&pmap));
+        println!("{}", draw_map(&reversed_map));
+
+        // TODO: the x,z coords are wrong?
+        // The bug is probably in MapHalfVoronoiZoom or in reverse_map_treasure
+        // Compare map array only, ignore coords
+
+        assert_eq!(reversed_map.a, pmap.a);
     }
 }
