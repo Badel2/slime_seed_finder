@@ -252,6 +252,15 @@ document
         Game.dirty = true;
     });
 
+document
+    .getElementById("showLayer2Overlay")
+    .addEventListener("input", function(event) {
+        let showLayer2 = document.getElementById("showLayer2Overlay").checked;
+        console.log("showLayer2: " + showLayer2);
+        Game.showLayer2 = showLayer2;
+        Game.dirty = true;
+    });
+
 function version_map(s) {
     if (
         s == "1.7" ||
@@ -461,7 +470,7 @@ function drawMapToCanvas(canvas, map, mapArea) {
 // format!("#{:02X}{:02X}{:02X}{:02X}", a, r, b, g)
 function convertIntsToColor(r, g, b, a) {
     function convertIntToHex2(x) {
-        if (x > 0 && x <= 255) {
+        if (x >= 0 && x <= 255) {
             let h = x.toString(16);
             if (h.length < 2) {
                 h = "0" + h;
@@ -511,5 +520,83 @@ function addExtraBiome() {
     Game.setTile(x, z, biomeId);
 }
 
+function setupImgUpload() {
+    let inputElement = document.getElementById("screenshotFileInput");
+
+    inputElement.addEventListener(
+        "change",
+        function() {
+            let reader = new FileReader();
+            reader.onload = function() {
+                let arrayBuffer = this.result;
+                let blob = new Blob([arrayBuffer]);
+                let objectURL = URL.createObjectURL(blob);
+                let helperImage = new Image();
+                helperImage.onload = function() {
+                    let helperCanvas = document.createElement("canvas");
+                    helperCanvas.width = helperImage.width;
+                    helperCanvas.height = helperImage.height;
+                    console.log(
+                        "Helper canvas size: ",
+                        helperCanvas.width,
+                        "x",
+                        helperCanvas.height
+                    );
+
+                    let context = helperCanvas.getContext("2d");
+                    context.drawImage(helperImage, 0, 0);
+
+                    let imageData = context.getImageData(
+                        0,
+                        0,
+                        helperCanvas.width,
+                        helperCanvas.height
+                    );
+
+                    Rust.slime_seed_finder_web.then(function(
+                        slime_seed_finder_web
+                    ) {
+                        console.log("extract_map_from_screenshot");
+                        let array = new Uint8Array(imageData.data);
+
+                        console.log("Loaded img file. Size:", array.length);
+                        let q = slime_seed_finder_web.extract_map_from_screenshot(
+                            imageData.width,
+                            imageData.height,
+                            array
+                        );
+                        if (q.length == 0) {
+                            console.error("Failed to parse image");
+                        }
+                        drawMapToCanvas(
+                            document.getElementById("screenshotMapCanvas"),
+                            q,
+                            {
+                                w: 128,
+                                h: 128,
+                            }
+                        );
+
+                        let r4 = [];
+                        for (let i = 0; i < 128 * 128 * 4; i += 4) {
+                            let r = q[i];
+                            let g = q[i + 1];
+                            let b = q[i + 2];
+                            let a = q[i + 3];
+                            let rgb = convertIntsToColor(r, g, b, a);
+                            r4.push(rgb);
+                        }
+                        Game.setArea(2, 0, 128, 0, 128, r4);
+                    });
+                };
+                helperImage.src = objectURL;
+            };
+            reader.readAsArrayBuffer(this.files[0]);
+        },
+        false
+    );
+}
+
+setupImgUpload();
 load_selection();
 drawTreasureMap();

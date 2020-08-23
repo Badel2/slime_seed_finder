@@ -9,8 +9,8 @@
 
 let map = {
     tsize: 1,
-    // 2 layer
-    layers: [new Map(), new Map()],
+    // 3 layer
+    layers: [new Map(), new Map(), new Map()],
     getTile: function(layer, col, row) {
         // We must use a string as a key because two arrays
         // with are same elements are not equal according to js
@@ -84,6 +84,7 @@ Game.init = function(tsize, canvasW, canvasH) {
     // Dirty flag: only render if true, remember to set it when changing state
     this.dirty = true;
     this.showLayer1 = true;
+    this.showLayer2 = true;
 };
 
 Game.update = function(delta) {
@@ -133,6 +134,8 @@ Game._drawLayer = function(layer) {
                 if (layer == 0) {
                     this._drawTile(x, y, v);
                 } else if (layer == 1) {
+                    this._drawRGBTile(x, y, v);
+                } else if (layer == 2) {
                     this._drawRGBTile(x, y, v);
                 }
             }
@@ -211,6 +214,9 @@ Game.render = function() {
     // draw treasure map
     if (this.showLayer1) {
         this._drawLayer(1);
+    }
+    if (this.showLayer2) {
+        this._drawLayer(2);
     }
 };
 

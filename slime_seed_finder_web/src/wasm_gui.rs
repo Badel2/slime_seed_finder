@@ -626,3 +626,17 @@ pub fn anvil_region_to_river_seed_finder(
 
     serde_json::to_string(&s).unwrap()
 }
+
+#[js_export]
+pub fn extract_map_from_screenshot(width: u32, height: u32, screenshot: TypedArray<u8>) -> Vec<u8> {
+    let img = image::RgbaImage::from_raw(width, height, Vec::from(screenshot)).unwrap();
+    let mut img = image::DynamicImage::ImageRgba8(img);
+    minecraft_screenshot_parser::crosshair::remove_crosshair(&mut img);
+    let detected_map = minecraft_screenshot_parser::map::detect_map(&mut img);
+
+    if let Some(detected_map) = detected_map {
+        detected_map.cropped_scaled_img.to_bytes()
+    } else {
+        vec![]
+    }
+}
