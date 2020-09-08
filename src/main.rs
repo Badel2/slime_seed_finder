@@ -899,7 +899,7 @@ fn main() {
                     let Chunk { x: chunk_x, z: chunk_z } = population::spawner_coordinates_to_chunk(x, z);
                     (seed, chunk_x, chunk_z, l)
                 }).unwrap_or_else(|_| {
-                    panic!("Error parsing \"{}\": dungeon seed should follow the format \"{}\"`", d, "3916208062072,2,-5");
+                    panic!("Error parsing \"{}\": dungeon seed should follow the format \"{}\"`", d, "159,23,-290,982513219448");
                 })
             }).collect();
             if dungeon_seeds.len() < 3 {
