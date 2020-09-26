@@ -469,6 +469,43 @@ mod tests {
     }
 
     #[test]
+    fn next_double_is_same_as_next_float() {
+        let max_diff = (1u64 << 29) as f64 / (1u64 << 53) as f64;
+        for seed in 0..10 {
+            let mut r1 = JavaRng::with_seed(seed);
+            let mut r2 = r1.clone();
+
+            r1.next_n_calls(1000);
+            r2.next_n_calls(1000);
+
+            let a = r1.next_double();
+            let b = r2.next_float() as f64;
+            let diff = (a - b).abs();
+
+            assert!(diff < max_diff, "Seed {}: diff {}", seed, diff);
+        }
+
+    }
+
+    #[test]
+    fn approx_next_double() {
+        let max_diff = (1u64 << 27) as f64 / (1u64 << 53) as f64;
+        for seed in 0..10 {
+            let mut r1 = JavaRng::with_seed(seed);
+            let mut r2 = r1.clone();
+
+            r1.next_n_calls(1000);
+            r2.next_n_calls(1000);
+
+            let a = r1.next_double();
+            let b = ((r2.next(26) as i64) << 27) as f64 / (1u64 << 53) as f64;
+            let diff = (a - b).abs();
+
+            assert!(diff < max_diff, "Seed {}: diff {}", seed, diff);
+        }
+    }
+
+    #[test]
     fn previous_calls_black_magic() {
         let mut r = JavaRng::with_seed(12345);
         r.previous();
