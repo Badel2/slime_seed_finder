@@ -3356,7 +3356,7 @@ pub fn reverse_map_treasure(m: &Map) -> Map {
 
     let water = 0;
     let land = 1;
-    let unknown = 2;
+    let unknown = 255;
 
     // Set output map to unknown
     for x in 0..area.w as usize {
@@ -3371,7 +3371,37 @@ pub fn reverse_map_treasure(m: &Map) -> Map {
             match into_color_and_variant(m.a[(x, z)]) {
                 (COLOR_SHORE, _variant) => o.a[(x, z)] = land,
                 (COLOR_WATER, _variant) => o.a[(x, z)] = water,
-                _ => (),
+                (63, 3) => {
+                    // This pixel is unknown
+                    // If it is surrounded by 7 shore and 1 water, set it to water
+                    // This fixes some tools that do not support water3 color variant
+                    // TODO: is it possible to be surrounded by 8 shore? If so, can we be sure that
+                    // the pixel should be set to water?
+                    let mut count_shore = 0;
+                    let mut count_water = 0;
+
+                    // Only check pixels that are not at the border
+                    if x >= 1 && x < area.w as usize - 1 && z >= 1 && z < area.h as usize - 1 {
+                        for i in 0..3 {
+                            for j in 0..3 {
+                                if i == 1 && j == 1 {
+                                    continue;
+                                }
+                                let value = m.a[(x+i-1, z+j-1)];
+                                match into_color_and_variant(value) {
+                                    (COLOR_SHORE, _variant) => count_shore += 1,
+                                    // TODO: is may be possible that the color variant is not 0
+                                    (COLOR_WATER, 0) => count_water += 1,
+                                    _ => {},
+                                }
+                            }
+                        }
+                        if count_shore == 7 && count_water == 1 {
+                            o.a[(x, z)] = water;
+                        }
+                    }
+                },
+                _ => {}
             }
         }
     }
@@ -3904,7 +3934,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
 /// range_lo: 0
 /// range_hi: 1 << 24
 /// Even though this is a 26-bit bruteforce, we check 4 seeds at a time
-pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_hi: u32) -> Vec<i64> {
+pub fn treasure_map_river_seed_finder(treasure_map: &Map, version: MinecraftVersion, range_lo: u32, range_hi: u32) -> Vec<i64> {
     // Naming
     // _tm: treasure_map, indicates 1:2 scale
     // _pm: previous_map, indicates 1:4 scale, obtained as ReverseMapZoom(treasure_map)
@@ -3929,53 +3959,60 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, range_lo: u32, range_h
     let river_coords_quarter_scale = convert_hd_coords_into_quarter_scale(&river_coords_hd);
     let candidates_26 = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_hi);
 
-    let area_tm = Area::from_coords2(&river_coords_tm);
-    let target_map_tm = map_with_river_at2(&river_coords_tm, area_tm);
-    // Reversing from a HalfVoronoiZoom is more or less equivalent to reversing a MapZoom
-    let target_map_pm = reverse_map_half_voronoi(&target_map_tm);
+    let candidates = if version < MinecraftVersion::Java1_15 {
+        let area_tm = Area::from_coords2(&river_coords_tm);
+        let target_map_tm = map_with_river_at2(&river_coords_tm, area_tm);
+        // Reversing from a HalfVoronoiZoom is more or less equivalent to reversing a MapZoom
+        let target_map_pm = reverse_map_half_voronoi(&target_map_tm);
 
-    // Compare resolution of original and reverse-voronoi + voronoi
-    let g43 = MapHalfVoronoiZoom::new(10, 1234);
-    let target_rv_voronoi = g43.get_map_from_pmap(&target_map_pm);
+        // Compare resolution of original and reverse-voronoi + voronoi
+        let g43 = MapHalfVoronoiZoom::new(10, 1234);
+        let target_rv_voronoi = g43.get_map_from_pmap(&target_map_pm);
 
-    let target_map_hv = slice_to_area(target_map_tm.clone(), target_rv_voronoi.area());
+        let target_map_hv = slice_to_area(target_map_tm.clone(), target_rv_voronoi.area());
 
-    debug!("{}", draw_map(&target_map_tm));
-    debug!("{}", draw_map(&target_map_pm));
-    //debug!("{}", draw_map(&target_map_hv));
+        debug!("{}", draw_map(&target_map_tm));
+        debug!("{}", draw_map(&target_map_pm));
+        //debug!("{}", draw_map(&target_map_hv));
 
-    // Actually, we only want to compare borders, so use HelperMapRiverAll, which is actually an
-    // edge detector
-    let target_map_hv_borders = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&target_map_hv);
-    //debug!("area_hv_borders: {:?}", area_hv_borders);
-    let target_score_hv = count_rivers(&target_map_hv_borders);
+        // Actually, we only want to compare borders, so use HelperMapRiverAll, which is actually an
+        // edge detector
+        let target_map_hv_borders = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&target_map_hv);
+        //debug!("area_hv_borders: {:?}", area_hv_borders);
+        let target_score_hv = count_rivers(&target_map_hv_borders);
 
-    debug!("Target voronoi score: {}", target_score_hv);
-    // Now use voronoi zoom to bruteforce the remaining (34-26 = 8 bits)
-    let candidates_34 = candidates_26.into_iter().flat_map(|x| {
-        let mut v = vec![];
-        for seed in 0..(1 << (34 - 26)) {
-            let world_seed = x | (seed << 26);
-            let g43 = MapHalfVoronoiZoom::new(10, world_seed);
-            let candidate_voronoi = g43.get_map_from_pmap(&target_map_pm);
-            //debug!("{}", draw_map(&candidate_voronoi));
-            let candidate_voronoi_borders = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
-            //debug!("expected, found");
-            //debug!("{}", draw_map(&target_map_hv_borders));
-            //debug!("{}", draw_map(&candidate_voronoi_borders));
-            let candidate_score = count_rivers_exact(&candidate_voronoi_borders, &target_map_hv_borders);
-            if candidate_score >= target_score_hv * 90 / 100 {
-                debug!("{:09X}: {}", world_seed, candidate_score);
-                v.push(world_seed);
+        debug!("Target voronoi score: {}", target_score_hv);
+        // Now use voronoi zoom to bruteforce the remaining (34-26 = 8 bits)
+        let candidates_34 = candidates_26.into_iter().flat_map(|x| {
+            let mut v = vec![];
+            for seed in 0..(1 << (34 - 26)) {
+                let world_seed = x | (seed << 26);
+                let g43 = MapHalfVoronoiZoom::new(10, world_seed);
+                let candidate_voronoi = g43.get_map_from_pmap(&target_map_pm);
+                //debug!("{}", draw_map(&candidate_voronoi));
+                let candidate_voronoi_borders = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
+                //debug!("expected, found");
+                //debug!("{}", draw_map(&target_map_hv_borders));
+                //debug!("{}", draw_map(&candidate_voronoi_borders));
+                let candidate_score = count_rivers_exact(&candidate_voronoi_borders, &target_map_hv_borders);
+                if candidate_score >= target_score_hv * 90 / 100 {
+                    debug!("{:09X}: {}", world_seed, candidate_score);
+                    v.push(world_seed);
+                }
             }
-        }
 
-        v
-    }).collect::<Vec<_>>();
-    debug!("{:09X?}", candidates_34);
-    debug!("34 bit candidates: {}", candidates_34.len());
+            v
+        }).collect::<Vec<_>>();
+        debug!("{:09X?}", candidates_34);
+        debug!("34 bit candidates: {}", candidates_34.len());
+        candidates_34
+    } else {
+        // Starting from 1.15, we need the seed hash to continue the bruteforce, so just return
+        // the 26-bit candidates
+        candidates_26
+    };
 
-    return candidates_34;
+    return candidates;
 }
 
 fn count_rivers(m: &Map) -> u32 {

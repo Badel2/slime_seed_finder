@@ -67,17 +67,10 @@ Camera.prototype.centerAt = function(x, y) {
     this.y = (y + 0.5) * this.tsize - this.height / 2;
 };
 
-Game.load = function() {
-    return [
-        //Loader.loadImage('tiles', '../assets/tiles.png'),
-    ];
-};
-
 // args are currently ignored
 Game.init = function(tsize, canvasW, canvasH) {
     console.log("Init game with w:" + canvasW + ", h:" + canvasH);
     map.tsize = 1;
-    this.tileAtlas = Loader.getImage("tiles");
     this.camera = new Camera(map, canvasW, canvasH);
     this.showGrid = false;
     this.centerAt(8, 8);
@@ -99,6 +92,9 @@ Game._drawTile = function(x, y, v) {
     }
     if (v <= 3) {
         this._drawRGBTile(x, y, colors[v]);
+    } else {
+        let unknown = "#ff00ff";
+        this._drawRGBTile(x, y, unknown);
     }
 };
 
@@ -302,13 +298,15 @@ Game._recursiveBucketTool = function(
     }
 };
 
-Game.bucketTool = function(x, y, targetValue) {
+Game.bucketTool = function(x, y, targetValue, recursionLimit = 10) {
     this.dirty = true;
     let txty = this.mouse_coords_to_game_coords(x, y);
     let tx = txty[0];
     let ty = txty[1];
     let floorValue = map.getTile(0, tx, ty) | 0;
-    this._recursiveBucketTool(targetValue, floorValue, 10, [[tx, ty]]);
+    this._recursiveBucketTool(targetValue, floorValue, recursionLimit, [
+        [tx, ty],
+    ]);
 };
 
 // Get all the (x, y) pairs from a layer with the given value

@@ -14,12 +14,14 @@ use slime_seed_finder::biome_layers::PanicMap;
 use slime_seed_finder::chunk::Point;
 use slime_seed_finder::java_rng::JavaRng;
 use slime_seed_finder::mc_rng::McRng;
+use slime_seed_finder::seed_info;
 use slime_seed_finder::seed_info::BiomeId;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::*;
 
+use std::convert::TryFrom;
 use std::rc::Rc;
 
 #[derive(Debug, Deserialize)]
@@ -542,6 +544,8 @@ pub fn draw_treasure_map(o: String) -> Vec<u8> {
             0 => biome_id::ocean,
             1 => biome_id::plains,
             2 => biome_id::river,
+            // Unknown biome
+            255 => 255,
             _ => panic!("Invalid id: {}", v),
         };
     }
@@ -562,6 +566,7 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
     console!(log, format!("Parsing options: {}", o));
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
+    let version = o.seed_info.version.parse().unwrap();
     let first_treasure_map = &o.seed_info.treasure_maps[0];
     let mut pmap = Map::new(Area {
         x: 0,
@@ -580,10 +585,16 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
             0 => biome_id::ocean,
             1 => biome_id::plains,
             2 => biome_id::river,
+            // Unknown biome
+            255 => 255,
             _ => panic!("Invalid id: {}", v),
         };
     }
-    let r = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 24);
+    let r = if let Some((range_lo, range_hi)) = o.range {
+        biome_layers::treasure_map_river_seed_finder(&pmap, version, range_lo, range_hi)
+    } else {
+        biome_layers::treasure_map_river_seed_finder(&pmap, version, 0, 1 << 24)
+    };
 
     r.into_iter().map(|seed| format!("{}", seed)).collect()
 }
@@ -627,16 +638,71 @@ pub fn anvil_region_to_river_seed_finder(
     serde_json::to_string(&s).unwrap()
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtractMapResult {
+    cropped_scaled_img: Vec<u8>,
+    treasure_map_img: Vec<u8>,
+    land_water: Vec<u8>,
+}
+
 #[js_export]
-pub fn extract_map_from_screenshot(width: u32, height: u32, screenshot: TypedArray<u8>) -> Vec<u8> {
+pub fn extract_map_from_screenshot(
+    width: u32,
+    height: u32,
+    screenshot: TypedArray<u8>,
+) -> Serde<Option<ExtractMapResult>> {
     let img = image::RgbaImage::from_raw(width, height, Vec::from(screenshot)).unwrap();
     let mut img = image::DynamicImage::ImageRgba8(img);
     minecraft_screenshot_parser::crosshair::remove_crosshair(&mut img);
     let detected_map = minecraft_screenshot_parser::map::detect_map(&mut img);
 
     if let Some(detected_map) = detected_map {
-        detected_map.cropped_scaled_img.to_bytes()
+        let palette_image =
+            minecraft_screenshot_parser::map_color_correct::extract_unexplored_treasure_map(
+                &detected_map.cropped_scaled_img,
+            );
+        // Convert image::GrayScale into Map
+        let palette_treasure_map = image_grayscale_into_map(palette_image);
+
+        let treasure_map_img = biome_layers::draw_treasure_map_image(&palette_treasure_map);
+        let land_water_map = biome_layers::reverse_map_treasure(&palette_treasure_map);
+        // Convert land-water (only contains 0 or 1) into Vec<u8>
+        let mut land_water = Vec::with_capacity(128 * 128);
+        let area = land_water_map.area();
+        for z in 0..area.h as usize {
+            for x in 0..area.w as usize {
+                let v = land_water_map.a[(x, z)];
+                let v = u8::try_from(v).unwrap();
+                land_water.push(v);
+            }
+        }
+
+        Serde(Some(ExtractMapResult {
+            cropped_scaled_img: detected_map.cropped_scaled_img.to_bytes(),
+            treasure_map_img,
+            land_water,
+        }))
     } else {
-        vec![]
+        Serde(None)
     }
+}
+
+fn image_grayscale_into_map(img: image::GrayImage) -> Map {
+    let (w, h) = img.dimensions();
+    let area = Area {
+        x: -64,
+        z: -64,
+        w: 128,
+        h: 128,
+    };
+    let mut m = Map::new(area);
+
+    for x in 0..w {
+        for z in 0..h {
+            m.a[(x as usize, z as usize)] = i32::from(img.get_pixel(x, z).0[0]);
+        }
+    }
+
+    m
 }

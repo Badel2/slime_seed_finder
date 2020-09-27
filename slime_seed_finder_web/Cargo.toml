@@ -11,7 +11,7 @@ slime_seed_finder = { "path" = ".." }
 ansi_term = "0.12.1"
 image = { version = "0.23", default-features = false }
 log = { version = "0.4.8", features = ["std"] }
-minecraft_screenshot_parser = "0.2.1"
+minecraft_screenshot_parser = "0.3"
 palette = "0.5.0"
 serde = { version = "1.0.111", features = ["derive"] }
 serde_json = "1.0.53"

@@ -8,38 +8,6 @@
 // https://github.com/Badel2/inf-proc-gen-tilemap
 
 //
-// Asset loader
-//
-
-let Loader = {
-    images: {},
-};
-
-Loader.loadImage = function(key, src) {
-    let img = new Image();
-
-    let d = new Promise(
-        function(resolve, reject) {
-            img.onload = function() {
-                this.images[key] = img;
-                resolve(img);
-            }.bind(this);
-
-            img.onerror = function() {
-                reject("Could not load image: " + src);
-            };
-        }.bind(this)
-    );
-
-    img.src = src;
-    return d;
-};
-
-Loader.getImage = function(key) {
-    return key in this.images ? this.images[key] : null;
-};
-
-//
 // Game object
 //
 
@@ -49,13 +17,8 @@ Game.run = function(context, tsize, canvasW, canvasH) {
     this.ctx = context;
     this._previousElapsed = 0;
 
-    let p = this.load();
-    Promise.all(p).then(
-        function(loaded) {
-            this.init(tsize, canvasW, canvasH);
-            window.requestAnimationFrame(this.tick);
-        }.bind(this)
-    );
+    this.init(tsize, canvasW, canvasH);
+    window.requestAnimationFrame(this.tick);
 };
 
 Game.tick = function(elapsed) {

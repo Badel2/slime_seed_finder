@@ -451,7 +451,7 @@ dependencies = [
 
 [[package]]
 name = "minecraft_screenshot_parser"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "image 0.23.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -968,7 +968,7 @@ dependencies = [
  "ansi_term 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.23.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "minecraft_screenshot_parser 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "minecraft_screenshot_parser 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "palette 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.111 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.53 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1303,7 +1303,7 @@ dependencies = [
 "checksum matrixmultiply 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "d4f7ec66360130972f34830bfad9ef05c6610a43938a467bcc9ab9369ab3478f"
 "checksum memchr 2.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "88579771288728879b57485cc7d6b07d648c9f0141eb955f8ab7f9d45394468e"
 "checksum memoffset 0.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "75189eb85871ea5c2e2c15abbdd541185f63b408415e5051f5cac122d8c774b9"
-"checksum minecraft_screenshot_parser 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4683f87843488f477bbeff3856f90bb12b5b3c9c9d63cecaa3f85c5eb6e2d7cf"
+"checksum minecraft_screenshot_parser 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f3ac3db70c9318c096d2e5eb231a161baccefbb9b6ce8741a1e04f52d3ba550d"
 "checksum miniz_oxide 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "6f3f74f726ae935c3f514300cc6773a0c9492abc5e972d42ba0c0ebb88757625"
 "checksum named-binary-tag 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "4d654702943d37d67f1491769ed46484c306f9b9d0d258348904bd63ffb101e8"
 "checksum ndarray 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ac06db03ec2f46ee0ecdca1a1c34a99c0d188a0d83439b84bf0cb4b386e4ab09"

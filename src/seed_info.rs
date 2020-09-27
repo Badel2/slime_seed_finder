@@ -20,7 +20,7 @@ impl FromStr for BiomeId {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MinecraftVersion {
     JavaAlpha1_2_5, // Alpha v1.0.4 - Alpha v1.2.5
     JavaBeta, // Alpha v1.2.6 - Beta ???

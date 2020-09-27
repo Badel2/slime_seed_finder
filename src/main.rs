@@ -494,6 +494,7 @@ fn main() {
             output_file,
         } => {
             let seed_info = SeedInfo::read(input_file).expect("Error reading seed info");
+            let version = seed_info.version.parse().unwrap();
             // TODO: integrate the treasure map river seed finder into the "find" subcommand
             let first_treasure_map = &seed_info.treasure_maps[0];
 
@@ -504,12 +505,14 @@ fn main() {
                     0 => biome_id::ocean,
                     1 => biome_id::plains,
                     2 => biome_id::river,
+                    // Unknown biome
+                    255 => 255,
                     _ => panic!("Invalid id: {}", v),
                 };
             }
 
             // All possible 26 bit seeds
-            let seeds = biome_layers::treasure_map_river_seed_finder(&pmap, 0, 1 << 24);
+            let seeds = biome_layers::treasure_map_river_seed_finder(&pmap, version, 0, 1 << 24);
             println!("Found {} 26-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
 
             if let Some(of) = output_file {

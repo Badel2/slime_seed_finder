@@ -5,7 +5,9 @@ onmessage = function(e) {
     Rust.slime_seed_finder_web.then(
         function(slime_seed_finder_web) {
             console.log("Calling Rust code...");
-            let workerResult = slime_seed_finder_web.draw_treasure_map(e.data);
+            let workerResult = slime_seed_finder_web.treasure_map_seed_finder(
+                e.data
+            );
             console.log("Posting message back to main script");
             postMessage(workerResult);
         },

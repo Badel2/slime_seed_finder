@@ -113,12 +113,15 @@ window.onload = function() {
                         dragging.y = y;
                     }
                     if (!scrollingEnabled && dragging.actuallyScrolling) {
+                        // TODO: also set all the pixels in a straight line between oldXY and newXY
                         if (tool == "pencil_river") {
                             Game.setTile(x, y, 2);
                         } else if (tool == "pencil_land") {
                             Game.setTile(x, y, 1);
                         } else if (tool == "pencil_ocean") {
                             Game.setTile(x, y, 0);
+                        } else if (tool == "pencil_unknown") {
+                            Game.setTile(x, y, 255);
                         } else {
                             console.error("Unhandled tool type");
                         }
@@ -155,6 +158,7 @@ window.onload = function() {
                     );
                 }
                 if (dragging && dragging.actuallyScrolling == false) {
+                    let bucketSize = 20;
                     let tool = document.getElementById("toolSelector").value;
                     if (tool == "click") {
                         Game.clickTile(x, y);
@@ -164,12 +168,14 @@ window.onload = function() {
                         Game.setTile(x, y, 0);
                     } else if (tool == "pencil_land") {
                         Game.setTile(x, y, 1);
+                    } else if (tool == "pencil_unknown") {
+                        Game.setTile(x, y, 255);
                     } else if (tool == "bucket_river") {
-                        Game.bucketTool(x, y, 2);
+                        Game.bucketTool(x, y, 2, bucketSize);
                     } else if (tool == "bucket_ocean") {
-                        Game.bucketTool(x, y, 0);
+                        Game.bucketTool(x, y, 0, bucketSize);
                     } else if (tool == "bucket_land") {
-                        Game.bucketTool(x, y, 1);
+                        Game.bucketTool(x, y, 1, bucketSize);
                     }
 
                     update_selection();
@@ -204,6 +210,9 @@ window.onload = function() {
     let canvasW = elem.width;
     let canvasH = elem.height;
     Game.run(context, tsize, canvasW, canvasH, 0);
+    initializeInputState();
+    load_selection();
+    drawTreasureMap();
 };
 
 // end common.js
@@ -234,6 +243,19 @@ let l42AreaC = null;
 let foundSeeds = [];
 let workers = [];
 let selection_history = [];
+
+function initializeInputState() {
+    minecraft_version = document.getElementById("minecraftVersion").value;
+    seedInfo.version = minecraft_version;
+    update_selection();
+    let showLayer1 = document.getElementById("showLayer1Overlay").checked;
+    console.log("showLayer1: " + showLayer1);
+    Game.showLayer1 = showLayer1;
+    let showLayer2 = document.getElementById("showLayer2Overlay").checked;
+    console.log("showLayer2: " + showLayer2);
+    Game.showLayer2 = showLayer2;
+    Game.dirty = true;
+}
 
 document
     .getElementById("minecraftVersion")
@@ -292,13 +314,14 @@ function load_selection() {
         Game.clearSelection(0);
         let firstTreasureMap = seedInfo.treasureMaps[0];
         Game.setArea(0, 0, 128, 0, 128, firstTreasureMap.map);
-        drawVoronoi();
+        //drawVoronoi();
         document.getElementById("minecraftVersion").value = version_map(
             seedInfo.version
         );
         document.getElementById("fragmentX").value = firstTreasureMap.fragmentX;
         document.getElementById("fragmentZ").value = firstTreasureMap.fragmentZ;
     } catch (e) {
+        console.error(e);
         // Invalid JSON
     }
 }
@@ -560,11 +583,30 @@ function setupImgUpload() {
                         let array = new Uint8Array(imageData.data);
 
                         console.log("Loaded img file. Size:", array.length);
-                        let q = slime_seed_finder_web.extract_map_from_screenshot(
+                        let extractMapResult = slime_seed_finder_web.extract_map_from_screenshot(
                             imageData.width,
                             imageData.height,
                             array
                         );
+                        //let q = extractMapResult.croppedScaledMap;
+                        let q = extractMapResult.treasureMapImg;
+                        let treasureMapArray = extractMapResult.landWater;
+
+                        let seltextarea = document.getElementById(
+                            "selection_output"
+                        );
+                        let firstTreasureMap = {};
+                        firstTreasureMap.fragmentX =
+                            document.getElementById("fragmentX").value | 0;
+                        firstTreasureMap.fragmentZ =
+                            document.getElementById("fragmentZ").value | 0;
+                        firstTreasureMap.map = treasureMapArray;
+                        seedInfo.treasureMaps = [firstTreasureMap];
+                        seltextarea.value = stringify(seedInfo, {
+                            maxLength: 20,
+                        });
+                        load_selection();
+
                         if (q.length == 0) {
                             console.error("Failed to parse image");
                         }
@@ -587,6 +629,7 @@ function setupImgUpload() {
                             r4.push(rgb);
                         }
                         Game.setArea(2, 0, 128, 0, 128, r4);
+                        drawTreasureMap();
                     });
                 };
                 helperImage.src = objectURL;
@@ -598,5 +641,3 @@ function setupImgUpload() {
 }
 
 setupImgUpload();
-load_selection();
-drawTreasureMap();
