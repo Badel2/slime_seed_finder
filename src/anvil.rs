@@ -19,6 +19,7 @@ use crate::biome_info::biome_id;
 use crate::chunk::Point;
 use crate::chunk::Point4;
 use crate::seed_info::BiomeId;
+use crate::seed_info::MinecraftVersion;
 use std::io::Read;
 use std::io::Seek;
 
@@ -413,7 +414,7 @@ pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center
     vec![]
 }
 
-pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf) -> Result<i64, String> {
+pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf, minecraft_version: Option<MinecraftVersion>) -> Result<i64, String> {
     let reader = OpenOptions::new()
         .write(false)
         .read(true)
@@ -425,13 +426,40 @@ pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf) -> Result<i64, String> 
     let level_dat_path = find_level_dat(&mut zip_archive)?;
     let mut level_dat = zip_archive.by_name(&level_dat_path).map_err(|e| format!("level.dat path incorrectly set: {:?}", e))?;
 
-    read_seed_from_level_dat(&mut level_dat)
+    match minecraft_version {
+        Some(MinecraftVersion::Java1_15) => read_seed_from_level_dat_1_15(&mut level_dat),
+        Some(MinecraftVersion::Java1_16) => read_seed_from_level_dat_1_16(&mut level_dat),
+        Some(_) => return Err("Unimplemented".to_string()),
+        None => {
+            // Try to guess version, starting from the newest one
+            // TODO: is it ok to mutate level_dat?
+            let mut errs = vec![];
+            Result::<i64, String>::Err(Default::default()).or_else(|_| {
+                read_seed_from_level_dat_1_16(&mut level_dat)
+            }).or_else(|e| {
+                errs.push(("1.16", e));
+                read_seed_from_level_dat_1_15(&mut level_dat)
+            }).map_err(|e| {
+                errs.push(("1.15", e));
+                format!("Failed to read level.dat: unsupported version or corrupted file. Detailed list of errors: {:?}", errs)
+            })
+        }
+    }
 }
 
-pub fn read_seed_from_level_dat<R: Read>(r: &mut R) -> Result<i64, String> {
+pub fn read_seed_from_level_dat_1_15<R: Read>(r: &mut R) -> Result<i64, String> {
     let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
     let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;
     let seed = data_tag.get_i64("RandomSeed").map_err(|e| format!("Failed to read {:?} tag: {:?}", "RandomSeed", e))?;
+
+    Ok(seed)
+}
+
+pub fn read_seed_from_level_dat_1_16<R: Read>(r: &mut R) -> Result<i64, String> {
+    let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
+    let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;
+    let world_gen_settings_tag = data_tag.get_compound_tag("WorldGenSettings").map_err(|e| format!("Failed to read {:?} tag: {:?}", "WorldGenSettings", e))?;
+    let seed = world_gen_settings_tag.get_i64("seed").map_err(|e| format!("Failed to read {:?} tag: {:?}", "seed", e))?;
 
     Ok(seed)
 }

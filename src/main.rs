@@ -359,7 +359,7 @@ enum Opt {
         #[structopt(long, default_value = "0")]
         center_z: i64,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.15
+        /// Supported values: 1.15, 1.16
         #[structopt(long, default_value = "1.15")]
         mc_version: String,
     },
@@ -946,8 +946,8 @@ fn main() {
             mc_version,
         } => {
             let version: MinecraftVersion = mc_version.parse().unwrap();
-            if version == MinecraftVersion::Java1_15 {
-                let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip).unwrap();
+            if version == MinecraftVersion::Java1_15 || version == MinecraftVersion::Java1_16 {
+                let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, None).unwrap();
                 if JavaRng::create_from_long(world_seed as u64).is_none() {
                     println!("Warning: this seed cannot be generated with Java Random nextLong");
                 }
