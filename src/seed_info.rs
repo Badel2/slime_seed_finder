@@ -47,16 +47,34 @@ impl MinecraftVersion {
 
 impl FromStr for MinecraftVersion {
     type Err = String;
-    fn from_str(x: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // TODO: this ignores everything starting from the second dot: 1.2.3 is parsed as 1.2
+        let x = trim_at_second_dot(s);
         Ok(match x {
             "1.7" | "1.8" | "1.9" | "1.10" | "1.11" | "1.12" => MinecraftVersion::Java1_7,
             "1.13" => MinecraftVersion::Java1_13,
             "1.14" => MinecraftVersion::Java1_14,
             "1.15" => MinecraftVersion::Java1_15,
             "1.16" => MinecraftVersion::Java1_16,
-            _ => return Err(x.to_string())
+            _ => return Err(s.to_string())
         })
     }
+}
+
+fn trim_at_second_dot(x: &str) -> &str {
+    let mut count = 0;
+    let idx = x.find(|c| {
+        if c == '.' {
+            count += 1;
+            if count == 2 {
+                return true;
+            }
+        }
+
+        false
+    }).unwrap_or(x.len());
+
+    &x[..idx]
 }
 
 // Options not necesarly related to the seed or the minecraft world
@@ -572,5 +590,20 @@ mod tests {
 
         let seed_info: SeedInfo = serde_json::from_str(json).unwrap();
         assert_eq!(seed_info.world_seed, None);
+    }
+
+    #[test]
+    fn trim_version_str() {
+        assert_eq!(trim_at_second_dot(""), "");
+        assert_eq!(trim_at_second_dot("1"), "1");
+        assert_eq!(trim_at_second_dot("1."), "1.");
+        assert_eq!(trim_at_second_dot("1.2"), "1.2");
+        assert_eq!(trim_at_second_dot("1.2.3"), "1.2");
+        assert_eq!(trim_at_second_dot("1.2.."), "1.2");
+        assert_eq!(trim_at_second_dot("1.2..3"), "1.2");
+
+        assert_eq!(trim_at_second_dot("."), ".");
+        assert_eq!(trim_at_second_dot(".."), ".");
+        assert_eq!(trim_at_second_dot("..."), ".");
     }
 }
