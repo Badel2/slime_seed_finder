@@ -23,7 +23,7 @@ use std::path::Path;
 use std::io::Write;
 use std::ffi::OsStr;
 use std::thread;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use std::time::Instant;
 use log::*;
@@ -362,6 +362,9 @@ enum Opt {
         /// Supported values: 1.15, 1.16
         #[structopt(long, default_value = "1.15")]
         mc_version: String,
+        /// Render biome map from the biomes according to the saved world
+        #[structopt(long)]
+        draw_biome_map: bool,
     },
 }
 
@@ -944,6 +947,7 @@ fn main() {
             center_x,
             center_z,
             mc_version,
+            draw_biome_map,
         } => {
             let version: MinecraftVersion = mc_version.parse().unwrap();
             match version {
@@ -959,6 +963,22 @@ fn main() {
                     let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
                     let area = Area::from_coords(points.iter());
                     println!("Area: {:?}", area);
+
+                    if draw_biome_map {
+                        println!("Drawing biome map");
+                        let mut map = Map::new(area);
+                        for (expected_biome_id, p) in &biomes {
+                            map.set(p.x, p.z, expected_biome_id.0);
+                        }
+                        let map_image = biome_layers::draw_map_image(&map);
+                        let x = area.x;
+                        let z = area.z;
+                        let width = area.w.try_into().unwrap();
+                        let height = area.h.try_into().unwrap();
+                        let output_file = format!("biome_map_mc_{}_{}_{}_{}_{}x{}.png", mc_version, world_seed, x, z, width, height);
+                        image::save_buffer(output_file.clone(), &map_image, width, height, image::ColorType::Rgba8).unwrap();
+                        println!("Saved image to {}", output_file);
+                    }
 
                     // Generate area with 1:1 resolution
                     let map = biome_layers::generate(version, area, world_seed);
@@ -985,6 +1005,22 @@ fn main() {
                     let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
                     let area = Area::from_coords(points.iter());
                     println!("Area: {:?}", area);
+
+                    if draw_biome_map {
+                        println!("Drawing biome map");
+                        let mut map = Map::new(area);
+                        for (expected_biome_id, p) in &biomes {
+                            map.set(p.x, p.z, expected_biome_id.0);
+                        }
+                        let map_image = biome_layers::draw_map_image(&map);
+                        let x = area.x;
+                        let z = area.z;
+                        let width = area.w.try_into().unwrap();
+                        let height = area.h.try_into().unwrap();
+                        let output_file = format!("biome_map_mc_{}_{}_{}_{}_{}x{}.png", mc_version, world_seed, x, z, width, height);
+                        image::save_buffer(output_file.clone(), &map_image, width, height, image::ColorType::Rgba8).unwrap();
+                        println!("Saved image to {}", output_file);
+                    }
 
                     // Generate area with 1:4 resolution
                     let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, MinecraftVersion::Java1_15.num_layers() - 1);

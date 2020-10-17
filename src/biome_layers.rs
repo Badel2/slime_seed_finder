@@ -194,6 +194,10 @@ impl Map {
     pub fn get(&self, real_x: i64, real_z: i64) -> i32 {
         self.a[((real_x - self.x) as usize, (real_z - self.z) as usize)]
     }
+    /// Set value at real coordinate (x, z)
+    pub fn set(&mut self, real_x: i64, real_z: i64, value: i32) {
+        self.a[((real_x - self.x) as usize, (real_z - self.z) as usize)] = value;
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
