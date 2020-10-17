@@ -352,12 +352,6 @@ enum Opt {
         /// Path to "minecraft_saved_world.zip"
         #[structopt(short = "i", long, parse(from_os_str))]
         input_zip: PathBuf,
-        /// Center x coordinate around which to look for biomes
-        #[structopt(long, default_value = "0")]
-        center_x: i64,
-        /// Center z coordinate around which to look for biomes
-        #[structopt(long, default_value = "0")]
-        center_z: i64,
         /// Minecraft version to use (Java edition).
         /// Supported values: 1.15, 1.16
         #[structopt(long, default_value = "1.15")]
@@ -944,8 +938,6 @@ fn main() {
 
         Opt::TestGeneration {
             input_zip,
-            center_x,
-            center_z,
             mc_version,
             draw_biome_map,
         } => {
@@ -958,8 +950,9 @@ fn main() {
                     }
                     println!("Seed from level.dat {}", world_seed);
                     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
-                    let biomes = anvil::get_all_biomes(&mut chunk_provider, Point { x: center_x, z: center_z });
+                    let biomes = anvil::get_all_biomes_1_14(&mut chunk_provider);
                     println!("Got {} biomes", biomes.len());
+
                     let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
                     let area = Area::from_coords(points.iter());
                     println!("Area: {:?}", area);
@@ -1000,7 +993,7 @@ fn main() {
                     }
                     println!("Seed from level.dat {}", world_seed);
                     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
-                    let biomes = anvil::get_all_biomes_1_15(&mut chunk_provider, Point { x: center_x, z: center_z });
+                    let biomes = anvil::get_all_biomes_1_15(&mut chunk_provider);
                     println!("Got {} biomes", biomes.len());
                     let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
                     let area = Area::from_coords(points.iter());

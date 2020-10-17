@@ -343,161 +343,130 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
     (vec![], vec![])
 }
 
-pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: Point) -> Vec<(BiomeId, Point4)> {
-    let blocks_around_center: u32 = 1_000;
+pub fn get_biomes_from_chunk_1_15(chunk: &CompoundTag) -> Result<&Vec<i32>, String> {
+    let level_compound_tag = chunk.get_compound_tag("Level").unwrap();
+    let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
+        Ok(x) => x,
+        Err(e) => panic!("Unknown format for biomes array: {:?}", e),
+    };
+    match biomes_array.len() {
+        0 => {}
+        1024 => {}
+        n => panic!("Unexpected biomes_array len: {}", n),
+    }
 
-    let mut biome_data = HashMap::new();
-    let cheb = spiral::ChebyshevIterator::new(0, 0, u16::max_value());
-    for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
-        if cheb_i == 10 {
-            warn!("This is taking longer than expected");
-            if let Point { x: 0, z: 0 } = center_block_arg {
-                warn!("Please feel free to specify some center coordinates to speed up the process.");
-            } else {
-                warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
-            }
-        }
-        let center_block = Point { x: center_block_arg.x + i64::from(cheb_x) * i64::from(blocks_around_center), z: center_block_arg.z + i64::from(cheb_z) * i64::from(blocks_around_center) };
-        debug!("Trying to find chunks around {:?}", center_block);
-        let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
-        if chunks.is_empty() {
-            debug!("Area around {:?} is not present in the saved world", center_block);
-            continue;
-        }
+    Ok(biomes_array)
+}
 
-        for c in chunks {
-            let level_compound_tag = c.get_compound_tag("Level").unwrap();
-            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
-            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
-            let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
-                Ok(x) => x,
+pub fn get_biomes_from_chunk_1_14(chunk: &CompoundTag) -> Result<Vec<i32>, String> {
+    let level_compound_tag = chunk.get_compound_tag("Level").unwrap();
+    let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
+        Ok(x) => x.clone(),
+        Err(_e) => {
+            match level_compound_tag.get_i8_vec("Biomes") {
+                Ok(x) => {
+                    // Important: before 1.13 biomes was a byte array,
+                    // i8 is wrong, u8 is correct
+                    x.into_iter().map(|byte| i32::from(*byte as u8)).collect()
+                }
                 Err(e) => panic!("Unknown format for biomes array: {:?}", e),
-            };
-            match biomes_array.len() {
-                0 => {}
-                1024 => {}
-                n => panic!("Unexpected biomes_array len: {}", n),
-            }
-
-            for (i_b, b) in biomes_array.into_iter().enumerate().take(4 * 4) {
-                // TODO: this is not tested
-                let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
-                let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
-                let b = b.clone();
-
-                match b {
-                    127 => {
-                        // Ignore void biome (set by WorldDownloader for unknown biomes)
-                    }
-                    b => {
-                        biome_data.insert(Point4 { x: block_x, z: block_z }, BiomeId(b));
-                    }
-                }
             }
         }
-
-        if biome_data.len() < 50 {
-            debug!("Not enough chunks found around {:?}. Maybe that part of the map is not generated? (found {} biomes)", center_block, biome_data.len());
-            continue;
-        }
-
-        debug!("biome_data.len(): {}", biome_data.len());
-
-        let mut extra_biomes = vec![];
-        extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
-        //debug!("extra_biomes: {:?}", extra_biomes);
-
-        return extra_biomes;
+    };
+    match biomes_array.len() {
+        0 => {}
+        256 => {}
+        n => panic!("Unexpected biomes_array len: {}", n),
     }
 
-    error!("Found zero valid chunks. Is this even a minecraft save?");
-
-    vec![]
+    Ok(biomes_array)
 }
 
-pub fn get_all_biomes<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: Point) -> Vec<(BiomeId, Point)> {
-    let blocks_around_center: u32 = 1_000;
-
+/// Get all the biomes present in the save. For version >= 1.15
+pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec<(BiomeId, Point4)> {
     let mut biome_data = HashMap::new();
-    let cheb = spiral::ChebyshevIterator::new(0, 0, u16::max_value());
-    for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
-        if cheb_i == 10 {
-            warn!("This is taking longer than expected");
-            if let Point { x: 0, z: 0 } = center_block_arg {
-                warn!("Please feel free to specify some center coordinates to speed up the process.");
-            } else {
-                warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
-                warn!("Please double check that there are rivers near this block coordinates");
-            }
-        }
-        let center_block = Point { x: center_block_arg.x + i64::from(cheb_x) * i64::from(blocks_around_center), z: center_block_arg.z + i64::from(cheb_z) * i64::from(blocks_around_center) };
-        debug!("Trying to find chunks around {:?}", center_block);
-        let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
-        if chunks.is_empty() {
-            debug!("Area around {:?} is not present in the saved world", center_block);
-            continue;
-        }
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    for (chunk_x, chunk_z) in all_chunks {
+        let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
 
-        for c in chunks {
-            let level_compound_tag = c.get_compound_tag("Level").unwrap();
-            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
-            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
-            let biomes_array_17;
-            let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
-                Ok(x) => x,
-                Err(_e) => {
-                    match level_compound_tag.get_i8_vec("Biomes") {
-                        Ok(x) => {
-                            // Important: before 1.13 biomes was a byte array,
-                            // i8 is wrong, u8 is correct
-                            biomes_array_17 = x.into_iter().map(|byte| i32::from(*byte as u8)).collect();
-                            &biomes_array_17
-                        }
-                        Err(e) => panic!("Unknown format for biomes array: {:?}", e),
-                    }
+        let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();
+
+        for (i_b, b) in biomes_array.into_iter().enumerate().take(4 * 4) {
+            // TODO: this is not tested
+            let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
+            let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
+            let b = b.clone();
+
+            match b {
+                127 => {
+                    // Ignore void biome (set by WorldDownloader for unknown biomes)
                 }
-            };
-            match biomes_array.len() {
-                0 => {}
-                256 => {}
-                n => panic!("Unexpected biomes_array len: {}", n),
-            }
-
-            for (i_b, b) in biomes_array.into_iter().enumerate() {
-                let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
-                let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
-                let b = b.clone();
-
-                match b {
-                    127 => {
-                        // Ignore void biome (set by WorldDownloader for unknown biomes)
-                    }
-                    b => {
-                        biome_data.insert(Point { x: block_x, z: block_z }, BiomeId(b));
-                    }
+                b => {
+                    biome_data.insert(Point4 { x: block_x, z: block_z }, BiomeId(b));
                 }
             }
         }
-
-        if biome_data.len() < 50 {
-            debug!("Not enough chunks found around {:?}. Maybe that part of the map is not generated? (found {} biomes)", center_block, biome_data.len());
-            continue;
-        }
-
-        debug!("biome_data.len(): {}", biome_data.len());
-
-        let mut extra_biomes = vec![];
-        extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
-        //debug!("extra_biomes: {:?}", extra_biomes);
-
-        return extra_biomes;
     }
 
-    error!("Found zero valid chunks. Is this even a minecraft save?");
+    debug!("biome_data.len(): {}", biome_data.len());
 
-    vec![]
+    let mut extra_biomes = vec![];
+    extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
+    //debug!("extra_biomes: {:?}", extra_biomes);
+
+    return extra_biomes;
 }
 
+/// Get all the biomes present in the save. For version <= 1.14
+pub fn get_all_biomes_1_14<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec<(BiomeId, Point)> {
+    let mut biome_data = HashMap::new();
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    for (chunk_x, chunk_z) in all_chunks {
+        let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+
+        let biomes_array = get_biomes_from_chunk_1_14(&c).unwrap();
+
+        let mut all_water = true;
+        let mut temp_biome_data = Vec::with_capacity(16*16);
+        for (i_b, b) in biomes_array.into_iter().enumerate() {
+            let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
+            let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
+            let b = b.clone();
+
+            match b {
+                127 => {
+                    // Ignore void biome (set by WorldDownloader for unknown biomes)
+                }
+                b => {
+                    // Check if at least one biome is different from ocean (id 0)
+                    // This is because in some minecraft versions, some chunks may not have the
+                    // biomes array ready and they temporarily fill it will all zeros.
+                    // We want to ignore chunks that are all ocean.
+                    // Unfortunately this means that if the generated worlds as a chunk all ocean
+                    // biome, and this program generetes a different biome, it will be not detected
+                    // in tests.
+                    // Alternatives: we could simply remove a 2-wide chunk margin.
+                    if b != 0 {
+                        all_water = false;
+                    }
+                    temp_biome_data.push((Point { x: block_x, z: block_z}, BiomeId(b)));
+                }
+            }
+        }
+
+        if !all_water {
+            biome_data.extend(temp_biome_data);
+        }
+    }
+
+    debug!("biome_data.len(): {}", biome_data.len());
+
+    let mut extra_biomes = vec![];
+    extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
+    //debug!("extra_biomes: {:?}", extra_biomes);
+
+    return extra_biomes;
+}
 
 pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf, minecraft_version: Option<MinecraftVersion>) -> Result<i64, String> {
     let reader = OpenOptions::new()
