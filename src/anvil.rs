@@ -20,6 +20,7 @@ use crate::chunk::Point;
 use crate::chunk::Point4;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
+use std::io::Cursor;
 use std::io::Read;
 use std::io::Seek;
 
@@ -414,6 +415,90 @@ pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, center
     vec![]
 }
 
+pub fn get_all_biomes<A: AnvilChunkProvider>(chunk_provider: &mut A, center_block_arg: Point) -> Vec<(BiomeId, Point)> {
+    let blocks_around_center: u32 = 1_000;
+
+    let mut biome_data = HashMap::new();
+    let cheb = spiral::ChebyshevIterator::new(0, 0, u16::max_value());
+    for (cheb_i, (cheb_x, cheb_z)) in cheb.enumerate() {
+        if cheb_i == 10 {
+            warn!("This is taking longer than expected");
+            if let Point { x: 0, z: 0 } = center_block_arg {
+                warn!("Please feel free to specify some center coordinates to speed up the process.");
+            } else {
+                warn!("The provided coordinates are probably wrong: {:?}", center_block_arg);
+                warn!("Please double check that there are rivers near this block coordinates");
+            }
+        }
+        let center_block = Point { x: center_block_arg.x + i64::from(cheb_x) * i64::from(blocks_around_center), z: center_block_arg.z + i64::from(cheb_z) * i64::from(blocks_around_center) };
+        debug!("Trying to find chunks around {:?}", center_block);
+        let chunks = read_area_around(chunk_provider, u64::from(blocks_around_center), center_block).unwrap();
+        if chunks.is_empty() {
+            debug!("Area around {:?} is not present in the saved world", center_block);
+            continue;
+        }
+
+        for c in chunks {
+            let level_compound_tag = c.get_compound_tag("Level").unwrap();
+            let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
+            let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
+            let biomes_array_17;
+            let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
+                Ok(x) => x,
+                Err(_e) => {
+                    match level_compound_tag.get_i8_vec("Biomes") {
+                        Ok(x) => {
+                            // Important: before 1.13 biomes was a byte array,
+                            // i8 is wrong, u8 is correct
+                            biomes_array_17 = x.into_iter().map(|byte| i32::from(*byte as u8)).collect();
+                            &biomes_array_17
+                        }
+                        Err(e) => panic!("Unknown format for biomes array: {:?}", e),
+                    }
+                }
+            };
+            match biomes_array.len() {
+                0 => {}
+                256 => {}
+                n => panic!("Unexpected biomes_array len: {}", n),
+            }
+
+            for (i_b, b) in biomes_array.into_iter().enumerate() {
+                let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
+                let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
+                let b = b.clone();
+
+                match b {
+                    127 => {
+                        // Ignore void biome (set by WorldDownloader for unknown biomes)
+                    }
+                    b => {
+                        biome_data.insert(Point { x: block_x, z: block_z }, BiomeId(b));
+                    }
+                }
+            }
+        }
+
+        if biome_data.len() < 50 {
+            debug!("Not enough chunks found around {:?}. Maybe that part of the map is not generated? (found {} biomes)", center_block, biome_data.len());
+            continue;
+        }
+
+        debug!("biome_data.len(): {}", biome_data.len());
+
+        let mut extra_biomes = vec![];
+        extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
+        //debug!("extra_biomes: {:?}", extra_biomes);
+
+        return extra_biomes;
+    }
+
+    error!("Found zero valid chunks. Is this even a minecraft save?");
+
+    vec![]
+}
+
+
 pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf, minecraft_version: Option<MinecraftVersion>) -> Result<i64, String> {
     let reader = OpenOptions::new()
         .write(false)
@@ -427,26 +512,43 @@ pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf, minecraft_version: Opti
     let mut level_dat = zip_archive.by_name(&level_dat_path).map_err(|e| format!("level.dat path incorrectly set: {:?}", e))?;
 
     match minecraft_version {
-        Some(MinecraftVersion::Java1_15) => read_seed_from_level_dat_1_15(&mut level_dat),
+        Some(MinecraftVersion::Java1_7)
+        | Some(MinecraftVersion::Java1_13)
+        | Some(MinecraftVersion::Java1_14)
+        | Some(MinecraftVersion::Java1_15) => read_seed_from_level_dat_1_15(&mut level_dat),
         Some(MinecraftVersion::Java1_16) => read_seed_from_level_dat_1_16(&mut level_dat),
         Some(_) => return Err("Unimplemented".to_string()),
         None => {
             // Try to guess version, starting from the newest one
-            // TODO: is it ok to mutate level_dat?
+            // Mutating level_dat advances the reader, so read file into memory first
+            let mut buf = Vec::with_capacity(512);
+            level_dat.read_to_end(&mut buf).map_err(|e| format!("Failed to read level.dat: {:?}", e))?;
+            // Store all the errors
             let mut errs = vec![];
             Result::<i64, String>::Err(Default::default()).or_else(|_| {
-                read_seed_from_level_dat_1_16(&mut level_dat)
+                read_seed_from_level_dat_1_16(&mut Cursor::new(&buf))
             }).or_else(|e| {
                 errs.push(("1.16", e));
-                read_seed_from_level_dat_1_15(&mut level_dat)
+                read_seed_from_level_dat_1_15(&mut Cursor::new(&buf))
             }).map_err(|e| {
                 errs.push(("1.15", e));
-                format!("Failed to read level.dat: unsupported version or corrupted file. Detailed list of errors: {:?}", errs)
+            }).map_err(|_| {
+                // Convert the list of errors into a String because sadly that's our error type
+                let mut s = String::new();
+                s.push_str(&"Failed to read level.dat: unsupported version or corrupted file. Detailed list of errors:\n");
+                for (version, err) in errs {
+                    s.push_str(&format!("* {}: {}\n", version, err));
+                }
+
+                s
             })
         }
     }
 }
 
+/// Read seed from level.dat in version 1.15 and below.
+///
+/// root["Data"]["RandomSeed"]
 pub fn read_seed_from_level_dat_1_15<R: Read>(r: &mut R) -> Result<i64, String> {
     let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
     let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;
@@ -455,6 +557,9 @@ pub fn read_seed_from_level_dat_1_15<R: Read>(r: &mut R) -> Result<i64, String> 
     Ok(seed)
 }
 
+/// Read seed from level.dat in version 1.16 and above.
+///
+/// root["Data"]["WorldGenSettings"]["seed"]
 pub fn read_seed_from_level_dat_1_16<R: Read>(r: &mut R) -> Result<i64, String> {
     let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
     let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;

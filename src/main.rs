@@ -946,33 +946,62 @@ fn main() {
             mc_version,
         } => {
             let version: MinecraftVersion = mc_version.parse().unwrap();
-            if version == MinecraftVersion::Java1_15 || version == MinecraftVersion::Java1_16 {
-                let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, None).unwrap();
-                if JavaRng::create_from_long(world_seed as u64).is_none() {
-                    println!("Warning: this seed cannot be generated with Java Random nextLong");
-                }
-                println!("Seed from level.dat {}", world_seed);
-                let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
-                let biomes = anvil::get_all_biomes_1_15(&mut chunk_provider, Point { x: center_x, z: center_z });
-                println!("Got {} biomes", biomes.len());
-                let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
-                let area = Area::from_coords(points.iter());
-                println!("Area: {:?}", area);
-                
-                // Generate area with 1:4 resolution
-                let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, MinecraftVersion::Java1_15.num_layers() - 1);
-
-                // Compare maps :D
-                for (expected_biome_id, p) in biomes {
-                    let b = map.get(p.x, p.z);
-                    if b != expected_biome_id.0 {
-                        panic!("Mismatch at ({}, {}): expected {} generated {}", p.x, p.z, expected_biome_id.0, b);
+            match version {
+                MinecraftVersion::Java1_7 | MinecraftVersion::Java1_13 | MinecraftVersion::Java1_14 => {
+                    let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, Some(version)).unwrap();
+                    if JavaRng::create_from_long(world_seed as u64).is_none() {
+                        println!("Warning: this seed cannot be generated with Java Random nextLong");
                     }
-                }
+                    println!("Seed from level.dat {}", world_seed);
+                    let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+                    let biomes = anvil::get_all_biomes(&mut chunk_provider, Point { x: center_x, z: center_z });
+                    println!("Got {} biomes", biomes.len());
+                    let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
+                    let area = Area::from_coords(points.iter());
+                    println!("Area: {:?}", area);
 
-                println!("All biomes match");
-            } else {
-                unimplemented!()
+                    // Generate area with 1:1 resolution
+                    let map = biome_layers::generate(version, area, world_seed);
+
+                    // Compare maps :D
+                    for (expected_biome_id, p) in biomes {
+                        let b = map.get(p.x, p.z);
+                        if b != expected_biome_id.0 {
+                            panic!("Mismatch at ({}, {}): expected {} generated {}", p.x, p.z, expected_biome_id.0, b);
+                        }
+                    }
+
+                    println!("All biomes match");
+                }
+                MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16 => {
+                    let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, Some(version)).unwrap();
+                    if JavaRng::create_from_long(world_seed as u64).is_none() {
+                        println!("Warning: this seed cannot be generated with Java Random nextLong");
+                    }
+                    println!("Seed from level.dat {}", world_seed);
+                    let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+                    let biomes = anvil::get_all_biomes_1_15(&mut chunk_provider, Point { x: center_x, z: center_z });
+                    println!("Got {} biomes", biomes.len());
+                    let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
+                    let area = Area::from_coords(points.iter());
+                    println!("Area: {:?}", area);
+
+                    // Generate area with 1:4 resolution
+                    let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, MinecraftVersion::Java1_15.num_layers() - 1);
+
+                    // Compare maps :D
+                    for (expected_biome_id, p) in biomes {
+                        let b = map.get(p.x, p.z);
+                        if b != expected_biome_id.0 {
+                            panic!("Mismatch at ({}, {}): expected {} generated {}", p.x, p.z, expected_biome_id.0, b);
+                        }
+                    }
+
+                    println!("All biomes match");
+                }
+                _ => {
+                    unimplemented!("Version {} is not supported", mc_version);
+                }
             }
         }
     }
