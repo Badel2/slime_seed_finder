@@ -24,7 +24,8 @@ impl FromStr for BiomeId {
 pub enum MinecraftVersion {
     JavaAlpha1_2_5, // Alpha v1.0.4 - Alpha v1.2.5
     JavaBeta, // Alpha v1.2.6 - Beta ???
-    Java1_6, // From Beta 1.7 to 1.6
+    Java1_2, // From Beta 1.7 to 1.2
+    Java1_3, // From 1.3 to 1.6
     Java1_7, // From 1.7 to 1.12
     Java1_13,
     Java1_14,
@@ -36,6 +37,7 @@ impl MinecraftVersion {
     /// Total number of biome layers
     pub fn num_layers(&self) -> u32 {
         match self {
+            MinecraftVersion::Java1_3 => 33,
             MinecraftVersion::Java1_7 => 43,
             MinecraftVersion::Java1_13 => 51,
             MinecraftVersion::Java1_14 => 51, // actually 52 but bamboo jungle is inlined...
@@ -51,6 +53,7 @@ impl FromStr for MinecraftVersion {
         // TODO: this ignores everything starting from the second dot: 1.2.3 is parsed as 1.2
         let x = trim_at_second_dot(s);
         Ok(match x {
+            "1.3" | "1.4" | "1.5" | "1.6" => MinecraftVersion::Java1_3,
             "1.7" | "1.8" | "1.9" | "1.10" | "1.11" | "1.12" => MinecraftVersion::Java1_7,
             "1.13" => MinecraftVersion::Java1_13,
             "1.14" => MinecraftVersion::Java1_14,

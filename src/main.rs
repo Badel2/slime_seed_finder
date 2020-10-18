@@ -943,7 +943,7 @@ fn main() {
         } => {
             let version: MinecraftVersion = mc_version.parse().unwrap();
             match version {
-                MinecraftVersion::Java1_7 | MinecraftVersion::Java1_13 | MinecraftVersion::Java1_14 => {
+                MinecraftVersion::Java1_3 | MinecraftVersion::Java1_7 | MinecraftVersion::Java1_13 | MinecraftVersion::Java1_14 => {
                     let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, Some(version)).unwrap();
                     if JavaRng::create_from_long(world_seed as u64).is_none() {
                         println!("Warning: this seed cannot be generated with Java Random nextLong");

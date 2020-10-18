@@ -279,7 +279,7 @@ impl GetMap for CachedMap {
         } else {
             let m = self.parent.get_map(area);
             self.insert_into_cache(&m);
-            
+
             m
         }
     }
@@ -991,7 +991,7 @@ fn map_voronoi_1_15(x: i32, y: i32, z: i32, pos_offset: &[(f64, f64, f64); 8], b
     let mut dists = [0.0; 8];
 
     for i in 0..8 {
-        dists[i] = mod_squared_3d(pos_offset[i].0 + dx, pos_offset[i].1 + dy, pos_offset[i].2 + dz); 
+        dists[i] = mod_squared_3d(pos_offset[i].0 + dx, pos_offset[i].1 + dy, pos_offset[i].2 + dz);
     }
 
     let min_index = index_of_min_element(&dists).unwrap();
@@ -3131,6 +3131,594 @@ impl GetMap for MapAddBamboo {
     }
 }
 
+pub struct MapAddIsland13 {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapAddIsland13 {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapAddIsland13 {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x - 1,
+                z: area.z - 1,
+                w: area.w + 2,
+                h: area.h + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use biome_id::*;
+
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x + 1,
+            z: pmap.z + 1,
+            w: p_w as u64 - 2,
+            h: p_h as u64 - 2
+        };
+        let mut m = Map::new(area);
+        let mut r = McRng::new(self.base_seed, self.world_seed);
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
+                let v00 = pmap.a[(x+0, z+0)];
+                let v20 = pmap.a[(x+2, z+0)];
+                let v02 = pmap.a[(x+0, z+2)];
+                let v22 = pmap.a[(x+2, z+2)];
+                let v11 = pmap.a[(x+1, z+1)];
+
+                m.a[(x, z)] = if v11 == 0 && (v00 != 0 || v20 != 0 || v02 != 0 || v22 != 0) {
+                    let chunk_x = x as i64 + area.x;
+                    let chunk_z = z as i64 + area.z;
+                    r.set_chunk_seed(chunk_x, chunk_z);
+
+                    let mut v = 1;
+                    let mut inc = 1;
+
+                    if v00 != 0 {
+                        // nextInt(1) is always 0
+                        if r.next_int_n(inc) == 0 {
+                            v = v00;
+                        }
+                        inc += 1;
+                    }
+                    if v20 != 0 {
+                        if r.next_int_n(inc) == 0 {
+                            v = v20;
+                        }
+                        inc += 1;
+                    }
+                    if v02 != 0 {
+                        if r.next_int_n(inc) == 0 {
+                            v = v02;
+                        }
+                        inc += 1;
+                    }
+                    if v22 != 0 {
+                        if r.next_int_n(inc) == 0 {
+                            v = v22;
+                        }
+                    }
+                    if r.next_int_n(3) == 0 {
+                        v
+                    } else if v == icePlains {
+                        frozenOcean
+                    } else {
+                        0
+                    }
+                } else if v11 > 0 && (v00 == 0 || v20 == 0 || v02 == 0 || v22 == 0) {
+                    let chunk_x = x as i64 + area.x;
+                    let chunk_z = z as i64 + area.z;
+                    r.set_chunk_seed(chunk_x, chunk_z);
+                    if r.next_int_n(5) == 0 {
+                        if v11 == icePlains { frozenOcean } else { 0 }
+                    } else {
+                        v11
+                    }
+                } else {
+                    v11
+                };
+            }
+        }
+
+        m
+    }
+}
+
+pub struct MapIcePlains {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapIcePlains {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapIcePlains {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let pmap = parent.get_map(area);
+            self.get_map_from_pmap(&pmap)
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let r = McRng::new(self.base_seed, self.world_seed);
+        MapParentFn(PanicMap, |x, z, v| {
+            use biome_id::*;
+
+            if v == 0 {
+                0
+            } else {
+                let mut r = r;
+                r.set_chunk_seed(x, z);
+                if r.next_int_n(5) == 0 {
+                    icePlains
+                } else {
+                    1
+                }
+            }
+        }).get_map_from_pmap(pmap)
+    }
+}
+
+pub struct MapBiome13 {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapBiome13 {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapBiome13 {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let pmap = parent.get_map(area);
+            self.get_map_from_pmap(&pmap)
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use biome_id::*;
+        let biomes = [desert, forest, extremeHills, swampland, plains, taiga, jungle];
+
+        let r = McRng::new(self.base_seed, self.world_seed);
+        MapParentFn(PanicMap, |x, z, v| {
+            let mut r = r;
+            r.set_chunk_seed(x, z);
+            if v == 0 {
+                0
+            } else if v == mushroomIsland {
+                mushroomIsland
+            } else if v == 1 {
+                biomes[r.next_int_n(biomes.len() as i32) as usize]
+            } else {
+                let random_biome = biomes[r.next_int_n(biomes.len() as i32) as usize];
+                if random_biome == taiga {
+                    taiga
+                } else {
+                    icePlains
+                }
+            }
+        }).get_map_from_pmap(pmap)
+    }
+}
+
+pub struct MapRegionHills {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapRegionHills {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapRegionHills {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x - 1,
+                z: area.z - 1,
+                w: area.w + 2,
+                h: area.h + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let mut r = McRng::new(self.base_seed, self.world_seed);
+        use biome_id::*;
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x + 1,
+            z: pmap.z + 1,
+            w: p_w as u64 - 2,
+            h: p_h as u64 - 2
+        };
+        let mut m = Map::new(area);
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
+                let a11 = pmap.a[(x+1, z+1)];
+                let chunk_x = x as i64 + area.x;
+                let chunk_z = z as i64 + area.z;
+                r.set_chunk_seed(chunk_x, chunk_z);
+
+                m.a[(x, z)] = if r.next_int_n(3) == 0 {
+                    let hill_id = match a11 {
+                        desert => desertHills,
+                        forest => forestHills,
+                        taiga => taigaHills,
+                        plains => forest,
+                        icePlains => iceMountains,
+                        jungle => jungleHills,
+                        _ => a11,
+                    };
+
+                    if hill_id == a11 {
+                        a11
+                    } else {
+                        let a10 = pmap.a[(x+1, z+0)];
+                        let a21 = pmap.a[(x+2, z+1)];
+                        let a01 = pmap.a[(x+0, z+1)];
+                        let a12 = pmap.a[(x+1, z+2)];
+
+                        if a11 == a10 && a11 == a21 && a11 == a01 && a11 == a12 {
+                            hill_id
+                        } else {
+                            a11
+                        }
+                    }
+
+                } else {
+                    a11
+                };
+            }
+        }
+
+        m
+    }
+}
+
+pub struct MapMushroomShore {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapMushroomShore {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapMushroomShore {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x - 1,
+                z: area.z - 1,
+                w: area.w + 2,
+                h: area.h + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use biome_id::*;
+
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x + 1,
+            z: pmap.z + 1,
+            w: p_w as u64 - 2,
+            h: p_h as u64 - 2
+        };
+        let mut m = Map::new(area);
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
+                let v11 = pmap.a[(x+1, z+1)];
+
+                let v10 = pmap.a[(x+1, z+0)];
+                let v21 = pmap.a[(x+2, z+1)];
+                let v01 = pmap.a[(x+0, z+1)];
+                let v12 = pmap.a[(x+1, z+2)];
+
+                m.a[(x, z)] = if v11 == mushroomIsland {
+                    if v10 != ocean && v21 != ocean && v01 != ocean && v12 != ocean {
+                        v11
+                    } else {
+                        mushroomIslandShore
+                    }
+                } else if v11 != ocean && v11 != river && v11 != swampland && v11 != extremeHills {
+                    if v10 != ocean && v21 != ocean && v01 != ocean && v12 != ocean {
+                        v11
+                    } else {
+                        beach
+                    }
+                } else if v11 == extremeHills {
+                    if v10 == extremeHills && v21 == extremeHills && v01 == extremeHills && v12 == extremeHills {
+                        v11
+                    } else {
+                        extremeHillsEdge
+                    }
+                } else {
+                    v11
+                };
+            }
+        }
+
+        m
+    }
+}
+
+pub struct MapSwampRivers {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapSwampRivers {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapSwampRivers {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let pmap = parent.get_map(area);
+            self.get_map_from_pmap(&pmap)
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let r = McRng::new(self.base_seed, self.world_seed);
+        MapParentFn(PanicMap, |x, z, v| {
+            use biome_id::*;
+            let mut r = r;
+            r.set_chunk_seed(x, z);
+
+            if (v != swampland || r.next_int_n(6) != 0) && (v != jungle && v != jungleHills || r.next_int_n(8) != 0) {
+                v
+            } else {
+                river
+            }
+        }).get_map_from_pmap(pmap)
+    }
+}
+
+pub struct MapRiverInit13 {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapRiverInit13 {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapRiverInit13 {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let pmap = parent.get_map(area);
+            self.get_map_from_pmap(&pmap)
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        let r = McRng::new(self.base_seed, self.world_seed);
+        MapParentFn(PanicMap, |x, z, v| {
+            if v > 0 {
+                let mut r = r;
+                r.set_chunk_seed(x, z);
+                r.next_int_n(2) + 2
+            } else {
+                0
+            }
+        }).get_map_from_pmap(pmap)
+    }
+}
+
+pub struct MapRiver13 {
+    base_seed: i64,
+    world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap>>,
+}
+
+impl MapRiver13 {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent: None }
+    }
+}
+
+impl GetMap for MapRiver13 {
+    fn get_map(&self, area: Area) -> Map {
+        if let Some(ref parent) = self.parent {
+            let parea = Area {
+                x: area.x - 1,
+                z: area.z - 1,
+                w: area.w + 2,
+                h: area.h + 2
+            };
+            let pmap = parent.get_map(parea);
+
+            let map = self.get_map_from_pmap(&pmap);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+
+    // pmap has 1 wide margin on each size: pmap.w == map.w + 2
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        use biome_id::*;
+        let (p_w, p_h) = pmap.a.dim();
+        let area = Area {
+            x: pmap.x + 1,
+            z: pmap.z + 1,
+            w: p_w as u64 - 2,
+            h: p_h as u64 - 2
+        };
+        let mut m = Map::new(area);
+        for x in 0..area.w as usize {
+            for z in 0..area.h as usize {
+                let v11 = reduce_id(pmap.a[(x+1, z+1)]);
+                let v10 = reduce_id(pmap.a[(x+1, z+0)]);
+                let v21 = reduce_id(pmap.a[(x+2, z+1)]);
+                let v01 = reduce_id(pmap.a[(x+0, z+1)]);
+                let v12 = reduce_id(pmap.a[(x+1, z+2)]);
+
+                m.a[(x, z)] = if v11 != 0 && v11 == v01 && v11 == v10 && v11 == v21 && v11 == v12 {
+                    -1
+                } else {
+                    river
+                };
+            }
+        }
+
+        m
+    }
+}
+
+pub struct MapRiverMix13 {
+    base_seed: i64,
+    world_seed: i64,
+    // Map parent
+    pub parent1: Option<Rc<dyn GetMap>>,
+    // River parent
+    pub parent2: Option<Rc<dyn GetMap>>,
+}
+
+impl MapRiverMix13 {
+    pub fn new(base_seed: i64, world_seed: i64) -> Self {
+        Self { base_seed, world_seed, parent1: None, parent2: None }
+    }
+    pub fn get_map_from_pmap12(&self, pmap1: &Map, pmap2: &Map) -> Map {
+        use biome_id::*;
+        let (p_w, p_h) = pmap1.a.dim();
+        {
+            // Check that both maps are of same size and coords
+            assert_eq!(pmap1.area(), pmap2.area());
+        }
+        let mut m = pmap1.clone();
+        for x in 0..p_w as usize {
+            for z in 0..p_h as usize {
+                let buf = pmap1.a[(x, z)];
+                let out = pmap2.a[(x, z)];
+                m.a[(x, z)] = if buf == ocean {
+                    buf
+                } else if out >= 0 {
+                    if buf == icePlains {
+                        frozenRiver
+                    } else if buf == mushroomIsland || buf == mushroomIslandShore {
+                        mushroomIslandShore
+                    } else {
+                        out
+                    }
+                } else {
+                    buf
+                };
+            }
+        }
+
+        m
+    }
+}
+
+impl GetMap for MapRiverMix13 {
+    // 1 to 1 mapping with no borders
+    fn get_map(&self, area: Area) -> Map {
+        if let (Some(ref parent1), Some(ref parent2)) = (&self.parent1, &self.parent2) {
+            let parea = Area {
+                x: area.x,
+                z: area.z,
+                w: area.w,
+                h: area.h
+            };
+            let pmap1 = parent1.get_map(parea);
+            let pmap2 = parent2.get_map(parea);
+
+            let map = self.get_map_from_pmap12(&pmap1, &pmap2);
+
+            // No need to crop
+            map
+        } else {
+            panic!("Parents not set");
+        }
+    }
+
+    // pmap has no margin: pmap.w == map.w
+    fn get_map_from_pmap(&self, _pmap: &Map) -> Map {
+        panic!("MapRiverMix13 requires 2 pmaps!")
+    }
+}
+
+
 /// We lose some information here :/
 /// Returns a tuple (BiomeMap, RiverMap)
 fn decompose_map_river_mix(map: &Map) -> (SparseMap, SparseMap) {
@@ -4502,6 +5090,7 @@ pub fn generate(version: MinecraftVersion, a: Area, world_seed: i64) -> Map {
 
 pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, num_layers: u32) -> Map {
     match version {
+        MinecraftVersion::Java1_3 => generate_up_to_layer_1_3(area, seed, num_layers),
         MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers),
         MinecraftVersion::Java1_13 => generate_up_to_layer_1_13(area, seed, num_layers),
         MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
@@ -4510,6 +5099,130 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
             panic!("Biome generation in version {:?} is not implemented", version);
         }
     }
+}
+
+pub fn generate_up_to_layer_1_3(a: Area, world_seed: i64, layer: u32) -> Map {
+    if layer >= 200 {
+        //return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
+    }
+    if layer >= 100 && layer <= 142 {
+        // TODO: implement river layer visualization for 1.3
+        //return generate_up_to_layer_1_7_extra(a, world_seed, layer);
+    }
+
+    generator_up_to_layer_1_3(world_seed, layer).get_map(a)
+}
+
+pub fn generator_up_to_layer_1_3(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
+    let g0 = MapIsland::new(1, world_seed);
+    if layer == 0 { return Box::new(g0); }
+    let mut g1 = MapZoomFuzzy::new(2000, world_seed);
+    g1.parent = Some(Rc::new(g0));
+    if layer == 1 { return Box::new(g1); }
+    let mut g2 = MapAddIsland13::new(1, world_seed);
+    g2.parent = Some(Rc::new(g1));
+    if layer == 2 { return Box::new(g2); }
+    let mut g3 = MapZoom::new(2001, world_seed);
+    g3.parent = Some(Rc::new(g2));
+    if layer == 3 { return Box::new(g3); }
+    let mut g4 = MapAddIsland13::new(2, world_seed);
+    g4.parent = Some(Rc::new(g3));
+    if layer == 4 { return Box::new(g4); }
+    let mut g5 = MapIcePlains::new(2, world_seed);
+    g5.parent = Some(Rc::new(g4));
+    if layer == 5 { return Box::new(g5); }
+    let mut g6 = MapZoom::new(2002, world_seed);
+    g6.parent = Some(Rc::new(g5));
+    if layer == 6 { return Box::new(g6); }
+    let mut g7 = MapAddIsland13::new(3, world_seed);
+    g7.parent = Some(Rc::new(g6));
+    if layer == 7 { return Box::new(g7); }
+    let mut g8 = MapZoom::new(2003, world_seed);
+    g8.parent = Some(Rc::new(g7));
+    if layer == 8 { return Box::new(g8); }
+    let mut g9 = MapAddIsland13::new(4, world_seed);
+    g9.parent = Some(Rc::new(g8));
+    if layer == 9 { return Box::new(g9); }
+    let mut g10 = MapAddMushroomIsland::new(5, world_seed);
+    g10.parent = Some(Rc::new(g9));
+    if layer == 10 { return Box::new(g10); }
+    let g10 = Rc::new(g10);
+
+    let mut g11 = MapBiome13::new(200, world_seed);
+    g11.parent = Some(g10.clone());
+    if layer == 11 { return Box::new(g11); }
+    let mut g12 = MapZoom::new(1000, world_seed);
+    g12.parent = Some(Rc::new(g11));
+    if layer == 12 { return Box::new(g12); }
+    let mut g13 = MapZoom::new(1001, world_seed);
+    g13.parent = Some(Rc::new(g12));
+    if layer == 13 { return Box::new(g13); }
+    let mut g14 = MapRegionHills::new(1000, world_seed);
+    g14.parent = Some(Rc::new(g13));
+    if layer == 14 { return Box::new(g14); }
+
+    let mut g15 = MapZoom::new(1000, world_seed);
+    g15.parent = Some(Rc::new(g14));
+    if layer == 15 { return Box::new(g15); }
+    let mut g16 = MapAddIsland13::new(3, world_seed);
+    g16.parent = Some(Rc::new(g15));
+    if layer == 16 { return Box::new(g16); }
+    let mut g17 = MapZoom::new(1001, world_seed);
+    g17.parent = Some(Rc::new(g16));
+    if layer == 17 { return Box::new(g17); }
+    let mut g18 = MapMushroomShore::new(1000, world_seed);
+    g18.parent = Some(Rc::new(g17));
+    if layer == 18 { return Box::new(g18); }
+    let mut g19 = MapSwampRivers::new(1000, world_seed);
+    g19.parent = Some(Rc::new(g18));
+    if layer == 19 { return Box::new(g19); }
+    let mut g20 = MapZoom::new(1002, world_seed);
+    g20.parent = Some(Rc::new(g19));
+    if layer == 20 { return Box::new(g20); }
+    let mut g21 = MapZoom::new(1003, world_seed);
+    g21.parent = Some(Rc::new(g20));
+    if layer == 21 { return Box::new(g21); }
+
+    let mut g22 = MapSmooth::new(1000, world_seed);
+    g22.parent = Some(Rc::new(g21));
+    if layer == 22 { return Box::new(g22); }
+
+    let mut g23 = MapRiverInit13::new(100, world_seed);
+    g23.parent = Some(g10.clone());
+    if layer == 23 { return Box::new(g23); }
+    let mut g24 = MapZoom::new(1000, world_seed);
+    g24.parent = Some(Rc::new(g23));
+    if layer == 24 { return Box::new(g24); }
+    let mut g25 = MapZoom::new(1001, world_seed);
+    g25.parent = Some(Rc::new(g24));
+    if layer == 25 { return Box::new(g25); }
+    let mut g26 = MapZoom::new(1002, world_seed);
+    g26.parent = Some(Rc::new(g25));
+    if layer == 26 { return Box::new(g26); }
+    let mut g27 = MapZoom::new(1003, world_seed);
+    g27.parent = Some(Rc::new(g26));
+    if layer == 27 { return Box::new(g27); }
+    let mut g28 = MapZoom::new(1004, world_seed);
+    g28.parent = Some(Rc::new(g27));
+    if layer == 28 { return Box::new(g28); }
+    let mut g29 = MapZoom::new(1005, world_seed);
+    g29.parent = Some(Rc::new(g28));
+    if layer == 29 { return Box::new(g29); }
+    let mut g30 = MapRiver13::new(1, world_seed);
+    g30.parent = Some(Rc::new(g29));
+    if layer == 30 { return Box::new(g30); }
+    let mut g31 = MapSmooth::new(1000, world_seed);
+    g31.parent = Some(Rc::new(g30));
+    if layer == 31 { return Box::new(g31); }
+
+    let mut g32 = MapRiverMix13::new(100, world_seed);
+    g32.parent1 = Some(Rc::new(g22));
+    g32.parent2 = Some(Rc::new(g31));
+    if layer == 32 { return Box::new(g32); }
+
+    let mut g33 = MapVoronoiZoom::new(10, world_seed);
+    g33.parent = Some(Rc::new(g32));
+    Box::new(g33)
 }
 
 pub fn generate_up_to_layer_1_7_extra_2(a: Area, world_seed: i64, layer: u32) -> Map {
