@@ -360,6 +360,18 @@ enum Opt {
         #[structopt(long)]
         draw_biome_map: bool,
     },
+
+    /// Read a minecraft world and find all the already generated dungeons
+    #[structopt(name = "read-dungeons")]
+    ReadDungeons {
+        /// Path to "minecraft_saved_world.zip"
+        #[structopt(short = "i", long, parse(from_os_str))]
+        input_zip: PathBuf,
+        /// Minecraft version to use (Java edition).
+        /// Supported values: 1.16
+        #[structopt(long, default_value = "1.16")]
+        mc_version: String,
+    },
 }
 
 fn main() {
@@ -1032,6 +1044,20 @@ fn main() {
                     unimplemented!("Version {} is not supported", mc_version);
                 }
             }
+        }
+
+        Opt::ReadDungeons {
+            input_zip,
+            mc_version,
+        } => {
+            let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+            let version: MinecraftVersion = mc_version.parse().unwrap();
+            assert_eq!(version, MinecraftVersion::Java1_16, "only version 1.16 is supported");
+            let dungeons = anvil::find_dungeons(&mut chunk_provider).unwrap();
+            // Convert DungeonKind to string in order to serialize it
+            let dungeons: Vec<_> = dungeons.into_iter().map(|((x, y, z), kind, floor)| ((x, y, z), kind.to_string(), floor)).collect();
+            let dungeons_json = serde_json::to_string(&dungeons).unwrap();
+            println!("{}", dungeons_json);
         }
     }
 }

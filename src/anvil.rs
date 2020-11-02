@@ -20,9 +20,11 @@ use crate::chunk::Point;
 use crate::chunk::Point4;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
+use crate::fastanvil_ext::Dimension;
 use std::io::Cursor;
 use std::io::Read;
 use std::io::Seek;
+use std::str::FromStr;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -541,4 +543,193 @@ fn find_level_dat<R: Read + Seek>(
     }
 
     Ok(found_path)
+}
+
+pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Vec<((i64, i64, i64), SpawnerKind, Vec<String>)>, String> {
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    let mut dungeons = vec![];
+    let mut overworld: Dimension<std::fs::File> = Dimension::new();
+
+    for (chunk_x, chunk_z) in all_chunks {
+        let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let spawners = get_all_dungeons_in_chunk(&c).expect("Error getting dungeons");
+        let mut more_dungeons = vec![];
+
+        for (x, y, z, kind) in spawners {
+            match kind {
+                // Ignore spawners that cannot be generated in dungeons
+                SpawnerKind::Silverfish |
+                SpawnerKind::CaveSpider => continue,
+                _ => more_dungeons.push((x, y, z, kind)),
+            }
+        }
+
+        if more_dungeons.is_empty() {
+            continue;
+        }
+
+        // TODO: remove this hack:
+        // Load this chunk and the 8 surrounding ones into dimension
+        // Because we use a different NBT library to read blocks, we serialize the chunk NBT tag
+        // using the named-binary-tag crate and deserialize it using the fastanvil crate
+        let mut buf = Cursor::new(vec![]);
+        nbt::encode::write_compound_tag(&mut buf, c).expect("Serialization failed");
+
+        // To allow the reader to read...
+        buf.set_position(0);
+        overworld.add_chunk(chunk_x, chunk_z, &mut buf).expect("Failed to add chunk");
+
+        // Load 8 neighbors
+        for (chunk_x, chunk_z) in eight_connected((chunk_x, chunk_z)) {
+            // Skip if chunk is already loaded
+            if overworld.has_chunk(chunk_x, chunk_z) {
+                continue;
+            }
+            // Here, some of the chunks may not exist, so ignore errors
+            let c = chunk_provider.load_chunk(chunk_x, chunk_z);
+            if c.is_err() {
+                continue;
+            }
+            let c = c.unwrap();
+
+            // TODO: remove this hack:
+            // Because we use a different NBT library to read blocks, we serialize the chunk NBT tag
+            // using the named-binary-tag crate and deserialize it using the fastanvil crate
+            let mut buf = Cursor::new(vec![]);
+            nbt::encode::write_compound_tag(&mut buf, c).expect("Serialization failed");
+
+            // Set cursor position to 0 to allow the reader to read from the beginning
+            buf.set_position(0);
+            overworld.add_chunk(chunk_x, chunk_z, &mut buf).expect("Failed to add chunk neighbor");
+        }
+
+        for (x, y, z, kind) in more_dungeons {
+            let x = i64::from(x);
+            let y = i64::from(y);
+            let z = i64::from(z);
+            // Sanity check
+            assert_eq!(overworld.get_block(x, y, z).unwrap().name, "minecraft:spawner");
+
+            let mut floor = vec![];
+            // Read 11x11 area just below the spawner
+            let dy = -1;
+            for dz in (-5)..=5 {
+                for dx in (-5)..=5 {
+                    let block = overworld.get_block(x + dx, y + dy, z + dz);
+                    let block_name = block.map(|b| b.name).unwrap_or(
+                        // If the block does not exist, use empty string instead of block name
+                        // This seems to be common when a dungeon is near the edge of the world:
+                        // part of the floor is missing
+                        ""
+                    );
+                    // Map the block name to the equivalent DungeonFloor character
+                    /*
+                    let c = match block_name {
+                        "minecraft:cobblestone" => "C",
+                        "minecraft:mossy_cobblestone" => "M",
+                        "minecraft:air" => "A",
+                        _ => "?",
+                    };
+                    */
+                    floor.push(block_name.to_string());
+                }
+            }
+
+            /*
+            let mut floor_string = String::with_capacity(11 * 11 + 11);
+            for (i, f) in floor.iter().enumerate() {
+                if i > 0 && i % 11 == 0 {
+                    floor_string.push_str("\n");
+                }
+                floor_string.push_str(f);
+            }
+            println!("Floor below {:?}:", (x, y, z));
+            println!("{}", floor_string);
+            */
+
+            dungeons.push(((x, y, z), kind, floor));
+        }
+    }
+
+    Ok(dungeons)
+}
+
+/// The differents kinds of spawners that can be found in a vanilla minecraft world
+#[derive(Copy, Clone, Debug)]
+pub enum SpawnerKind {
+    CaveSpider,
+    Silverfish,
+    Skeleton,
+    Spider,
+    Zombie,
+}
+
+impl FromStr for SpawnerKind {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "minecraft:cave_spider" => SpawnerKind::CaveSpider,
+            "minecraft:silverfish" => SpawnerKind::Silverfish,
+            "minecraft:skeleton" => SpawnerKind::Skeleton,
+            "minecraft:spider" => SpawnerKind::Spider,
+            "minecraft:zombie" => SpawnerKind::Zombie,
+            s => return Err(s.to_string()),
+        })
+    }
+}
+
+impl ToString for SpawnerKind {
+    fn to_string(&self) -> String {
+        let static_str = match self {
+            SpawnerKind::CaveSpider => "minecraft:cave_spider",
+            SpawnerKind::Silverfish => "minecraft:silverfish",
+            SpawnerKind::Skeleton => "minecraft:skeleton",
+            SpawnerKind::Spider => "minecraft:spider",
+            SpawnerKind::Zombie => "minecraft:zombie",
+        };
+        static_str.to_string()
+    }
+}
+
+pub fn get_all_dungeons_in_chunk(chunk: &CompoundTag) -> Result<Vec<(i32, i32, i32, SpawnerKind)>, String> {
+    let mut dungeons = vec![];
+
+    let level_tag = chunk.get_compound_tag("Level").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Level", e))?;
+    let tile_entities = level_tag.get_compound_tag_vec("TileEntities").map_err(|e| format!("Failed to read {:?} tag: {:?}", "TileEntities", e))?;
+
+    for (i, tile_entity_tag) in tile_entities.into_iter().enumerate() {
+        let id = tile_entity_tag.get_str("id").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "id", i, e))?;
+        if id != "minecraft:mob_spawner" {
+            continue;
+        }
+
+        let x = tile_entity_tag.get_i32("x").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "x", i, e))?;
+        let y = tile_entity_tag.get_i32("y").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "y", i, e))?;
+        let z = tile_entity_tag.get_i32("z").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "z", i, e))?;
+
+        let spawn_potentials = tile_entity_tag.get_compound_tag_vec("SpawnPotentials").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "SpawnPotentials", i, e))?;
+        assert_eq!(spawn_potentials.len(), 1);
+
+        let entity_tag = spawn_potentials[0].get_compound_tag("Entity").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "Entity", i, e))?;
+        let entity_id = entity_tag.get_str("id").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "id", i, e))?;
+
+        let dungeon_kind = entity_id.parse().expect("Unknown entity id");
+        dungeons.push((x, y, z, dungeon_kind));
+    }
+
+    Ok(dungeons)
+}
+
+fn eight_connected((x, z): (i32, i32)) -> impl Iterator<Item = (i32, i32)> {
+    vec![
+        (x - 1, z - 1,),
+        (x - 1, z,    ),
+        (x - 1, z + 1,),
+        (x, z - 1,    ),
+        (x, z + 1,    ),
+        (x + 1, z - 1,),
+        (x + 1, z,    ),
+        (x + 1, z + 1 ),
+    ].into_iter()
 }

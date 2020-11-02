@@ -26,3 +26,4 @@ pub mod structures;
 #[allow(non_upper_case_globals)]
 pub mod biome_info;
 pub mod population;
+pub mod fastanvil_ext;
