@@ -21,6 +21,7 @@ use crate::chunk::Point4;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use crate::fastanvil_ext::Dimension;
+use crate::zip_ext::find_file_in_zip_exactly_once;
 use std::io::Cursor;
 use std::io::Read;
 use std::io::Seek;
@@ -516,33 +517,10 @@ pub fn read_seed_from_level_dat_1_16<R: Read>(r: &mut R) -> Result<i64, String> 
 // For example: "level.dat", "world/level.dat" or "saves/world/level.dat"
 // Returns error if no region folder is found
 // Returns error if more than one folder is found
-fn find_level_dat<R: Read + Seek>(
-    zip_archive: &mut ZipArchive<R>,
-) -> Result<String, String> {
-    let mut found_path = String::from("/");
-    let mut found_file_count = 0;
-    for i in 0..zip_archive.len() {
-        // This unwrap is safe because we are iterating from 0 to len
-        let file = zip_archive.by_index(i).unwrap();
-        let full_path = file.sanitized_name();
-        // file_name() returns None when the path ends with "/.."
-        // we handle that case as an empty string
-        let file_name = full_path.file_name().unwrap_or_default();
-        if file_name == "level.dat" {
-            found_file_count += 1;
-            found_path = file.name().to_string();
-            // Keep searching after finding the first folder, to make sure
-            // there is only one region/ folder
-        }
-    }
-    if found_file_count == 0 {
-        return Err("level.dat not found in zip archive".to_string());
-    }
-    if found_file_count > 1 {
-        return Err("More than one level.dat file found in zip archive".to_string());
-    }
-
-    Ok(found_path)
+fn find_level_dat<R: Read + Seek>(zip_archive: &mut ZipArchive<R>) -> Result<String, String> {
+    find_file_in_zip_exactly_once(zip_archive, "level.dat")
+        .map(|x| x.to_string())
+        .map_err(|e| format!("Failed to find level.dat in zip archive: {}", e))
 }
 
 pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Vec<((i64, i64, i64), SpawnerKind, Vec<String>)>, String> {
@@ -679,8 +657,8 @@ impl FromStr for SpawnerKind {
     }
 }
 
-impl ToString for SpawnerKind {
-    fn to_string(&self) -> String {
+impl std::fmt::Display for SpawnerKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let static_str = match self {
             SpawnerKind::CaveSpider => "minecraft:cave_spider",
             SpawnerKind::Silverfish => "minecraft:silverfish",
@@ -688,7 +666,7 @@ impl ToString for SpawnerKind {
             SpawnerKind::Spider => "minecraft:spider",
             SpawnerKind::Zombie => "minecraft:zombie",
         };
-        static_str.to_string()
+        write!(f, "{}", static_str)
     }
 }
 

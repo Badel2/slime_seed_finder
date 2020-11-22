@@ -27,3 +27,4 @@ pub mod structures;
 pub mod biome_info;
 pub mod population;
 pub mod fastanvil_ext;
+pub mod zip_ext;
