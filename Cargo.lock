@@ -1171,8 +1171,7 @@ checksum = "bfe3068700d36b5bc091494a9283587cf2442eb0f0c030295665f26f835cd2e1"
 [[package]]
 name = "stdweb"
 version = "0.4.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d022496b16281348b52d0e30ae99e01a73d737b2f45d38fed4edf79f9325a1d5"
+source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 dependencies = [
  "discard",
  "rustc_version",
@@ -1187,8 +1186,7 @@ dependencies = [
 [[package]]
 name = "stdweb-derive"
 version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c87a60a40fccc84bef0652345bbbbbe20a605bf5d0ce81719fc476f5c03b50ef"
+source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1200,8 +1198,7 @@ dependencies = [
 [[package]]
 name = "stdweb-internal-macros"
 version = "0.2.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58fa5ff6ad0d98d1ffa8cb115892b6e69d67799f6763e162a1c9db421dc22e11"
+source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 dependencies = [
  "base-x",
  "proc-macro2",
@@ -1216,8 +1213,7 @@ dependencies = [
 [[package]]
 name = "stdweb-internal-runtime"
 version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "213701ba3370744dcd1a12960caa4843b3d68b4d1c0a5d575e0d65b2ee9d16c0"
+source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 
 [[package]]
 name = "strsim"
