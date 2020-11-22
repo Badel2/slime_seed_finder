@@ -1,0 +1,35 @@
+name: Deploy web demo
+
+on:
+  push:
+    branches:
+      - master
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose --features="main"
+    - name: Run tests
+      run: cargo test --verbose --features="main"
+
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install cargo-web
+      run: ./ci/install_cargo_web.sh
+    - name: Build web demo
+      run: ./ci/build_demo.sh
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./static

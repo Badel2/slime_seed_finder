@@ -15,15 +15,8 @@ script:
   - ./ci/build_demo.sh
 
 after_success:
-  # Deploy web demo to gh-pages branch
+  # Send coverage data to coveralls
   - |
-    [ $TRAVIS_BRANCH = master ] &&
-    [ $TRAVIS_PULL_REQUEST = false ] &&
-    [ $TRAVIS_RUST_VERSION = stable ] &&
-    #echo "<meta http-equiv=refresh content=0;url=deploy/index.html>" > target/index.html &&
-    sudo pip install ghp-import &&
-    ghp-import -n target/deploy &&
-    git push -fq https://${GH_TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages &&
     cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 
 env:

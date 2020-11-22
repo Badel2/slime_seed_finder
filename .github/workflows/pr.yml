@@ -1,0 +1,30 @@
+name: Pull request
+
+on:
+  pull_request:
+    branches:
+      - master
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose --features="main"
+    - name: Run tests
+      run: cargo test --verbose --features="main"
+
+  build-web-demo:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install cargo-web
+      run: ./ci/install_cargo_web.sh
+    - name: Build web demo
+      run: ./ci/build_demo.sh
