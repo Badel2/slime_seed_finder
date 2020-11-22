@@ -13,23 +13,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose --features="main"
-    - name: Run tests
-      run: cargo test --verbose --features="main"
 
-  deploy:
-    runs-on: ubuntu-latest
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install cargo-web
-      run: ./ci/install_cargo_web.sh
-    - name: Build web demo
-      run: ./ci/build_demo.sh
-    - name: Deploy
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./static
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Build
+        run: cargo build --verbose --features="main"
+
+      - name: Run tests
+        run: cargo test --verbose --features="main"
+
+      - name: Install cargo-web
+        run: ./ci/install_cargo_web.sh
+
+      - name: Build web demo
+        run: ./ci/build_demo.sh
+
+      - name: Deploy web demo
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./static
+          force_orphan: true
+
+      - name: Run cargo-tarpaulin
+        uses: actions-rs/tarpaulin@v0.1
+        with:
+          args: '--ignore-tests --out Lcov'
+
+      - name: upload to Coveralls
+        uses: coverallsapp/github-action@master
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-lcov: './lcov.info'
