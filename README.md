@@ -1,6 +1,6 @@
 # slime_seed_finder
 
-[![Build Status](https://travis-ci.org/Badel2/slime_seed_finder.svg?branch=master)](https://travis-ci.org/Badel2/slime_seed_finder)
+[![Build Status](https://travis-ci.com/Badel2/slime_seed_finder.svg?branch=master)](https://travis-ci.com/Badel2/slime_seed_finder)
 [![Coverage Status](https://coveralls.io/repos/github/Badel2/slime_seed_finder/badge.svg?branch=master)](https://coveralls.io/github/Badel2/slime_seed_finder?branch=master)
 
 This program finds minecraft world generation seeds using slime chunks and
