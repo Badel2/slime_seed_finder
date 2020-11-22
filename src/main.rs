@@ -353,8 +353,8 @@ enum Opt {
         #[structopt(short = "i", long, parse(from_os_str))]
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.15, 1.16
-        #[structopt(long, default_value = "1.15")]
+        /// Supported values: from 1.3 to 1.16, both included
+        #[structopt(long, default_value = "1.16")]
         mc_version: String,
         /// Render biome map from the biomes according to the saved world
         #[structopt(long)]
@@ -662,7 +662,7 @@ fn main() {
         } => {
             let version = mc_version.parse().unwrap();
 
-            if version == MinecraftVersion::Java1_15 {
+            if version >= MinecraftVersion::Java1_15 {
                 let (rivers, _extra_biomes) = anvil::get_rivers_and_some_extra_biomes_zip_1_15(&input_zip, Point { x: center_x, z: center_z });
 
                 {
@@ -1028,7 +1028,7 @@ fn main() {
                     }
 
                     // Generate area with 1:4 resolution
-                    let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, MinecraftVersion::Java1_15.num_layers() - 1);
+                    let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, version.num_layers() - 1);
 
                     // Compare maps :D
                     for (expected_biome_id, p) in biomes {
