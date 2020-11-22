@@ -89,8 +89,8 @@ enum Opt {
         #[structopt(long, default_value = "0")]
         biome_map_z: i64,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
-        #[structopt(long, default_value = "1.14")]
+        /// Supported values: from 1.3 to 1.16
+        #[structopt(long)]
         mc_version: String,
     },
 
@@ -177,8 +177,8 @@ enum Opt {
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
-        #[structopt(long, default_value = "1.14")]
+        /// Supported values: from 1.3 to 1.16
+        #[structopt(long)]
         mc_version: String,
         /// The last layer to generate. Defaults to the latest one (full
         /// resolution biome map).
@@ -210,8 +210,8 @@ enum Opt {
         #[structopt(short = "o", long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
-        #[structopt(long, default_value = "1.14")]
+        /// Supported values: from 1.3 to 1.16
+        #[structopt(long)]
         mc_version: String,
     },
 
@@ -234,8 +234,8 @@ enum Opt {
         #[structopt(long, default_value = "0")]
         center_z: i64,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
-        #[structopt(long, default_value = "1.14")]
+        /// Supported values: from 1.3 to 1.16
+        #[structopt(long)]
         mc_version: String,
     },
 
@@ -258,8 +258,8 @@ enum Opt {
         #[structopt(long, default_value = "0")]
         center_z: i64,
         /// Minecraft version to use (Java edition).
-        /// Supported values: 1.7, 1.8, 1.9, 1.10, 1.11, 1.12, 1.13, 1.14.
-        #[structopt(long, default_value = "1.14")]
+        /// Supported values: from 1.3 to 1.16
+        #[structopt(long)]
         mc_version: String,
     },
 
@@ -353,8 +353,8 @@ enum Opt {
         #[structopt(short = "i", long, parse(from_os_str))]
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
-        /// Supported values: from 1.3 to 1.16, both included
-        #[structopt(long, default_value = "1.16")]
+        /// Supported values: from 1.3 to 1.16
+        #[structopt(long)]
         mc_version: String,
         /// Render biome map from the biomes according to the saved world
         #[structopt(long)]
@@ -369,7 +369,7 @@ enum Opt {
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
         /// Supported values: 1.16
-        #[structopt(long, default_value = "1.16")]
+        #[structopt(long)]
         mc_version: String,
     },
 }
