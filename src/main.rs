@@ -971,7 +971,7 @@ fn main() {
 
                     if draw_biome_map {
                         println!("Drawing biome map");
-                        let mut map = Map::new(area);
+                        let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
                         for (expected_biome_id, p) in &biomes {
                             map.set(p.x, p.z, expected_biome_id.0);
                         }
@@ -1013,7 +1013,7 @@ fn main() {
 
                     if draw_biome_map {
                         println!("Drawing biome map");
-                        let mut map = Map::new(area);
+                        let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
                         for (expected_biome_id, p) in &biomes {
                             map.set(p.x, p.z, expected_biome_id.0);
                         }
