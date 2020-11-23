@@ -527,8 +527,14 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     let mut dungeons = vec![];
     let mut overworld: Dimension<std::fs::File> = Dimension::new();
+    let total_chunks = all_chunks.len();
+    let mut processed_chunks_count = 0;
 
     for (chunk_x, chunk_z) in all_chunks {
+        if processed_chunks_count % 1024 == 0 {
+            log::debug!("{}/{} chunks processed, {} dungeons found", processed_chunks_count, total_chunks, dungeons.len());
+        }
+        processed_chunks_count += 1;
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
         let spawners = get_all_dungeons_in_chunk(&c).expect("Error getting dungeons");
         let mut more_dungeons = vec![];
@@ -628,6 +634,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             dungeons.push(((x, y, z), kind, floor));
         }
     }
+    log::debug!("All chunks processed, {} dungeons found", dungeons.len());
 
     Ok(dungeons)
 }

@@ -706,3 +706,38 @@ fn image_grayscale_into_map(img: image::GrayImage) -> Map {
 
     m
 }
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Position {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoundDungeon {
+    pub position: Position,
+    pub kind: String,
+    pub floor: Vec<String>,
+}
+
+#[js_export]
+pub fn read_dungeons(zipped_world: TypedArray<u8>) -> Serde<Vec<FoundDungeon>> {
+    use slime_seed_finder::anvil::ZipChunkProvider;
+    use std::io::Cursor;
+    // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
+    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let dungeons = anvil::find_dungeons(&mut chunk_provider).unwrap();
+    // Convert DungeonKind to string in order to serialize it
+    let dungeons: Vec<_> = dungeons
+        .into_iter()
+        .map(|((x, y, z), kind, floor)| FoundDungeon {
+            position: Position { x, y, z },
+            kind: kind.to_string(),
+            floor,
+        })
+        .collect();
+    Serde(dungeons)
+}
