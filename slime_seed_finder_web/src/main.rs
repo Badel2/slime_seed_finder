@@ -28,6 +28,8 @@ fn main() {
         print_error_panic(&info.to_string());
     }));
     // Init console logger
+    // TODO: provide some way to change the log level
+    // It cannot be changed at runtime because of limitations of the log crate
     stdweb_logger::Logger::init_with_level(::log::LevelFilter::Debug);
     // Don't start, wait for user to press button
 }

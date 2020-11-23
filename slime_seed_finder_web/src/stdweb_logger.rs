@@ -10,7 +10,6 @@
 // term2
 // And also added color and module info, from the pretty_env_logger crate
 
-use ansi_term::{Color, Style};
 use log::{self, Level, LevelFilter, Log, Metadata, Record, SetLoggerError};
 use std::fmt;
 use std::fmt::Write;
@@ -21,14 +20,30 @@ use stdweb::js;
 // https://github.com/seanmonstar/pretty-env-logger
 struct ColorLevel(Level);
 
+impl ColorLevel {
+    // Return the style of the log level that should be applied to the console.log command using
+    // the %c modifier
+    fn js_style(&self) -> &'static str {
+        match self.0 {
+            Level::Trace => "color: purple",
+            Level::Debug => "color: blue",
+            Level::Info => "color: green",
+            // At least in firefox, console.warn and console.error have a colored background, so
+            // there is no need to paint the level in a different color
+            Level::Warn => "",
+            Level::Error => "",
+        }
+    }
+}
+
 impl fmt::Display for ColorLevel {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
-            Level::Trace => Color::Purple.paint("TRACE"),
-            Level::Debug => Color::Blue.paint("DEBUG"),
-            Level::Info => Color::Green.paint("INFO "),
-            Level::Warn => Color::Yellow.paint("WARN "),
-            Level::Error => Color::Red.paint("ERROR"),
+            Level::Trace => "TRACE",
+            Level::Debug => "DEBUG",
+            Level::Info => "INFO ",
+            Level::Warn => "WARN ",
+            Level::Error => "ERROR",
         }
         .fmt(f)
     }
@@ -76,20 +91,33 @@ impl Log for Logger {
             MAX_MODULE_WIDTH.store(target.len(), Ordering::Relaxed);
             max_width = target.len();
         }
+        let color_level = ColorLevel(record.level());
         let mut message = String::new();
         write!(
             &mut message,
-            " {} {} > {}",
-            ColorLevel(record.level()),
-            Style::new()
-                .bold()
-                .paint(format!("{: <width$}", target, width = max_width)),
-            record.args()
+            " %c{} %c{: <width$} %c> {}",
+            color_level,
+            target,
+            record.args(),
+            width = max_width,
         )
         .unwrap();
 
-        js! {
-            console.debug(@{message});
+        let format1 = color_level.js_style();
+        let format2 = "font-weight: bold";
+        let format3 = "";
+        let js_function_index = match record.level() {
+            // console.trace prints the stacktrace, we do not want that
+            // console.debug is hidden by default in chrome, so use console.log instead
+            Level::Trace | Level::Debug => 1,
+            Level::Info => 2,
+            Level::Warn => 3,
+            Level::Error => 4,
+        };
+
+        js! { @(no_return)
+            let console_fn = [console.trace, console.log, console.info, console.warn, console.error][@{js_function_index}];
+            console_fn(@{message}, @{format1}, @{format2}, @{format3});
         }
     }
 

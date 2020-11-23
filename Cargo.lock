@@ -1151,7 +1151,6 @@ dependencies = [
 name = "slime_seed_finder_web"
 version = "0.1.0"
 dependencies = [
- "ansi_term 0.12.1",
  "image",
  "log",
  "minecraft_screenshot_parser",
@@ -1171,7 +1170,7 @@ checksum = "bfe3068700d36b5bc091494a9283587cf2442eb0f0c030295665f26f835cd2e1"
 [[package]]
 name = "stdweb"
 version = "0.4.20"
-source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
+source = "git+https://github.com/Badel2/stdweb?rev=942dadf9b36df45cb689d52c18753d3d6df4ee9e#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 dependencies = [
  "discard",
  "rustc_version",
@@ -1186,7 +1185,7 @@ dependencies = [
 [[package]]
 name = "stdweb-derive"
 version = "0.5.3"
-source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
+source = "git+https://github.com/Badel2/stdweb?rev=942dadf9b36df45cb689d52c18753d3d6df4ee9e#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1198,7 +1197,7 @@ dependencies = [
 [[package]]
 name = "stdweb-internal-macros"
 version = "0.2.9"
-source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
+source = "git+https://github.com/Badel2/stdweb?rev=942dadf9b36df45cb689d52c18753d3d6df4ee9e#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 dependencies = [
  "base-x",
  "proc-macro2",
@@ -1213,7 +1212,7 @@ dependencies = [
 [[package]]
 name = "stdweb-internal-runtime"
 version = "0.1.5"
-source = "git+https://github.com/Badel2/stdweb#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
+source = "git+https://github.com/Badel2/stdweb?rev=942dadf9b36df45cb689d52c18753d3d6df4ee9e#942dadf9b36df45cb689d52c18753d3d6df4ee9e"
 
 [[package]]
 name = "strsim"

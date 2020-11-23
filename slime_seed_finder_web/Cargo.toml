@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 slime_seed_finder = { "path" = ".." }
-ansi_term = "0.12.1"
 image = { version = "0.23", default-features = false }
 log = { version = "0.4.8", features = ["std"] }
 minecraft_screenshot_parser = "0.3"
