@@ -707,7 +707,7 @@ fn image_grayscale_into_map(img: image::GrayImage) -> Map {
     m
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
     pub x: i64,
@@ -740,4 +740,30 @@ pub fn read_dungeons(zipped_world: TypedArray<u8>) -> Serde<Vec<FoundDungeon>> {
         })
         .collect();
     Serde(dungeons)
+}
+
+#[js_export]
+pub fn find_blocks_in_world(
+    zipped_world: TypedArray<u8>,
+    block_name: &str,
+    center_position_and_chunk_radius: Serde<Option<(Position, u32)>>,
+) -> Serde<Vec<Position>> {
+    use slime_seed_finder::anvil::ZipChunkProvider;
+    use std::io::Cursor;
+    // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
+    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let blocks = anvil::find_blocks_in_world(
+        &mut chunk_provider,
+        block_name,
+        center_position_and_chunk_radius
+            .0
+            .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
+    )
+    .unwrap();
+    let blocks: Vec<Position> = blocks
+        .into_iter()
+        .map(|(x, y, z)| Position { x, y, z })
+        .collect();
+
+    Serde(blocks)
 }

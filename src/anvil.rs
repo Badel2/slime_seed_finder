@@ -21,6 +21,7 @@ use crate::chunk::Point4;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use crate::fastanvil_ext::Dimension;
+use crate::fastanvil_ext::region_for_each_chunk;
 use crate::zip_ext::find_file_in_zip_exactly_once;
 use std::io::Cursor;
 use std::io::Read;
@@ -717,4 +718,101 @@ fn eight_connected((x, z): (i32, i32)) -> impl Iterator<Item = (i32, i32)> {
         (x + 1, z,    ),
         (x + 1, z + 1 ),
     ].into_iter()
+}
+
+fn chunk_square_around((chunk_x, chunk_z): (i32, i32), chunk_radius: u32) -> Vec<(i32, i32)> {
+    let chunk_radius = i32::try_from(chunk_radius).unwrap_or(i32::MAX);
+    let mut v = vec![];
+
+    for x in chunk_x.saturating_sub(chunk_radius)..=chunk_x.saturating_add(chunk_radius) {
+        for z in chunk_z.saturating_sub(chunk_radius)..=chunk_z.saturating_add(chunk_radius) {
+            v.push((x, z));
+        }
+    }
+
+    v
+}
+
+pub fn region_contains_at_least_one_of_this_chunks((region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>) -> bool {
+    if let Some(only_check_chunks) = only_check_chunks {
+        let region_start_x = region_x * 32;
+        let region_end_x = (region_x + 1) * 32 - 1;
+        let region_start_z = region_z * 32;
+        let region_end_z = (region_z + 1) * 32 - 1;
+
+        // Return true if at least one of the chunks in "only_check_chunks" is inside this region
+        only_check_chunks.iter().any(|(chunk_x, chunk_z)| {
+            region_start_x <= *chunk_x && *chunk_x <= region_end_x &&
+            region_start_z <= *chunk_z && *chunk_z <= region_end_z
+        })
+    } else {
+        // If only_check_chunks is None, we must check all the chunks. So return true
+        true
+    }
+}
+
+pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block_name: &str, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> Result<Vec<(i64, i64, i64)>, String> {
+    let only_check_chunks = center_position_and_chunk_radius.map(|((x, _y, z), chunk_radius)| {
+        let chunk_x = i32::try_from(x >> 4).unwrap();
+        let chunk_z = i32::try_from(z >> 4).unwrap();
+
+        chunk_square_around((chunk_x, chunk_z), chunk_radius)
+    });
+    let mut found_blocks = vec![];
+    for (region_x, region_z) in chunk_provider.list_regions().unwrap() {
+        if !region_contains_at_least_one_of_this_chunks((region_x, region_z), only_check_chunks.as_deref()) {
+            log::debug!("Skipping region {:?}", (region_x, region_z));
+            continue;
+        }
+        log::debug!("Checking region {:?}", (region_x, region_z));
+        let region = chunk_provider.get_region(region_x, region_z).unwrap();
+        let more_blocks = find_blocks_in_region(region, (region_x, region_z), block_name, only_check_chunks.as_deref())?;
+        found_blocks.extend(more_blocks);
+    }
+
+    Ok(found_blocks)
+}
+
+pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i32, i32), block_name: &str, only_check_chunks: Option<&[(i32, i32)]>) -> Result<Vec<(i64, i64, i64)>, String> {
+    let mut dungeons = vec![];
+    let mut region = fastanvil::Region::new(region);
+    region_for_each_chunk(&mut region, |chunk_x, chunk_z, data| {
+        if let Some(only_check_chunks) = only_check_chunks {
+            let chunk_x = region_x * 32 + chunk_x as i32;
+            let chunk_z = region_z * 32 + chunk_z as i32;
+            // Skip chunk if not in "only_check_chunks"
+            if !only_check_chunks.contains(&(chunk_x, chunk_z)) {
+                return;
+            }
+        }
+
+        let mut chunk: fastanvil::Chunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
+        //println!("Another chunk");
+        //println!("{:?}: {:?}", (chunk_x, chunk_z), chunk);
+        for x in 0..16 {
+            for y in 0..256 {
+                for z in 0..16 {
+                    if let Some(block) = chunk.block(x as usize, y as usize, z as usize) {
+                        if block.name == block_name {
+                            let (x, y, z) = (x as i64, y as i64, z as i64);
+                            let (chunk_x, chunk_z) = (chunk_x as i64, chunk_z as i64);
+                            let block_x = i64::from(region_x) * 16 * 32 + chunk_x * 16 + x;
+                            let block_y = i64::from(y);
+                            let block_z = i64::from(region_z) * 16 * 32 + chunk_z * 16 + z;
+                            //println!("{:?}", (block_x, block_y, block_z));
+                            //println!("block {:?} chunk {:?}", (x, y, z), (chunk_x, chunk_z));
+                            //println!("{}", block_name);
+                            //log::debug!("{:?}: {}", (block_x, block_y, block_z), block.name);
+                            dungeons.push((block_x, block_y, block_z));
+                        }
+                    } else {
+                        // TODO: check max y to avoid iterating from 0 to 255
+                        //println!("No block?");
+                    }
+                }
+            }
+        }
+    }).unwrap();
+
+    Ok(dungeons)
 }

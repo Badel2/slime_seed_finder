@@ -48,7 +48,7 @@ dependencies = [
 [[package]]
 name = "anvil-region"
 version = "0.3.0"
-source = "git+https://github.com/Badel2/anvil-region?rev=6b8cc7e782f41d53d7ea5d708c760e8d4cb95e7c#6b8cc7e782f41d53d7ea5d708c760e8d4cb95e7c"
+source = "git+https://github.com/Badel2/anvil-region?rev=7804652c8d1642ed2d5e88ad0ad1064b815cb4ab#7804652c8d1642ed2d5e88ad0ad1064b815cb4ab"
 dependencies = [
  "bitvec",
  "byteorder",

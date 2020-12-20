@@ -162,3 +162,40 @@ fn find_all_region_mca(path: PathBuf) -> Result<Vec<(i32, i32)>, std::io::Error>
 
     Ok(r)
 }
+
+// Copy of fastanvil::Region::for_each_chunk that ignores errors
+pub fn region_for_each_chunk<S>(region: &mut fastanvil::Region<S>, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> fastanvil::Result<()>
+where S: Seek + Read
+{
+        let mut offsets = Vec::<fastanvil::ChunkLocation>::new();
+
+        // Build list of existing chunks
+        for x in 0..32 {
+            for z in 0..32 {
+                match region.chunk_location(x, z) {
+                    Ok(loc) => {
+                        // 0,0 chunk location means the chunk isn't present.
+                        // cannot decide if this means we should return an error from chunk_location() or not.
+                        if loc.begin_sector != 0 && loc.sector_count != 0 {
+                            offsets.push(loc);
+                        }
+                    }
+                    Err(e) => {
+                        // Ignore errors
+                        log::error!("Error getting chunk location of chunk {:?}: {:?}", (x, z), e);
+                    }
+                }
+            }
+        }
+
+        // sort so we linearly seek through the file.
+        // might make things easier on a HDD [citation needed]
+        offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
+
+        for offset in offsets {
+            let chunk = region.load_chunk(offset.x, offset.z)?;
+            f(offset.x, offset.z, &chunk);
+        }
+
+        Ok(())
+}
