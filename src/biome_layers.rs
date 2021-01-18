@@ -4521,6 +4521,39 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
     candidates_64
 }
 
+pub fn filter_seeds_using_biomes(candidates: &[i64], extra_biomes: &[(BiomeId, Point)], version: MinecraftVersion) -> Vec<i64> {
+    let mut valid_seeds = vec![];
+    let last_layer = version.num_layers();
+
+    for world_seed in candidates {
+        let world_seed = *world_seed;
+        // When most rivers match, try extra biomes
+        let mut hits = 0;
+        let mut misses = 0;
+        let target = extra_biomes.len() * 90 / 100;
+        let max_misses = extra_biomes.len() - target;
+        for (biome, Point {x, z}) in extra_biomes.iter().cloned() {
+            let area = Area { x, z, w: 1, h: 1 };
+            let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
+            if g43.a[(0, 0)] == biome.0 {
+                hits += 1;
+            } else {
+                misses += 1;
+                if misses > max_misses {
+                    break;
+                }
+            }
+        }
+
+        if hits >= target {
+            debug!("{:016X}: {}/{}", world_seed, hits, extra_biomes.len());
+            valid_seeds.push(world_seed);
+        }
+    }
+
+    valid_seeds
+}
+
 /// Treasure Map River Seed Finder
 ///
 /// range_lo: 0

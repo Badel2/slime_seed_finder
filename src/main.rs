@@ -372,6 +372,23 @@ enum Opt {
         #[structopt(long)]
         mc_version: String,
     },
+
+    /// Read a list of candidate seeds from a file and a list of biomes from a seedInfo and write
+    /// the matching seeds to a file
+    #[structopt(name = "filter-biomes")]
+    FilterBiomes {
+        /// File containing the SeedInfo
+        #[structopt(short = "i", long, parse(from_os_str))]
+        input_file: PathBuf,
+        /// File containing a JSON array of all the candidate seeds: so instead
+        /// of bruteforcing all the possible seeds we only try the ones from
+        /// this file.
+        #[structopt(long, parse(from_os_str))]
+        candidate_seeds: PathBuf,
+        /// Where to write the found seeds as a JSON array
+        #[structopt(short = "o", long, parse(from_os_str))]
+        output_file: Option<PathBuf>,
+    }
 }
 
 fn main() {
@@ -1059,6 +1076,30 @@ fn main() {
             let dungeons_json = serde_json::to_string(&dungeons).unwrap();
             println!("{}", dungeons_json);
         }
+
+        Opt::FilterBiomes {
+            input_file,
+            candidate_seeds,
+            output_file,
+        } => {
+            let seed_info = SeedInfo::read(input_file).expect("Error reading seed info");
+            let extra_biomes: Vec<_> = seed_info.biomes.iter().flat_map(|(id, vec_xz)| {
+                vec_xz.iter().map(move |p| (*id, *p))
+            }).collect();
+            let version: MinecraftVersion = seed_info.version.parse().expect("Error parsing version");
+
+            // Candidates should be 64-bit seeds
+            let candidates = read_seeds_from_file_i64(candidate_seeds).expect("Error reading candidates");
+
+            let seeds = biome_layers::filter_seeds_using_biomes(&candidates, &extra_biomes, version);
+
+            println!("Found {} 64-bit seeds:\n{}", seeds.len(), serde_json::to_string(&seeds).unwrap());
+
+            if let Some(of) = output_file {
+                // TODO: proper error handling
+                write_seeds_to_file(&seeds.into_iter().map(|x| x as i64).collect::<Vec<_>>(), of).expect("Error writing seeds to file");
+            }
+        }
     }
 }
 
@@ -1071,6 +1112,14 @@ fn read_seeds_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<u64>, std::io::Er
     Ok(s)
 }
 
+// Create a new file and write all the found seeds to it
+// If the file already exists, it gets overwritten
+fn read_seeds_from_file_i64<P: AsRef<Path>>(path: P) -> Result<Vec<i64>, std::io::Error> {
+    let file = File::open(path)?;
+    let s = serde_json::from_reader(file)?;
+
+    Ok(s)
+}
 
 // Create a new file and write all the found seeds to it
 // If the file already exists, it gets overwritten
