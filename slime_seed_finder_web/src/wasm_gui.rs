@@ -382,12 +382,10 @@ pub fn generate_fragment_up_to_layer(
 
 pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4] {
     assert!(id <= total);
-    // Gradient from red to green
-    // http://blogs.perl.org/users/ovid/2010/12/perl101-red-to-green-gradient.html
 
     if id == 0 {
-        // red
-        [0xFF, 0x00, 0x00, 0xFF]
+        // black
+        [0x00, 0x00, 0x00, 0xFF]
     } else if id == total {
         // white
         [0xFF, 0xFF, 0xFF, 0xFF]
@@ -409,15 +407,12 @@ pub fn generate_fragment_slime_map(
     seeds: Vec<String>,
     frag_size: usize,
 ) -> Vec<u8> {
-    let seeds: Vec<u64> = seeds
-        .into_iter()
-        .map(|s| {
-            s.parse().unwrap_or_else(|s| {
-                console!(error, format!("{} is not a valid seed", s));
-                panic!("{} is not a valid seed", s);
-            })
+    let seeds = seeds.into_iter().map(|s| {
+        s.parse().unwrap_or_else(|s| {
+            console!(error, format!("{} is not a valid seed", s));
+            panic!("{} is not a valid seed", s);
         })
-        .collect();
+    });
 
     let frag_size = frag_size as u64;
     let area = Area {
@@ -448,8 +443,8 @@ pub fn generate_fragment_slime_map(
     }
 
     let grad1 = Gradient::new(vec![
-        LinSrgb::new(0.0, 0.0, 0.0),
-        LinSrgb::new(1.0, 1.0, 0.0),
+        LinSrgb::new(0.0, 0.2, 0.0),
+        //LinSrgb::new(1.0, 1.0, 0.0),
         LinSrgb::new(0.0, 1.0, 0.0),
     ]);
     let mut v = vec![0; w * h * 4];
