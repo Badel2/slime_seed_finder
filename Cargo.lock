@@ -52,7 +52,7 @@ source = "git+https://github.com/Badel2/anvil-region?rev=7804652c8d1642ed2d5e88a
 dependencies = [
  "bitvec",
  "byteorder",
- "named-binary-tag",
+ "named-binary-tag 0.2.3",
  "zip",
 ]
 
@@ -575,6 +575,17 @@ name = "named-binary-tag"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4d654702943d37d67f1491769ed46484c306f9b9d0d258348904bd63ffb101e8"
+dependencies = [
+ "byteorder",
+ "flate2",
+ "linked-hash-map",
+]
+
+[[package]]
+name = "named-binary-tag"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3fb4f561e1575a4681fbee6718125397cb7d9963f049536ced212def3a33ecc"
 dependencies = [
  "byteorder",
  "flate2",
@@ -1134,7 +1145,7 @@ dependencies = [
  "image",
  "libc",
  "log",
- "named-binary-tag",
+ "named-binary-tag 0.2.3",
  "ndarray",
  "num_cpus",
  "pretty_env_logger",
@@ -1154,11 +1165,13 @@ dependencies = [
  "image",
  "log",
  "minecraft_screenshot_parser",
+ "named-binary-tag 0.5.0",
  "palette",
  "serde",
  "serde_json",
  "slime_seed_finder",
  "stdweb",
+ "zip",
 ]
 
 [[package]]
