@@ -28,8 +28,8 @@ pub fn sha256_long_to_long(x: i64) -> i64 {
 
     let mut hasher = Sha256::new();
     // Add long in little endian format
-    hasher.input(x.to_le_bytes());
-    let r = hasher.result();
+    hasher.update(x.to_le_bytes());
+    let r = hasher.finalize();
 
     // Output the first 8 bytes of the hash interpreted as a little endian i64
     // The output of Sha256 is 32 bytes, so this cannot fail
@@ -6720,8 +6720,8 @@ mod tests {
         // TODO: instead of using the hash of the image, store the treasure map in SeedInfo format
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.input(&map_bytes);
-        let r = hasher.result();
+        hasher.update(&map_bytes);
+        let r = hasher.finalize();
         assert_eq!(r.to_vec(), vec![2, 164, 56, 89, 18, 20, 220, 103, 112, 230, 180, 212, 73, 255, 209, 131, 125, 156, 151, 14, 110, 104, 67, 247, 31, 50, 114, 198, 244, 85, 4, 116]);
     }
 
@@ -6737,8 +6737,8 @@ mod tests {
         // TODO: instead of using the hash of the image, store the treasure map in SeedInfo format
         use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
-        hasher.input(&map_bytes);
-        let r = hasher.result();
+        hasher.update(&map_bytes);
+        let r = hasher.finalize();
         assert_eq!(r.to_vec(), vec![22, 23, 27, 71, 87, 221, 197, 105, 176, 3, 90, 34, 222, 117, 239, 165, 169, 117, 157, 35, 0, 177, 27, 253, 76, 154, 247, 248, 197, 175, 50, 246]);
     }
 

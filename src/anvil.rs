@@ -792,7 +792,7 @@ pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i
         for x in 0..16 {
             for y in 0..256 {
                 for z in 0..16 {
-                    if let Some(block) = chunk.block(x as usize, y as usize, z as usize) {
+                    if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
                         if block.name == block_name {
                             let (x, y, z) = (x as i64, y as i64, z as i64);
                             let (chunk_x, chunk_z) = (chunk_x as i64, chunk_z as i64);

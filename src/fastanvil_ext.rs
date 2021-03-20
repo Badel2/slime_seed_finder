@@ -113,7 +113,7 @@ impl<S: Read + Seek> Dimension<S> {
 
         let (chunk, _) = self.chunks.get_mut(&(chunk_x, chunk_z)).unwrap();
 
-        chunk.block(usize::from(block_x), usize::try_from(y).unwrap(), usize::from(block_z))
+        chunk.block(usize::from(block_x), isize::try_from(y).unwrap(), usize::from(block_z))
     }
 
     /// Iterate over all the chunks in this dimension. Iteration order is undefined.
