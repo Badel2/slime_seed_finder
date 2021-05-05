@@ -763,6 +763,84 @@ pub fn find_blocks_in_world(
     Serde(blocks)
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FindMultiDungeonsParams {
+    pub center_position_and_chunk_radius: Option<(Position, u32)>,
+    pub dimension: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoundDungeon1 {
+    pub position: Position,
+    pub kind: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FloatPosition {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FindMultiDungeonsOutput {
+    // Optimal standing position for farming
+    pub optimal_position: FloatPosition,
+    // Dungeons in radius of position
+    pub spawners: Vec<FoundDungeon1>,
+}
+
+#[js_export]
+pub fn find_spawners_in_world(
+    zipped_world: TypedArray<u8>,
+    params: Serde<FindMultiDungeonsParams>,
+) -> Serde<Vec<FindMultiDungeonsOutput>> {
+    use slime_seed_finder::anvil::ZipChunkProvider;
+    use std::io::Cursor;
+    // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
+    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let blocks = anvil::find_spawners_in_world(
+        &mut chunk_provider,
+        params
+            .0
+            .center_position_and_chunk_radius
+            .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
+    )
+    .unwrap();
+    let blocks: Vec<FindMultiDungeonsOutput> = blocks
+        .into_iter()
+        .map(
+            |anvil::FindMultiSpawnersOutput {
+                 optimal_position,
+                 spawners,
+             }| FindMultiDungeonsOutput {
+                optimal_position: FloatPosition {
+                    x: optimal_position.x,
+                    y: optimal_position.y,
+                    z: optimal_position.z,
+                },
+                spawners: spawners
+                    .into_iter()
+                    .map(|(pos, kind)| FoundDungeon1 {
+                        position: Position {
+                            x: pos.0,
+                            y: pos.1,
+                            z: pos.2,
+                        },
+                        kind,
+                    })
+                    .collect(),
+            },
+        )
+        .collect();
+
+    Serde(blocks)
+}
+
 #[derive(Debug, Serialize)]
 pub struct NbtSearchResult {
     filename: String,

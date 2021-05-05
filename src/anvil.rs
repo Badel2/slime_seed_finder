@@ -10,6 +10,7 @@ use anvil_region::ChunkLoadError;
 use nbt::CompoundTag;
 use zip::ZipArchive;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::fs::OpenOptions;
@@ -640,6 +641,30 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
     Ok(dungeons)
 }
 
+pub fn find_spawners<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Vec<((i64, i64, i64), String)>, String> {
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    let mut dungeons = vec![];
+    let total_chunks = all_chunks.len();
+    let mut processed_chunks_count = 0;
+
+    for (chunk_x, chunk_z) in all_chunks {
+        if processed_chunks_count % 1024 == 0 {
+            log::debug!("{}/{} chunks processed, {} dungeons found", processed_chunks_count, total_chunks, dungeons.len());
+        }
+        processed_chunks_count += 1;
+        let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let spawners = get_all_dungeons_in_chunk2(&c).expect("Error getting dungeons");
+
+        for (x, y, z, kind) in spawners {
+            dungeons.push(((x as i64, y as i64, z as i64), kind));
+        }
+    }
+    log::debug!("All chunks processed, {} dungeons found", dungeons.len());
+
+    Ok(dungeons)
+}
+
+
 /// The differents kinds of spawners that can be found in a vanilla minecraft world
 #[derive(Copy, Clone, Debug)]
 pub enum SpawnerKind {
@@ -701,6 +726,35 @@ pub fn get_all_dungeons_in_chunk(chunk: &CompoundTag) -> Result<Vec<(i32, i32, i
         let entity_id = entity_tag.get_str("id").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "id", i, e))?;
 
         let dungeon_kind = entity_id.parse().expect("Unknown entity id");
+        dungeons.push((x, y, z, dungeon_kind));
+    }
+
+    Ok(dungeons)
+}
+
+pub fn get_all_dungeons_in_chunk2(chunk: &CompoundTag) -> Result<Vec<(i32, i32, i32, String)>, String> {
+    let mut dungeons = vec![];
+
+    let level_tag = chunk.get_compound_tag("Level").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Level", e))?;
+    let tile_entities = level_tag.get_compound_tag_vec("TileEntities").map_err(|e| format!("Failed to read {:?} tag: {:?}", "TileEntities", e))?;
+
+    for (i, tile_entity_tag) in tile_entities.into_iter().enumerate() {
+        let id = tile_entity_tag.get_str("id").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "id", i, e))?;
+        if id != "minecraft:mob_spawner" {
+            continue;
+        }
+
+        let x = tile_entity_tag.get_i32("x").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "x", i, e))?;
+        let y = tile_entity_tag.get_i32("y").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "y", i, e))?;
+        let z = tile_entity_tag.get_i32("z").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "z", i, e))?;
+
+        let spawn_potentials = tile_entity_tag.get_compound_tag_vec("SpawnPotentials").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "SpawnPotentials", i, e))?;
+        assert_eq!(spawn_potentials.len(), 1);
+
+        let entity_tag = spawn_potentials[0].get_compound_tag("Entity").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "Entity", i, e))?;
+        let entity_id = entity_tag.get_str("id").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "id", i, e))?;
+
+        let dungeon_kind = entity_id.to_string();
         dungeons.push((x, y, z, dungeon_kind));
     }
 
@@ -816,3 +870,384 @@ pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i
 
     Ok(dungeons)
 }
+
+fn segregate_into_buckets<V>(list: Vec<((i64, i64, i64), V)>, size: u64) -> HashMap<(i64, i64, i64), Vec<((i64, i64, i64), V)>> {
+    let size = size as i64;
+    let mut buckets: HashMap<(i64, i64, i64), Vec<_>> = HashMap::new();
+
+    for el in list {
+        let ((x, y, z), v) = el;
+        let bucket_id = (x.div_euclid(size), y.div_euclid(size), z.div_euclid(size));
+        buckets.entry(bucket_id).or_default().push(((x, y, z), v));
+    }
+
+    buckets
+}
+
+fn load_bucket_and_26_neighbors<'b, V>(buckets: &'b HashMap<(i64, i64, i64), Vec<((i64, i64, i64), V)>>, (x, y, z): &(i64, i64, i64)) -> Vec<&'b ((i64, i64, i64), V)> {
+    let mut v = vec![];
+
+    for i in -1 ..= 1 {
+        for j in -1 ..= 1 {
+            for k in -1 ..= 1 {
+                if let Some(bucket) = buckets.get(&(x+i, y+j, z+k)) {
+                    for el in bucket {
+                        v.push(el);
+                    }
+                }
+            }
+        }
+    }
+
+    v
+}
+
+fn distance3dsquared(a: &(i64, i64, i64), b: &(i64, i64, i64)) -> f64 {
+    let x = (a.0 - b.0) as f64;
+    let y = (a.1 - b.1) as f64;
+    let z = (a.2 - b.2) as f64;
+
+    x*x + y*y + z*z
+}
+
+fn remove_all_spawners_that_are_too_far<V>(v: &mut Vec<&((i64, i64, i64), V)>, max_distance: u64) {
+    // TODO: this must be one of the most poorly written algorithms in this file
+    let mut to_remove = vec![];
+    let max_distance_squared = (max_distance as f64) * (max_distance as f64);
+
+    for i in 0..v.len() {
+        let mut found_any = false;
+        for j in 0..v.len() {
+            if i == j {
+                continue;
+            }
+            let a = &v[i].0;
+            let b = &v[j].0;
+            if distance3dsquared(a, b) < max_distance_squared {
+                found_any = true;
+                break;
+            }
+        }
+
+        if !found_any {
+            to_remove.push(i);
+        }
+    }
+
+    for i in to_remove.into_iter().rev() {
+        v.remove(i);
+    }
+}
+
+#[derive(Debug)]
+pub struct FloatPosition {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+#[derive(Debug)]
+pub struct FindMultiSpawnersOutput {
+    pub optimal_position: FloatPosition,
+    pub spawners: Vec<((i64, i64, i64), String)>,
+}
+
+#[derive(Debug)]
+struct BoundingBox {
+    x_min: i64,
+    x_max: i64,
+    y_min: i64,
+    y_max: i64,
+    z_min: i64,
+    z_max: i64,
+}
+
+fn bounding_box<V>(p: &[&((i64, i64, i64), V)]) -> BoundingBox {
+    use std::cmp::min;
+    use std::cmp::max;
+
+    let mut x_min = p[0].0.0;
+    let mut x_max = p[0].0.0;
+    let mut y_min = p[0].0.1;
+    let mut y_max = p[0].0.1;
+    let mut z_min = p[0].0.2;
+    let mut z_max = p[0].0.2;
+
+    for ((x, y, z), _) in p {
+        x_min = min(x_min, *x);
+        x_max = max(x_max, *x);
+        y_min = min(y_min, *y);
+        y_max = max(y_max, *y);
+        z_min = min(z_min, *z);
+        z_max = max(z_max, *z);
+    }
+
+    BoundingBox {
+        x_min, x_max, y_min, y_max, z_min, z_max
+    }
+}
+
+fn clamp_bb_to_bucket(bb: &mut BoundingBox, bucket: &(i64, i64, i64), bucket_side_length: u64) {
+    use std::cmp::min;
+    use std::cmp::max;
+
+    let l = bucket_side_length as i64;
+    let b_x_min = bucket.0 * l;
+    let b_x_max = (bucket.0 + 1) * l;
+    let b_y_min = bucket.1 * l;
+    let b_y_max = (bucket.1 + 1) * l;
+    let b_z_min = bucket.2 * l;
+    let b_z_max = (bucket.2 + 1) * l;
+
+    bb.x_min = max(bb.x_min, b_x_min);
+    bb.x_max = min(bb.x_max, b_x_max);
+    bb.y_min = max(bb.y_min, b_y_min);
+    bb.y_max = min(bb.y_max, b_y_max);
+    bb.z_min = max(bb.z_min, b_z_min);
+    bb.z_max = min(bb.z_max, b_z_max);
+}
+
+fn a_is_subset_of_b(a: &[bool], b: &[bool]) -> bool {
+    assert_eq!(a.len(), b.len());
+
+    false
+}
+
+fn remove_duplicate_keys(v: &mut Vec<(Vec<bool>, (i64, i64, i64))>) {
+    // Check if any v[j].0 is a subset of v[i].0
+    let mut to_remove = HashSet::new();
+
+    for i in 0..v.len() {
+        for j in 0..v.len() {
+            if i == j {
+                continue;
+            }
+
+            if a_is_subset_of_b(&v[j].0, &v[i].0) {
+                to_remove.insert(j);
+            }
+        }
+
+    }
+
+    let mut to_remove: Vec<_> = to_remove.into_iter().collect();
+    to_remove.sort();
+
+    for i in to_remove.into_iter().rev() {
+        v.remove(i);
+    }
+}
+
+fn a_is_subset_of_b_again<V>(a: &[((i64, i64, i64), V)], b: &[((i64, i64, i64), V)]) -> bool {
+    for (a_pos, _) in a {
+        // If all the spawners of a are also present in b
+        let mut found = false;
+        for (b_pos, _) in b {
+            if b_pos == a_pos {
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            // At least one spawner of a is not present in b
+            return false;
+        }
+    }
+
+    true
+}
+
+fn a_is_equal_to_b_again<V>(a: &[((i64, i64, i64), V)], b: &[((i64, i64, i64), V)]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+
+    for (a_pos, _) in a {
+        // If all the spawners of a are also present in b
+        let mut found = false;
+        for (b_pos, _) in b {
+            if b_pos == a_pos {
+                found = true;
+                break;
+            }
+        }
+
+        if !found {
+            // At least one spawner of a is not present in b
+            return false;
+        }
+    }
+
+    true
+}
+
+fn remove_duplicate_keys_again(v: &mut Vec<FindMultiSpawnersOutput>) {
+    use std::cmp::max;
+    // Check if any v[j].0 is a subset of v[i].0
+    let mut to_remove = HashSet::new();
+
+    for i in 0..v.len() {
+        for j in 0..v.len() {
+            if i == j {
+                continue;
+            }
+
+            // Sometimes it happens that a and b are equal, so they are both subsets of each other
+            // and they disappear after removing duplicates. So handle that case by removing the
+            // one with highest index.
+            if a_is_equal_to_b_again(&v[j].spawners, &v[i].spawners) {
+                to_remove.insert(max(i, j));
+            } else if a_is_subset_of_b_again(&v[j].spawners, &v[i].spawners) {
+                // If all the spawners of a are also present in b
+                to_remove.insert(j);
+            }
+        }
+
+    }
+
+    let mut to_remove: Vec<_> = to_remove.into_iter().collect();
+    to_remove.sort();
+
+    for i in to_remove.into_iter().rev() {
+        v.remove(i);
+    }
+}
+
+fn find_multispawners_in_bb(bb: &BoundingBox, spawners: &Vec<&((i64, i64, i64), String)>, max_distance: u64) -> Vec<FindMultiSpawnersOutput> {
+    let mut multispawners = vec![];
+
+    let mut hm = HashMap::new();
+    let max_distance_squared = (max_distance as f64) * (max_distance as f64);
+
+    let distance_to_all = |(x, y, z)| {
+        let mut key = Vec::with_capacity(spawners.len());
+        let mut score = 0.0;
+        for s in spawners.iter() {
+            let dist = distance3dsquared(&(x, y, z), &s.0);
+            if dist < max_distance_squared {
+                key.push(true);
+                score += dist;
+            } else {
+                key.push(false);
+            }
+        }
+        (key, score)
+    };
+
+    let all_false = |v: &[bool]| v.iter().all(|x| *x == false);
+
+    for x in bb.x_min..=bb.x_max {
+        for y in bb.y_min..=bb.y_max {
+            for z in bb.z_min..=bb.z_max {
+                let (hm_key, score) = distance_to_all((x, y, z));
+                if all_false(&hm_key) {
+                    continue;
+                } else if let Some((prev_score, _prev_pos)) = hm.get(&hm_key) {
+                    if score < *prev_score {
+                        // Smaller distance = better match
+                        hm.insert(hm_key, (score, (x, y, z)));
+                    }
+                } else {
+                    hm.insert(hm_key, (score, (x, y, z)));
+                }
+            }
+        }
+    }
+
+    // Deduplicate matches: given [true, false, true] and [true, true, true] we only want to keep
+    // [true, true, true]
+
+    let mut key_list: Vec<_> = hm.into_iter().map(|(hm_key, (_score, pos))| (hm_key, pos)).collect();
+    key_list.sort_by_key(|(k, _)| {
+        let mut ones = 0;
+        for b in k {
+            if *b {
+                ones += 1;
+            }
+        }
+        ones
+    });
+
+    remove_duplicate_keys(&mut key_list);
+
+    for (hm_key, pos) in key_list {
+        let mut sp = vec![];
+
+        for (i, b) in hm_key.iter().enumerate() {
+            if *b {
+                sp.push(spawners[i].clone());
+            }
+        }
+
+        multispawners.push(FindMultiSpawnersOutput {
+            optimal_position: FloatPosition { x: pos.0 as f64, y: pos.1 as f64, z: pos.2 as f64 },
+            spawners: sp,
+        });
+
+    }
+
+
+    multispawners
+}
+
+pub fn find_spawners_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, _center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> Result<Vec<FindMultiSpawnersOutput>, String> {
+    let all_dungeons = find_spawners(chunk_provider)?;
+
+    // Segregate dungeons into buckets such that two dungeons that can be active at once are always
+    // in adjacent buckets
+    let spawner_activation_radius = 16;
+    let bucket_side_length = spawner_activation_radius * 2 + 4;
+
+    let buckets = segregate_into_buckets(all_dungeons, bucket_side_length);
+    let mut multispawners = vec![];
+
+    // For each bucket: load all the dungeons from this bucket and the 26 adjacent ones
+    // And try to find groups of dungeons that are close to each other
+    for bucket in buckets.keys() {
+        let mut spawners = load_bucket_and_26_neighbors(&buckets, bucket);
+        let orig_len = spawners.len();
+        remove_all_spawners_that_are_too_far(&mut spawners, spawner_activation_radius * 2);
+        log::debug!("Found {} spawners in bucket {:?} ({} before removing unconnected ones)", spawners.len(), bucket, orig_len);
+
+        match spawners.len() {
+            // No double dungeons here
+            0 | 1 => continue,
+            2 => {
+                // Simple case, just calculate the midpoint
+                let a = &spawners[0];
+                let b = &spawners[1];
+                let midpoint = FloatPosition { x: (a.0.0 as f64 + b.0.0 as f64) / 2.0, y: (a.0.1 as f64 + b.0.1 as f64) / 2.0, z: (a.0.2 as f64 + b.0.2 as f64) / 2.0 };
+                multispawners.push(FindMultiSpawnersOutput {
+                    optimal_position: midpoint,
+                    spawners: spawners.into_iter().cloned().collect(),
+                });
+                continue;
+            }
+            _n => {}
+        }
+
+
+        // General case: more than 2 dungeons
+        // Check every possible block position inside this bucket, and see if it is within the
+        // desired radius of any spawners
+        // Calculate bounding box of all the spawners, and iterate all the possible positions
+        // inside that bounding box and inside the current bucket
+        let mut bb = bounding_box(spawners.as_slice());
+        clamp_bb_to_bucket(&mut bb, bucket, bucket_side_length);
+
+        let more_multispawners = find_multispawners_in_bb(&bb, &spawners, spawner_activation_radius);
+        multispawners.extend(more_multispawners);
+    }
+
+    remove_duplicate_keys_again(&mut multispawners);
+
+    multispawners.sort_by_key(|k| {
+        // Number of spawners (higher first), then x coordinate, then z coordinate, then y coordinate
+        // TODO: use OrderedFloat to sort floats
+        (!k.spawners.len(), k.optimal_position.x as u64, k.optimal_position.z as u64, k.optimal_position.y as u64)
+    });
+
+    Ok(multispawners)
+}
+
