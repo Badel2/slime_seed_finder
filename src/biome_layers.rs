@@ -5132,6 +5132,10 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
     match version {
         MinecraftVersion::Java1_3 => generate_up_to_layer_1_3(area, seed, num_layers),
         MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers),
+        // 1.9 has a small bug
+        MinecraftVersion::Java1_9 => generate_up_to_layer_1_7(area, seed, num_layers),
+        // 1.11 should be the same as 1.7
+        MinecraftVersion::Java1_11 => generate_up_to_layer_1_7(area, seed, num_layers),
         MinecraftVersion::Java1_13 => generate_up_to_layer_1_13(area, seed, num_layers),
         MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
         MinecraftVersion::Java1_15 => generate_up_to_layer_1_15(area, seed, num_layers),

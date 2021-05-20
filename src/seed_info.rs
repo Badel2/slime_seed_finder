@@ -26,7 +26,9 @@ pub enum MinecraftVersion {
     JavaBeta, // Alpha v1.2.6 - Beta ???
     Java1_2, // From Beta 1.7 to 1.2
     Java1_3, // From 1.3 to 1.6
-    Java1_7, // From 1.7 to 1.12
+    Java1_7, // From 1.7 to 1.8
+    Java1_9, // From 1.9 to 1.10
+    Java1_11, // From 1.11 to 1.12
     Java1_13,
     Java1_14,
     Java1_15,
@@ -40,6 +42,8 @@ impl MinecraftVersion {
         match self {
             MinecraftVersion::Java1_3 => 33,
             MinecraftVersion::Java1_7 => 43,
+            MinecraftVersion::Java1_9 => 43,
+            MinecraftVersion::Java1_11 => 43,
             MinecraftVersion::Java1_13 => 51,
             MinecraftVersion::Java1_14 => 51, // actually 52 but bamboo jungle is inlined...
             MinecraftVersion::Java1_15 => 51, // actually 52 but bamboo jungle is inlined...
@@ -56,7 +60,9 @@ impl FromStr for MinecraftVersion {
         let x = trim_at_dot(2, s);
         Ok(match x {
             "1.3" | "1.4" | "1.5" | "1.6" => MinecraftVersion::Java1_3,
-            "1.7" | "1.8" | "1.9" | "1.10" | "1.11" | "1.12" => MinecraftVersion::Java1_7,
+            "1.7" | "1.8" => MinecraftVersion::Java1_7,
+            "1.9" | "1.10" => MinecraftVersion::Java1_9,
+            "1.11" | "1.12" => MinecraftVersion::Java1_11,
             "1.13" => MinecraftVersion::Java1_13,
             "1.14" => MinecraftVersion::Java1_14,
             "1.15" => MinecraftVersion::Java1_15,
