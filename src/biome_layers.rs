@@ -309,6 +309,25 @@ fn biome_exists(id: i32) -> bool {
         false
     }
 }
+fn get_mutated(v: MinecraftVersion, id: i32) -> Option<i32> {
+    use biome_id::*;
+
+    if v == MinecraftVersion::Java1_9 {
+        // Simulate https://bugs.mojang.com/browse/MC-98995
+        if id == birchForest {
+            return Some(id + 129);
+        }
+        if id == birchForestHills {
+            return None;
+        }
+    }
+
+    if biome_exists(id + 128) {
+        Some(id + 128)
+    } else {
+        None
+    }
+}
 pub fn is_oceanic(id: i32) -> bool {
     use biome_id::*;
     match id {
@@ -2237,13 +2256,14 @@ pub fn pretty_biome_map_hills(id: i32) -> i32 {
 pub struct MapHills {
     base_seed: i64,
     world_seed: i64,
+    mc_version: MinecraftVersion,
     pub parent1: Option<Rc<dyn GetMap>>,
     pub parent2: Option<Rc<dyn GetMap>>,
 }
 
 impl MapHills {
-    pub fn new(base_seed: i64, world_seed: i64) -> Self {
-        Self { base_seed, world_seed, parent1: None, parent2: None }
+    pub fn new(base_seed: i64, world_seed: i64, mc_version: MinecraftVersion) -> Self {
+        Self { base_seed, world_seed, mc_version, parent1: None, parent2: None }
     }
     pub fn get_map_from_pmap12(&self, pmap1: &Map, pmap2: &Map) -> Map {
         use biome_id::*;
@@ -2271,11 +2291,7 @@ impl MapHills {
                 let var12 = (b11 - 2) % 29 == 0;
 
                 m.a[(x, z)] = if a11 != 0 && b11 >= 2 && (b11 - 2) % 29 == 1 && a11 < 128 {
-                    if biome_exists(a11 + 128) {
-                        a11 + 128
-                    } else {
-                        a11
-                    }
+                    get_mutated(self.mc_version, a11).unwrap_or(a11)
                 } else if r.next_int_n(3) != 0 && !var12 {
                     a11
                 } else {
@@ -2305,11 +2321,7 @@ impl MapHills {
                     };
 
                     if var12 && hill_id != a11 {
-                        hill_id = if biome_exists(hill_id + 128) {
-                            hill_id + 128
-                        } else {
-                            a11
-                        };
+                        hill_id = get_mutated(self.mc_version, hill_id).unwrap_or(a11);
                     }
 
                     if hill_id == a11 {
@@ -5131,11 +5143,11 @@ pub fn generate(version: MinecraftVersion, a: Area, world_seed: i64) -> Map {
 pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, num_layers: u32) -> Map {
     match version {
         MinecraftVersion::Java1_3 => generate_up_to_layer_1_3(area, seed, num_layers),
-        MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers),
+        MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers, version),
         // 1.9 has a small bug
-        MinecraftVersion::Java1_9 => generate_up_to_layer_1_7(area, seed, num_layers),
+        MinecraftVersion::Java1_9 => generate_up_to_layer_1_7(area, seed, num_layers, version),
         // 1.11 should be the same as 1.7
-        MinecraftVersion::Java1_11 => generate_up_to_layer_1_7(area, seed, num_layers),
+        MinecraftVersion::Java1_11 => generate_up_to_layer_1_7(area, seed, num_layers, version),
         MinecraftVersion::Java1_13 => generate_up_to_layer_1_13(area, seed, num_layers),
         MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
         MinecraftVersion::Java1_15 => generate_up_to_layer_1_15(area, seed, num_layers),
@@ -5423,7 +5435,7 @@ pub fn generate_up_to_layer_1_7_extra(a: Area, world_seed: i64, layer: u32) -> M
     TestMapZero.get_map(a)
 }
 
-pub fn generate_up_to_layer_1_7(a: Area, world_seed: i64, layer: u32) -> Map {
+pub fn generate_up_to_layer_1_7(a: Area, world_seed: i64, layer: u32, version: MinecraftVersion) -> Map {
     if layer >= 200 {
         return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
     }
@@ -5431,10 +5443,10 @@ pub fn generate_up_to_layer_1_7(a: Area, world_seed: i64, layer: u32) -> Map {
         return generate_up_to_layer_1_7_extra(a, world_seed, layer);
     }
 
-    generator_up_to_layer_1_7(world_seed, layer).get_map(a)
+    generator_up_to_layer_1_7(world_seed, layer, version).get_map(a)
 }
 
-pub fn generator_up_to_layer_1_7(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
+pub fn generator_up_to_layer_1_7(world_seed: i64, layer: u32, version: MinecraftVersion) -> Box<dyn GetMap> {
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return Box::new(g0); }
     let mut g1 = MapZoomFuzzy::new(2000, world_seed);
@@ -5515,7 +5527,7 @@ pub fn generator_up_to_layer_1_7(world_seed: i64, layer: u32) -> Box<dyn GetMap>
     g24.parent = Some(Rc::new(g23));
     g24.bug_world_seed_not_set = true;
     if layer == 24 { return Box::new(MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }); }
-    let mut g25 = MapHills::new(1000, world_seed);
+    let mut g25 = MapHills::new(1000, world_seed, version);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
     if layer == 25 { return Box::new(g25); }
@@ -5670,7 +5682,7 @@ pub fn generator_up_to_layer_1_13(world_seed: i64, layer: u32) -> Box<dyn GetMap
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
     if layer == 24 { return Box::new(MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }); }
-    let mut g25 = MapHills::new(1000, world_seed);
+    let mut g25 = MapHills::new(1000, world_seed, MinecraftVersion::Java1_13);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
     if layer == 25 { return Box::new(g25); }
@@ -5857,7 +5869,7 @@ pub fn generator_up_to_layer_1_14(world_seed: i64, layer: u32) -> Box<dyn GetMap
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
     if layer == 24 { return Box::new(MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }); }
-    let mut g25 = MapHills::new(1000, world_seed);
+    let mut g25 = MapHills::new(1000, world_seed, MinecraftVersion::Java1_14);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
     if layer == 25 { return Box::new(g25); }
@@ -6044,7 +6056,7 @@ pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32) -> Box<dyn GetMap
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
     if layer == 24 { return Box::new(MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }); }
-    let mut g25 = MapHills::new(1000, world_seed);
+    let mut g25 = MapHills::new(1000, world_seed, MinecraftVersion::Java1_15);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
     if layer == 25 { return Box::new(g25); }
@@ -6817,5 +6829,28 @@ mod tests {
         // Compare map array only, ignore coords
 
         assert_eq!(reversed_map.a, pmap.a);
+    }
+
+    #[test]
+    fn test_generation_mc_98995() {
+        // Maybe https://bugs.mojang.com/browse/MC-98995
+        // This is a test to handle changes in version 1.9.4 and 1.10.2
+        let a = Area { x: 157, z: -573, w: 1, h: 1 };
+        // 1.7: got 6 (correct)
+        // 1.8.9: got 6 (correct)
+        let version = MinecraftVersion::Java1_7;
+        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
+        assert_eq!(m.a[(0, 0)], biome_id::swampland);
+
+        // 1.9.4: got 6 (expected 27)
+        // 1.10.2: got 6 (expected 27)
+        let version = MinecraftVersion::Java1_9;
+        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
+        assert_eq!(m.a[(0, 0)], biome_id::birchForest);
+
+        // 1.11.2: got 6 (correct)
+        let version = MinecraftVersion::Java1_11;
+        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
+        assert_eq!(m.a[(0, 0)], biome_id::swampland);
     }
 }
