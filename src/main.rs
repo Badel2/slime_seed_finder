@@ -1015,7 +1015,7 @@ fn main() {
 
                     println!("All biomes match");
                 }
-                MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16 => {
+                MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 => {
                     let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, Some(version)).unwrap();
                     if JavaRng::create_from_long(world_seed as u64).is_none() {
                         println!("Warning: this seed cannot be generated with Java Random nextLong");
