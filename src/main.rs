@@ -1045,7 +1045,7 @@ fn main() {
                     }
 
                     // Generate area with 1:4 resolution
-                    let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, version.num_layers() - 1);
+                    let map = biome_layers::generate_up_to_layer_1_15(area, world_seed, version.num_layers() - 1, version);
 
                     // Compare maps :D
                     for (expected_biome_id, p) in biomes {
