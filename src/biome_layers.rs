@@ -299,8 +299,36 @@ pub struct Biome {
     pub tempCat: i32,
 }
 
+#[deprecated = "use get_category instead"]
 fn get_biome_type(id: i32) -> i32 {
     BIOME_INFO[id as usize].type_0
+}
+fn get_category(v: MinecraftVersion, id: i32) -> Option<i32> {
+    use biome_id::*;
+
+    let category = match id {
+        ocean | frozenOcean | deepOcean | warmOcean | lukewarmOcean | coldOcean | warmDeepOcean | lukewarmDeepOcean | coldDeepOcean | frozenDeepOcean => Ocean,
+        plains | sunflowerPlains => Plains,
+        desert | desertHills | desertLakes => Desert,
+        extremeHills | extremeHillsEdge | extremeHillsPlus | gravellyMountains | modifiedGravellyMountains => Hills,
+        forest | forestHills | birchForest | birchForestHills | roofedForest | flowerForest | tallBirchForest | tallBirchHills | darkForestHills => Forest,
+        taiga | taigaHills | coldTaiga | coldTaigaHills | megaTaiga | megaTaigaHills | taigaMountains | snowyTaigaMountains | giantSpruceTaiga | giantSpruceTaigaHills => Taiga,
+        swampland | swampHills => Swamp,
+        river | frozenRiver => River,
+        hell => Hell,
+        sky | skyIslandLow | skyIslandMedium | skyIslandHigh | skyIslandBarren => Sky,
+        icePlains | iceMountains | iceSpikes => Snow,
+        mushroomIsland | mushroomIslandShore => MushroomIsland,
+        beach | coldBeach => Beach,
+        jungle | jungleHills | jungleEdge | modifiedJungle | modifiedJungleEdge | bambooJungle | bambooJungleHills => Jungle,
+        stoneBeach => StoneBeach,
+        savanna | savannaPlateau | shatteredSavanna | shatteredSavannaPlateau => Savanna,
+        mesa | erodedBadlands | modifiedWoodedBadlandsPlateau | modifiedBadlandsPlateau => Mesa,
+        mesaPlateau_F | mesaPlateau => if v >= MinecraftVersion::Java1_16 { mesaPlateau } else { Mesa },
+        _ => return None,
+    };
+
+    Some(category)
 }
 fn biome_exists(id: i32) -> bool {
     if id <= 0xFF {
@@ -345,9 +373,16 @@ pub fn is_oceanic(id: i32) -> bool {
         _ => false
     }
 }
+fn is_mesa(id: i32) -> bool {
+    use biome_id::*;
+    match id {
+        mesa | mesaPlateau_F | mesaPlateau | erodedBadlands | modifiedWoodedBadlandsPlateau | modifiedBadlandsPlateau => true,
+        _ => false,
+    }
+}
 fn is_biome_JFTO(id: i32) -> bool {
     use biome_id::*;
-    biome_exists(id) && (get_biome_type(id) == Jungle || id == forest || id == taiga || is_oceanic(id))
+    biome_exists(id) && (get_category(MinecraftVersion::Java1_16, id) == Some(Jungle) || id == forest || id == taiga || is_oceanic(id))
 }
 
 fn is_biome_snowy(id: i32) -> bool {
@@ -2023,7 +2058,7 @@ impl GetMap for MapBiome {
 
             let has_high_bit = ((id & 0xf00) >> 8) != 0;
             id &= !0xf00;
-            if get_biome_type(id) == Ocean || id == mushroomIsland {
+            if get_category(MinecraftVersion::Java1_16, id) == Some(Ocean) || id == mushroomIsland {
                 return id;
             }
 
@@ -2074,7 +2109,7 @@ fn is_deep_ocean(id: i32) -> bool {
     }
 }
 
-fn equal_or_plateau(id1: i32, id2: i32) -> bool {
+fn equal_or_plateau(version: MinecraftVersion, id1: i32, id2: i32) -> bool {
     use biome_id::*;
     if id1 == id2 {
         return true;
@@ -2094,15 +2129,15 @@ fn equal_or_plateau(id1: i32, id2: i32) -> bool {
            }
     }
 
-    get_biome_type(id1) == get_biome_type(id2)
+    get_category(version, id1) == get_category(version, id2)
 }
 
-fn replace_edge(out: &mut i32, v10: i32, v21: i32, v01: i32, v12: i32, id: i32, base_id: i32, edge_id: i32) -> bool {
+fn replace_edge(version: MinecraftVersion, out: &mut i32, v10: i32, v21: i32, v01: i32, v12: i32, id: i32, base_id: i32, edge_id: i32) -> bool {
     if id != base_id {
         return false;
     }
 
-    if [v10, v21, v01, v12].iter().all(|&x| equal_or_plateau(x, base_id)) {
+    if [v10, v21, v01, v12].iter().all(|&x| equal_or_plateau(version, x, base_id)) {
         *out = id;
     } else {
         *out = edge_id;
@@ -2146,6 +2181,7 @@ impl GetMap for MapBiomeEdge {
     // pmap has 1 wide margin on each size: pmap.w == map.w + 2
     fn get_map_from_pmap(&self, pmap: &Map) -> Map {
         use biome_id::*;
+        let version = MinecraftVersion::Java1_16;
         let (p_w, p_h) = pmap.a.dim();
         let area = Area {
             x: pmap.x + 1,
@@ -2162,9 +2198,9 @@ impl GetMap for MapBiomeEdge {
                 let v12 = pmap.a[(x+1, z+2)];
                 let v11 = pmap.a[(x+1, z+1)];
 
-                if !replace_edge(&mut m.a[(x, z)], v10, v21, v01, v12, v11, mesaPlateau_F, mesa) &&
-                !replace_edge(&mut m.a[(x, z)], v10, v21, v01, v12, v11, mesaPlateau, mesa) &&
-                !replace_edge(&mut m.a[(x, z)], v10, v21, v01, v12, v11, megaTaiga, taiga)
+                if !replace_edge(version, &mut m.a[(x, z)], v10, v21, v01, v12, v11, mesaPlateau_F, mesa) &&
+                !replace_edge(version, &mut m.a[(x, z)], v10, v21, v01, v12, v11, mesaPlateau, mesa) &&
+                !replace_edge(version, &mut m.a[(x, z)], v10, v21, v01, v12, v11, megaTaiga, taiga)
                     {
                     m.a[(x, z)] = match v11 {
                         desert => {
@@ -2310,7 +2346,7 @@ impl MapHills {
                         ocean => deepOcean,
                         extremeHills => extremeHillsPlus,
                         savanna => savannaPlateau,
-                        _ => if equal_or_plateau(a11, mesaPlateau_F) {
+                        _ => if equal_or_plateau(self.mc_version, a11, mesaPlateau_F) {
                             mesa
                         } else if is_deep_ocean(a11) && r.next_int_n(3) == 0 {
                             // TODO: is_deep_ocean was introduced in 1.13
@@ -2332,10 +2368,10 @@ impl MapHills {
                         let a01 = pmap1.a[(x+0, z+1)];
                         let a12 = pmap1.a[(x+1, z+2)];
                         let mut equals = 0;
-                        if equal_or_plateau(a10, a11) { equals += 1; }
-                        if equal_or_plateau(a21, a11) { equals += 1; }
-                        if equal_or_plateau(a01, a11) { equals += 1; }
-                        if equal_or_plateau(a12, a11) { equals += 1; }
+                        if equal_or_plateau(self.mc_version, a10, a11) { equals += 1; }
+                        if equal_or_plateau(self.mc_version, a21, a11) { equals += 1; }
+                        if equal_or_plateau(self.mc_version, a01, a11) { equals += 1; }
+                        if equal_or_plateau(self.mc_version, a12, a11) { equals += 1; }
 
                         if equals >= 3 {
                             hill_id
@@ -2473,6 +2509,10 @@ impl GetMap for MapShore {
             true
         }
 
+        let get_category = |id| {
+            get_category(MinecraftVersion::Java1_16, id)
+        };
+
         let (p_w, p_h) = pmap.a.dim();
         let area = Area {
             x: pmap.x + 1,
@@ -2498,7 +2538,7 @@ impl GetMap for MapShore {
                    } else {
                        mushroomIslandShore
                    }
-                } else if /* biome < 128 && */ get_biome_type(biome) == Jungle {
+                } else if /* biome < 128 && */ get_category(biome) == Some(Jungle) {
                     if is_biome_JFTO(v10) && is_biome_JFTO(v21) && is_biome_JFTO(v01) && is_biome_JFTO(v12) {
                         if !is_oceanic(v10) && !is_oceanic(v21) && !is_oceanic(v01) && !is_oceanic(v12) {
                             v11
@@ -2525,7 +2565,7 @@ impl GetMap for MapShore {
                         }
                     } else {
                         if !is_oceanic(v10) && !is_oceanic(v21) && !is_oceanic(v01) && !is_oceanic(v12) {
-                            if get_biome_type(v10) == Mesa && get_biome_type(v21) == Mesa && get_biome_type(v01) == Mesa && get_biome_type(v12) == Mesa {
+                            if is_mesa(v10) && is_mesa(v21) && is_mesa(v01) && is_mesa(v12) {
                                 v11
                             } else {
                                 desert
@@ -5101,16 +5141,9 @@ pub fn generate_fragment_treasure_map(version: MinecraftVersion, area: Area, see
 
             Rc::from(mhv)
         }
-        MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 => {
+        MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 => {
             let mut mhv = MapHalfVoronoiZoom115::new(seed);
-            let parent = Rc::from(generator_up_to_layer_1_15(seed, 50));
-            mhv.parent = Some(parent);
-
-            Rc::from(mhv)
-        }
-        MinecraftVersion::Java1_16 => {
-            let mut mhv = MapHalfVoronoiZoom115::new(seed);
-            let parent = Rc::from(generator_up_to_layer_1_15(seed, 50));
+            let parent = Rc::from(generator_up_to_layer_1_15(seed, 50, version));
             mhv.parent = Some(parent);
 
             Rc::from(mhv)
@@ -5150,11 +5183,11 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
         MinecraftVersion::Java1_11 => generate_up_to_layer_1_7(area, seed, num_layers, version),
         MinecraftVersion::Java1_13 => generate_up_to_layer_1_13(area, seed, num_layers),
         MinecraftVersion::Java1_14 => generate_up_to_layer_1_14(area, seed, num_layers),
-        MinecraftVersion::Java1_15 => generate_up_to_layer_1_15(area, seed, num_layers),
+        MinecraftVersion::Java1_15 => generate_up_to_layer_1_15(area, seed, num_layers, version),
         // 1.16.1 is the same as 1.15
-        MinecraftVersion::Java1_16_1 => generate_up_to_layer_1_15(area, seed, num_layers),
+        MinecraftVersion::Java1_16_1 => generate_up_to_layer_1_15(area, seed, num_layers, version),
         // 1.16.2 and later is different
-        MinecraftVersion::Java1_16 => generate_up_to_layer_1_15(area, seed, num_layers),
+        MinecraftVersion::Java1_16 => generate_up_to_layer_1_15(area, seed, num_layers, version),
         _ => {
             panic!("Biome generation in version {:?} is not implemented", version);
         }
@@ -5959,7 +5992,7 @@ pub fn generator_up_to_layer_1_14(world_seed: i64, layer: u32) -> Box<dyn GetMap
     Box::new(g51)
 }
 
-pub fn generate_up_to_layer_1_15(a: Area, world_seed: i64, layer: u32) -> Map {
+pub fn generate_up_to_layer_1_15(a: Area, world_seed: i64, layer: u32, version: MinecraftVersion) -> Map {
     if layer >= 200 {
         //return generate_up_to_layer_1_7_extra_2(a, world_seed, layer);
     }
@@ -5970,10 +6003,10 @@ pub fn generate_up_to_layer_1_15(a: Area, world_seed: i64, layer: u32) -> Map {
         return generate_up_to_layer_1_7_extra(a, world_seed, layer);
     }
 
-    generator_up_to_layer_1_15(world_seed, layer).get_map(a)
+    generator_up_to_layer_1_15(world_seed, layer, version).get_map(a)
 }
 
-pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32) -> Box<dyn GetMap> {
+pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32, version: MinecraftVersion) -> Box<dyn GetMap> {
     let g0 = MapIsland::new(1, world_seed);
     if layer == 0 { return Box::new(g0); }
     let mut g1 = MapZoomFuzzy::new(2000, world_seed);
@@ -6056,7 +6089,7 @@ pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32) -> Box<dyn GetMap
     let mut g24 = MapZoom::new(1001, world_seed);
     g24.parent = Some(Rc::new(g23));
     if layer == 24 { return Box::new(MapMap { parent: Rc::new(g24), f: pretty_biome_map_hills }); }
-    let mut g25 = MapHills::new(1000, world_seed, MinecraftVersion::Java1_15);
+    let mut g25 = MapHills::new(1000, world_seed, version);
     g25.parent1 = Some(Rc::new(g21));
     g25.parent2 = Some(Rc::new(g24));
     if layer == 25 { return Box::new(g25); }
@@ -6852,5 +6885,58 @@ mod tests {
         let version = MinecraftVersion::Java1_11;
         let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
         assert_eq!(m.a[(0, 0)], biome_id::swampland);
+    }
+
+    #[test]
+    fn test_generation_1_16_1() {
+        // This is a regression test for
+        // https://github.com/Cubitect/cubiomes/issues/51
+        let a = Area { x: 180, z: 171, w: 1, h: 1 };
+        let version = MinecraftVersion::Java1_16_1;
+        let m = generate_up_to_layer(version, a, 1437905338718953247, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], biome_id::mesa);
+    }
+
+    #[test]
+    fn test_generation_1_16_1_b() {
+        // This is a regression test for
+        // https://github.com/Cubitect/cubiomes/issues/51
+        let a = Area { x: -158, z: 23, w: 1, h: 1 };
+        let version = MinecraftVersion::Java1_16_1;
+        let m = generate_up_to_layer(version, a, 84, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], biome_id::mesa);
+    }
+
+    #[test]
+    fn test_generation_1_16_2() {
+        // This is a regression test for
+        // https://github.com/Cubitect/cubiomes/issues/51
+        let a = Area { x: 180, z: 171, w: 1, h: 1 };
+        let version = MinecraftVersion::Java1_16;
+        let m = generate_up_to_layer(version, a, 1437905338718953247, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], biome_id::mesaPlateau_F);
+    }
+
+    #[test]
+    fn test_generation_1_16_2_b() {
+        // This is a regression test for
+        // https://github.com/Cubitect/cubiomes/issues/51
+        let a = Area { x: -158, z: 23, w: 1, h: 1 };
+        let version = MinecraftVersion::Java1_16;
+        let m = generate_up_to_layer(version, a, 84, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], biome_id::mesaPlateau_F);
+    }
+
+    #[test]
+    fn get_category_replaces_get_biome_type() {
+        for biome_id in 0..256 {
+            let old = get_biome_type(biome_id);
+            // Using 1.16.1 because 1.16.2 changes the category of mesaPlateau
+            let new = get_category(MinecraftVersion::Java1_16_1, biome_id);
+            //assert_eq!(new, Some(old), "{}", biome_id);
+            if new.unwrap_or(0) != old {
+                panic!("{} should be {} and is {:?}", biome_id, old, new);
+            }
+        }
     }
 }

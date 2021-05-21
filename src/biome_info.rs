@@ -5,6 +5,27 @@ pub mod biome_id {
 pub type BiomeID = i32;
 pub const bambooJungleHills: BiomeID = 169;
 pub const bambooJungle: BiomeID = 168;
+pub const modifiedBadlandsPlateau: BiomeID = 167;
+pub const modifiedWoodedBadlandsPlateau: BiomeID = 166;
+pub const erodedBadlands: BiomeID = 165;
+pub const shatteredSavannaPlateau: BiomeID = 164;
+pub const shatteredSavanna: BiomeID = 163;
+pub const modifiedGravellyMountains: BiomeID = 162;
+pub const giantSpruceTaigaHills: BiomeID = 161;
+pub const giantSpruceTaiga: BiomeID = 160;
+pub const snowyTaigaMountains: BiomeID = 158;
+pub const darkForestHills: BiomeID = 157;
+pub const tallBirchHills: BiomeID = 156;
+pub const tallBirchForest: BiomeID = 155;
+pub const modifiedJungleEdge: BiomeID = 151;
+pub const modifiedJungle: BiomeID = 149;
+pub const iceSpikes: BiomeID = 140;
+pub const swampHills: BiomeID = 134;
+pub const taigaMountains: BiomeID = 133;
+pub const flowerForest: BiomeID = 132;
+pub const gravellyMountains: BiomeID = 131;
+pub const desertLakes: BiomeID = 130;
+pub const sunflowerPlains: BiomeID = 129;
 pub const BIOME_NUM: BiomeID = 51;
 pub const frozenDeepOcean: BiomeID = 50;
 // 40-49
