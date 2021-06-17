@@ -982,8 +982,8 @@ fn main() {
                     let biomes = anvil::get_all_biomes_1_14(&mut chunk_provider);
                     println!("Got {} biomes", biomes.len());
 
-                    let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
-                    let area = Area::from_coords(points.iter());
+                    let points = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z });
+                    let area = Area::from_coords(points);
                     println!("Area: {:?}", area);
 
                     if draw_biome_map {
@@ -1024,8 +1024,8 @@ fn main() {
                     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
                     let biomes = anvil::get_all_biomes_1_15(&mut chunk_provider);
                     println!("Got {} biomes", biomes.len());
-                    let points: Vec<_> = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z }).collect();
-                    let area = Area::from_coords(points.iter());
+                    let points = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z });
+                    let area = Area::from_coords(points);
                     println!("Area: {:?}", area);
 
                     if draw_biome_map {

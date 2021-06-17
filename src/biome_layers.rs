@@ -90,9 +90,9 @@ impl Area {
     }
 
     /// Creates the smallest area that will contain all the coords
-    pub fn from_coords<'a, I>(c: I) -> Area
+    pub fn from_coords<I>(c: I) -> Area
     where
-        I: IntoIterator<Item = &'a Point>
+        I: IntoIterator<Item = Point>
     {
         let mut c = c.into_iter();
         let c0 = c.next();
@@ -105,7 +105,7 @@ impl Area {
         let Point { x: mut x_min, z: mut z_min } = c0;
         let Point { x: mut x_max, z: mut z_max } = c0;
 
-        for &Point {x, z} in c {
+        for Point {x, z} in c {
             use std::cmp::{min, max};
             x_min = min(x_min, x);
             z_min = min(z_min, z);
@@ -117,9 +117,9 @@ impl Area {
     }
 
     /// Creates the smallest area that will contain all the coords
-    pub fn from_coords2<'a, I>(c: I) -> Area
+    pub fn from_coords2<I>(c: I) -> Area
     where
-        I: IntoIterator<Item = &'a Point2>
+        I: IntoIterator<Item = Point2>
     {
         let mut c = c.into_iter();
         let c0 = c.next();
@@ -132,7 +132,7 @@ impl Area {
         let Point2 { x: mut x_min, z: mut z_min } = c0;
         let Point2 { x: mut x_max, z: mut z_max } = c0;
 
-        for &Point2 {x, z} in c {
+        for Point2 {x, z} in c {
             use std::cmp::{min, max};
             x_min = min(x_min, x);
             z_min = min(z_min, z);
@@ -144,9 +144,9 @@ impl Area {
     }
 
     /// Creates the smallest area that will contain all the coords
-    pub fn from_coords4<'a, I>(c: I) -> Area
+    pub fn from_coords4<I>(c: I) -> Area
     where
-        I: IntoIterator<Item = &'a Point4>
+        I: IntoIterator<Item = Point4>
     {
         let mut c = c.into_iter();
         let c0 = c.next();
@@ -159,7 +159,7 @@ impl Area {
         let Point4 { x: mut x_min, z: mut z_min } = c0;
         let Point4 { x: mut x_max, z: mut z_max } = c0;
 
-        for &Point4 {x, z} in c {
+        for Point4 {x, z} in c {
             use std::cmp::{min, max};
             x_min = min(x_min, x);
             z_min = min(z_min, z);
@@ -4282,7 +4282,7 @@ pub fn segregate_coords_prevoronoi_hd(coords: Vec<Point>) -> (Vec<Point>, Vec<Po
 
     // Now, try to build Area from other_coords, and duplicate all the
     // voronoi_coords which are inside this area
-    let area = Area::from_coords(&hd_coords);
+    let area = Area::from_coords(hd_coords.iter().copied());
     for &Point {x, z} in &prevoronoi_coords {
         if area.contains(x, z) {
             hd_coords.push(Point {x, z});
@@ -4637,7 +4637,7 @@ pub fn treasure_map_river_seed_finder(treasure_map: &Map, version: MinecraftVers
     let candidates_26 = river_seed_finder_26_range(&river_coords_quarter_scale, range_lo, range_hi);
 
     let candidates = if version < MinecraftVersion::Java1_15 {
-        let area_tm = Area::from_coords2(&river_coords_tm);
+        let area_tm = Area::from_coords2(river_coords_tm.iter().copied());
         let target_map_tm = map_with_river_at2(&river_coords_tm, area_tm);
         // Reversing from a HalfVoronoiZoom is more or less equivalent to reversing a MapZoom
         let target_map_pm = reverse_map_half_voronoi(&target_map_tm);
@@ -4763,7 +4763,7 @@ pub fn split_rivers_into_fragments(points: &[Point]) -> Vec<Map> {
     // Convert that fragments into maps
     let mut r = vec![];
     for ps in h.values() {
-        let a = Area::from_coords(ps);
+        let a = Area::from_coords(ps.iter().copied());
         let m = map_with_river_at(ps, a);
         r.push(m);
     }
@@ -4785,7 +4785,7 @@ pub fn split_rivers_into_fragments4(points: &[Point4]) -> Vec<Map> {
     // Convert that fragments into maps
     let mut r = vec![];
     for ps in h.values() {
-        let a = Area::from_coords4(ps);
+        let a = Area::from_coords4(ps.iter().copied());
         let m = map_with_river_at4(ps, a);
         r.push(m);
     }

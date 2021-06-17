@@ -344,7 +344,7 @@ where
     I: IntoIterator<Item = (BiomeId, Vec<Point>)>
 {
     let h: Vec<_> = biomes.into_iter().flat_map(|(k, v)| v.into_iter().map(move |x| (x, k))).collect();
-    let area = Area::from_coords(h.iter().map(|x| &x.0));
+    let area = Area::from_coords(h.iter().map(|x| x.0));
     let mut m = Map::new(area);
     for (Point {x, z}, biome_id) in h {
         m.a[((x - area.x) as usize, (z - area.z) as usize)] = biome_id.0;

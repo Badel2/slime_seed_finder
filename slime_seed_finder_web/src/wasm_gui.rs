@@ -84,14 +84,18 @@ pub fn draw_rivers(o: String) -> Serde<DrawRivers> {
     let (_prevoronoi_coords, hd_coords) = biome_layers::segregate_coords_prevoronoi_hd(
         o.seed_info.biomes[&BiomeId(biome_id::river)].clone(),
     );
-    let area_rivers = Area::from_coords(&o.seed_info.biomes[&BiomeId(biome_id::river)]);
+    let area_rivers = Area::from_coords(
+        o.seed_info.biomes[&BiomeId(biome_id::river)]
+            .iter()
+            .copied(),
+    );
     let target_map = biome_layers::map_with_river_at(
         &o.seed_info.biomes[&BiomeId(biome_id::river)],
         area_rivers,
     );
     let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
 
-    let area_hd = Area::from_coords(&hd_coords);
+    let area_hd = Area::from_coords(hd_coords.iter().copied());
     let target_map_hd = biome_layers::map_with_river_at(&hd_coords, area_hd);
 
     Serde(DrawRivers {
