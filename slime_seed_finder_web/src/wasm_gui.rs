@@ -929,7 +929,7 @@ impl NbtPath {
         // TODO: improve the performance of this method
         let escaped_idx = serde_json::to_string(idx).unwrap();
         // But replace the first and last " with a '
-        let mut s = format!("'{}'", &escaped_idx[1..(escaped_idx.len() - 1)]);
+        let s = format!("'{}'", &escaped_idx[1..(escaped_idx.len() - 1)]);
         self.segments.push(s);
     }
 
