@@ -16,7 +16,6 @@ lto = true
 
 [features]
 base_main = ["structopt", "image", "num_cpus"]
-cubiomes_rs = ["libc"]
 main = ["base_main", "rand"]
 wasi = ["base_main"]
 
@@ -44,10 +43,6 @@ fastnbt = "0.16.0"
 name = "slime_seed_finder"
 path = "src/main.rs"
 required-features = ["base_main"]
-
-[[example]]
-name = "rendermap"
-required-features = ["cubiomes_rs"]
 
 [workspace]
 members = [
