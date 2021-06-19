@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: cargo build --verbose --features="main"
 
+      - name: Build C bindings
+        run: cargo build --verbose -p slime_seed_finder_c
+
       - name: Run tests
         run: cargo test --verbose --features="main"
 
