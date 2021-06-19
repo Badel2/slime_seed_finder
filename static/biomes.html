@@ -802,9 +802,26 @@
                 }
             }
 
+            let color_to_biome_map = null;
+            function initializeColorToBiomeIdMap() {
+                return Rust.slime_seed_finder_web.then(
+                    function(slime_seed_finder_web) {
+                        color_to_biome_map = slime_seed_finder_web.get_color_to_biome_map();
+                    },
+                    function(err) {
+                        console.error(err);
+                    }
+                );
+            }
+
             function showBiomeAtCursor(color) {
+                if (!color_to_biome_map) {
+                    return;
+                }
                 let position_div = document.getElementById("position_info");
-                position_div.innerHTML += " --- Biome: " + color;
+                let biome_id = color_to_biome_map[color];
+                position_div.innerHTML +=
+                    " --- Biome: " + biome_id + " " + color;
             }
 
             map.generateFragment = generateFragmentB;
@@ -841,6 +858,7 @@
             resize();
             let lastLayer = document.getElementById("lastLayer").value | 0;
             startGame(lastLayer, showBiomeAtCursor);
+            initializeColorToBiomeIdMap();
         </script>
     </body>
 </html>
