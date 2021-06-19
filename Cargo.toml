@@ -46,5 +46,6 @@ required-features = ["base_main"]
 
 [workspace]
 members = [
-    "slime_seed_finder_web"
+    "slime_seed_finder_c",
+    "slime_seed_finder_web",
 ]
