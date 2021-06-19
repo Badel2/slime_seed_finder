@@ -802,11 +802,13 @@
                 }
             }
 
-            let color_to_biome_map = null;
+            let color_to_biome_id_map = null;
+            let biome_id_to_biome_name_map = null;
             function initializeColorToBiomeIdMap() {
                 return Rust.slime_seed_finder_web.then(
                     function(slime_seed_finder_web) {
-                        color_to_biome_map = slime_seed_finder_web.get_color_to_biome_map();
+                        color_to_biome_id_map = slime_seed_finder_web.get_color_to_biome_map();
+                        biome_id_to_biome_name_map = slime_seed_finder_web.get_biome_id_to_biome_name_map();
                     },
                     function(err) {
                         console.error(err);
@@ -815,13 +817,17 @@
             }
 
             function showBiomeAtCursor(color) {
-                if (!color_to_biome_map) {
+                if (!color) {
+                    return;
+                }
+                if (!color_to_biome_id_map || !biome_id_to_biome_name_map) {
                     return;
                 }
                 let position_div = document.getElementById("position_info");
-                let biome_id = color_to_biome_map[color];
+                let biome_id = color_to_biome_id_map[color];
+                let biome_name = biome_id_to_biome_name_map[biome_id];
                 position_div.innerHTML +=
-                    " --- Biome: " + biome_id + " " + color;
+                    " --- Biome: [" + biome_id + "] " + biome_name;
             }
 
             map.generateFragment = generateFragmentB;

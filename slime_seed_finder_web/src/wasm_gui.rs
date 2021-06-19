@@ -6,6 +6,7 @@ use stdweb::serde::Serde;
 use stdweb::web::TypedArray;
 
 use slime_seed_finder::biome_info::biome_id;
+use slime_seed_finder::biome_info::biome_name;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::GetMap;
@@ -998,4 +999,18 @@ pub fn get_color_to_biome_map() -> HashMap<String, i32> {
             (color_string, biome_id)
         })
         .collect()
+}
+
+#[js_export]
+pub fn get_biome_id_to_biome_name_map() -> HashMap<String, String> {
+    let num_biomes = 256;
+    let mut h = HashMap::with_capacity(usize::try_from(num_biomes).unwrap());
+
+    for biome_id in 0..num_biomes {
+        if let Some(name) = biome_name(biome_id) {
+            h.insert(biome_id.to_string(), name.to_string());
+        }
+    }
+
+    h
 }
