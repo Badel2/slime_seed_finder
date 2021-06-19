@@ -8,6 +8,7 @@ use serde::{Serialize, Deserialize};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::convert::TryInto;
 use crate::java_rng::JavaRng;
 use crate::chunk::Point;
@@ -407,6 +408,22 @@ pub fn biome_to_color(id: i32) -> [u8; 4] {
     }
 
     [r, g, b, 255]
+}
+
+pub fn color_to_biome_map() -> HashMap<[u8; 4], i32> {
+    let num_biomes = 256;
+    let mut h = HashMap::with_capacity(num_biomes);
+
+    for biome_id in 0..num_biomes {
+        let biome_id = i32::try_from(biome_id).unwrap();
+        let color = biome_to_color(biome_id);
+        //let [r, g, b, _a] = color;
+        // Convert color [r, g, b, a] into #rrggbb
+        //let color_string = format!("#{:02x}{:02x}{:02x}", r, g, b);
+        h.insert(color, biome_id);
+    }
+
+    h
 }
 
 /*
@@ -6940,5 +6957,40 @@ mod tests {
                 panic!("{} should be {} and is {:?}", biome_id, old, new);
             }
         }
+    }
+
+    #[test]
+    fn color_to_biome_map_works() {
+        let cbm = color_to_biome_map();
+
+        let color_plains = biome_to_color(biome_id::plains);
+
+        assert_eq!(cbm[&color_plains], biome_id::plains);
+    }
+
+    #[test]
+    fn all_biomes_have_unique_colors() {
+        let num_biomes = 256;
+        let mut h: HashMap<_, Vec<i32>> = HashMap::with_capacity(num_biomes);
+
+        for biome_id in 0..num_biomes {
+            let biome_id = i32::try_from(biome_id).unwrap();
+            let color = biome_to_color(biome_id);
+            h.entry(color).or_default().push(biome_id);
+        }
+
+        let mut bad_colors = vec![];
+
+        let color_black = biome_to_color(255);
+        for (colors, biomes) in h.iter() {
+            if biomes.len() > 1 {
+                // Biomes that don't exist are black
+                if *colors != color_black {
+                    bad_colors.push((colors, biomes.clone()));
+                }
+            }
+        }
+
+        assert_eq!(bad_colors, vec![]);
     }
 }

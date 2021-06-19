@@ -6,6 +6,7 @@ use stdweb::serde::Serde;
 use stdweb::web::TypedArray;
 
 use slime_seed_finder::biome_info::biome_id;
+use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
 use slime_seed_finder::biome_layers::GetMap;
 use slime_seed_finder::biome_layers::Map;
@@ -21,6 +22,7 @@ use slime_seed_finder::seed_info::SeedInfo;
 use slime_seed_finder::slime::SlimeChunks;
 use slime_seed_finder::*;
 
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
@@ -980,4 +982,20 @@ fn visit_nbt<F: FnMut(&NbtPath, &nbt::Tag)>(root: &nbt::Tag, visit: F) {
     }
     let mut nbt_path = NbtPath::root();
     visit_inner(&mut nbt_path, &root, visit);
+}
+
+#[js_export]
+pub fn get_color_to_biome_map() -> HashMap<String, i32> {
+    let rgba_to_biome = biome_layers::color_to_biome_map();
+
+    rgba_to_biome
+        .into_iter()
+        .map(|(rgba, biome_id)| {
+            let [r, g, b, _a] = rgba;
+            // Convert color [r, g, b, a] into #rrggbb
+            let color_string = format!("#{:02x}{:02x}{:02x}", r, g, b);
+
+            (color_string, biome_id)
+        })
+        .collect()
 }
