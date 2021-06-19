@@ -6619,7 +6619,7 @@ mod tests {
     fn reverse_voronoi_small_map() {
         fn rcoords(c: &[(i64, i64)]) -> Result<Map, ()> {
             let c: Vec<_> = c.iter().map(|c| Point { x: c.0, z: c.1 }).collect();
-            let area_voronoi = Area::from_coords(&c);
+            let area_voronoi = Area::from_coords(c.iter().copied());
             let target_map_voronoi = map_with_river_at(&c, area_voronoi);
             reverse_map_voronoi_zoom(&target_map_voronoi)
         }
@@ -6641,7 +6641,7 @@ mod tests {
 
         let river_coords_voronoi = &s.biomes[&BiomeId(7)];
         let river_coords_voronoi = river_coords_voronoi.iter().cloned().collect::<Vec<_>>();
-        let area_voronoi = Area::from_coords(&river_coords_voronoi);
+        let area_voronoi = Area::from_coords(river_coords_voronoi.iter().copied());
         let target_map_voronoi = map_with_river_at(&river_coords_voronoi, area_voronoi);
         let target_map_derived = reverse_map_voronoi_zoom(&target_map_voronoi).unwrap();
         let target_map = target_map_derived;
@@ -6649,7 +6649,7 @@ mod tests {
 
         let river_coords_rv_expected_value = s.options.other["expectedRiversPreviousLayer"].clone();
         let river_coords_rv_expected: Vec<Point> = serde_json::from_value(river_coords_rv_expected_value).unwrap();
-        let area_rv = Area::from_coords(&river_coords_rv_expected);
+        let area_rv = Area::from_coords(river_coords_rv_expected.iter().copied());
         let expected_rv_map = map_with_river_at(&river_coords_rv_expected, area_rv);
         println!("{}", draw_map(&expected_rv_map));
         assert_eq!(target_map, expected_rv_map);
@@ -6682,8 +6682,8 @@ mod tests {
         use crate::seed_info::SeedInfo;
         let s = SeedInfo::read("seedinfo_tests/voronoi_1_15.json").unwrap();
         let river_coords = &s.biomes[&BiomeId(7)];
-        println!("{}", draw_map(&map_with_river_at(river_coords, Area::from_coords(river_coords))));
-        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords), s.world_seed.unwrap());
+        println!("{}", draw_map(&map_with_river_at(river_coords, Area::from_coords(river_coords.iter().copied()))));
+        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords.iter().copied()), s.world_seed.unwrap());
         println!("{}", draw_map(&m));
         for r in river_coords {
             let gr = m.get(r.x, r.z);
@@ -6930,6 +6930,7 @@ mod tests {
     #[test]
     fn get_category_replaces_get_biome_type() {
         for biome_id in 0..256 {
+            #[allow(deprecated)]
             let old = get_biome_type(biome_id);
             // Using 1.16.1 because 1.16.2 changes the category of mesaPlateau
             let new = get_category(MinecraftVersion::Java1_16_1, biome_id);
