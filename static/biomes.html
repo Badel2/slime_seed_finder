@@ -80,7 +80,10 @@
                     <option value="1.7">Java 1.7 - 1.12</option>
                     <option value="1.13">Java 1.13</option>
                     <option value="1.14">Java 1.14</option>
-                    <option value="1.15" selected>Java 1.15 - Java 1.16</option>
+                    <option value="1.15">Java 1.15 - Java 1.16.1</option>
+                    <option value="1.16" selected
+                        >Java 1.16.2 - Java 1.17</option
+                    >
                     <option value="TreasureMap13"
                         >Java 1.13-1.14 Treasure Map</option
                     >
@@ -300,6 +303,7 @@
                     minecraft_version == "1.13" ||
                     minecraft_version == "1.14" ||
                     minecraft_version == "1.15" ||
+                    minecraft_version == "1.16" ||
                     minecraft_version == "TreasureMap13" ||
                     minecraft_version == "TreasureMap15"
                 ) {
@@ -405,6 +409,7 @@
                             new_v == "1.13" ||
                             new_v == "1.14" ||
                             new_v == "1.15" ||
+                            new_v == "1.16" ||
                             new_v == "TreasureMap13" ||
                             new_v == "TreasureMap15"
                         ) {
@@ -418,6 +423,7 @@
                         (new_v == "1.13" ||
                             new_v == "1.14" ||
                             new_v == "1.15" ||
+                            new_v == "1.16" ||
                             new_v == "TreasureMap13" ||
                             new_v == "TreasureMap15")
                     ) {
@@ -432,6 +438,7 @@
                         (old_v == "1.13" ||
                             old_v == "1.14" ||
                             old_v == "1.15" ||
+                            old_v == "1.16" ||
                             old_v == "TreasureMap13" ||
                             old_v == "TreasureMap15") &&
                         new_v == "1.7"
@@ -449,7 +456,8 @@
                     if (
                         (old_v == "1.13" ||
                             old_v == "1.14" ||
-                            old_v == "1.15") &&
+                            old_v == "1.15" ||
+                            old_v == "1.16") &&
                         (new_v == "TreasureMap13" || new_v == "TreasureMap15")
                     ) {
                         // Set layer to 51
@@ -458,7 +466,10 @@
                     if (
                         (old_v == "TreasureMap13" ||
                             old_v == "TreasureMap15") &&
-                        (new_v == "1.13" || new_v == "1.14" || new_v == "1.15")
+                        (new_v == "1.13" ||
+                            new_v == "1.14" ||
+                            new_v == "1.15" ||
+                            new_v == "1.16")
                     ) {
                         // Set layer to 51
                         updateWithLayerPlus(51 - lastLayer);
@@ -485,6 +496,7 @@
                     minecraft_version == "1.13" ||
                     minecraft_version == "1.14" ||
                     minecraft_version == "1.15" ||
+                    minecraft_version == "1.16" ||
                     minecraft_version == "TreasureMap13" ||
                     minecraft_version == "TreasureMap15"
                 ) {

@@ -5141,7 +5141,7 @@ pub fn generate_fragment_treasure_map(version: MinecraftVersion, area: Area, see
 
             Rc::from(mhv)
         }
-        MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 => {
+        MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 | MinecraftVersion::Java1_17 => {
             let mut mhv = MapHalfVoronoiZoom115::new(seed);
             let parent = Rc::from(generator_up_to_layer_1_15(seed, 50, version));
             mhv.parent = Some(parent);
@@ -5188,6 +5188,7 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
         MinecraftVersion::Java1_16_1 => generate_up_to_layer_1_15(area, seed, num_layers, version),
         // 1.16.2 and later is different
         MinecraftVersion::Java1_16 => generate_up_to_layer_1_15(area, seed, num_layers, version),
+        MinecraftVersion::Java1_17 => generate_up_to_layer_1_15(area, seed, num_layers, version),
         _ => {
             panic!("Biome generation in version {:?} is not implemented", version);
         }

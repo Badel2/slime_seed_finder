@@ -1015,7 +1015,7 @@ fn main() {
 
                     println!("All biomes match");
                 }
-                MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 => {
+                MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 | MinecraftVersion::Java1_17 => {
                     let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, Some(version)).unwrap();
                     if JavaRng::create_from_long(world_seed as u64).is_none() {
                         println!("Warning: this seed cannot be generated with Java Random nextLong");
@@ -1069,7 +1069,8 @@ fn main() {
         } => {
             let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
             let version: MinecraftVersion = mc_version.parse().unwrap();
-            assert_eq!(version, MinecraftVersion::Java1_16, "only version 1.16 is supported");
+            // TODO: implement other versions
+            assert!(version > MinecraftVersion::Java1_15, "only version 1.16 is supported");
             let dungeons = anvil::find_dungeons(&mut chunk_provider).unwrap();
             // Convert DungeonKind to string in order to serialize it
             let dungeons: Vec<_> = dungeons.into_iter().map(|((x, y, z), kind, floor)| ((x, y, z), kind.to_string(), floor)).collect();

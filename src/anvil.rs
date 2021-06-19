@@ -462,9 +462,9 @@ pub fn read_seed_from_level_dat_zip(input_zip: &Path, minecraft_version: Option<
     let mut level_dat = zip_archive.by_name(&level_dat_path).map_err(|e| format!("level.dat path incorrectly set: {:?}", e))?;
 
     match minecraft_version {
-        Some(MinecraftVersion::Java1_16_1) | Some(MinecraftVersion::Java1_16) => read_seed_from_level_dat_1_16(&mut level_dat),
-        Some(_) => read_seed_from_level_dat_1_15(&mut level_dat),
-        None => {
+        Some(MinecraftVersion::Java1_16_1) | Some(MinecraftVersion::Java1_16) | Some(MinecraftVersion::Java1_17) => read_seed_from_level_dat_1_16(&mut level_dat),
+        Some(version) if version <= MinecraftVersion::Java1_15 => read_seed_from_level_dat_1_15(&mut level_dat),
+        _ => {
             // Try to guess version, starting from the newest one
             // Mutating level_dat advances the reader, so read file into memory first
             let mut buf = Vec::with_capacity(512);
