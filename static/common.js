@@ -79,7 +79,7 @@ Game.render = function() {};
 //
 
 //window.onload = function () {
-function startGame(lastLayer) {
+function startGame(lastLayer, callbackPixelColor = null) {
     let pos_div = document.getElementById("position_info");
     let center_butt = document.getElementById("center_button");
     center_butt.onclick = function() {
@@ -178,6 +178,10 @@ function startGame(lastLayer) {
                         Math.floor(tx * 16) +
                         ", z: " +
                         Math.floor(ty * 16);
+                }
+                if (callbackPixelColor) {
+                    let pixelColor = Game.getPixelAtGameCoords(tx, ty);
+                    callbackPixelColor(pixelColor);
                 }
             },
             false

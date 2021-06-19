@@ -399,3 +399,43 @@ Game.setActiveLayer = function(layer) {
     this.dirty = true;
     this.activeLayer = layer;
 };
+
+Game.getPixelAtGameCoords = function(x, y) {
+    // x and y are fragment coords (float)
+    let fragX = Math.floor(x);
+    let fragY = Math.floor(y);
+    let innerX = Math.floor((x - fragX) * map.tsize);
+    let innerY = Math.floor((y - fragY) * map.tsize);
+    if (innerX >= map.tsize) {
+        innerX = 0;
+        fragX += 1;
+    }
+    if (innerY >= map.tsize) {
+        innerY = 0;
+        fragY += 1;
+    }
+
+    let layer = this.activeLayer;
+
+    let fragmentImage = map.getFragment(layer, fragX, fragY);
+    if (!fragmentImage) {
+        return undefined;
+    }
+
+    let context = fragmentImage.getContext("2d");
+
+    let imgd = context.getImageData(innerX, innerY, 1, 1);
+    let data = imgd.data;
+
+    let [r, g, b, a] = data;
+
+    function toHex(x, minLength = 0) {
+        let s = x.toString(16);
+        while (s.length < minLength) {
+            s = "0" + s;
+        }
+        return s;
+    }
+
+    return "#" + toHex(r, 2) + toHex(g, 2) + toHex(b, 2);
+};

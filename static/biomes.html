@@ -802,6 +802,11 @@
                 }
             }
 
+            function showBiomeAtCursor(color) {
+                let position_div = document.getElementById("position_info");
+                position_div.innerHTML += " --- Biome: " + color;
+            }
+
             map.generateFragment = generateFragmentB;
 
             let ws = document.getElementById("worldSeed");
@@ -835,7 +840,7 @@
             window.addEventListener("resize", resize, false);
             resize();
             let lastLayer = document.getElementById("lastLayer").value | 0;
-            startGame(lastLayer);
+            startGame(lastLayer, showBiomeAtCursor);
         </script>
     </body>
 </html>
