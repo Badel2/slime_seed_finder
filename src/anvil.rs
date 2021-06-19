@@ -12,7 +12,7 @@ use zip::ZipArchive;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::convert::TryFrom;
-use std::path::PathBuf;
+use std::path::Path;
 use std::fs::OpenOptions;
 use log::*;
 use crate::biome_layers::is_oceanic;
@@ -106,19 +106,19 @@ pub fn best_river_chunk(river_chunks: &HashMap<(i32, i32), u8>) -> Option<(i32, 
 /// * Return a few extra biomes
 ///
 /// This is meant to be used together with river_seed_finder.
-pub fn get_rivers_and_some_extra_biomes_folder(input_dir: &PathBuf, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
+pub fn get_rivers_and_some_extra_biomes_folder(input_dir: &Path, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
     let mut chunk_provider = FolderChunkProvider::new(input_dir.to_str().unwrap());
 
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }
 
-pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &PathBuf, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
+pub fn get_rivers_and_some_extra_biomes_zip(input_zip: &Path, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
 
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }
 
-pub fn get_rivers_and_some_extra_biomes_zip_1_15(input_zip: &PathBuf, center_block_arg: Point) -> (Vec<Point4>, Vec<(BiomeId, Point4)>) {
+pub fn get_rivers_and_some_extra_biomes_zip_1_15(input_zip: &Path, center_block_arg: Point) -> (Vec<Point4>, Vec<(BiomeId, Point4)>) {
     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
 
     get_rivers_and_some_extra_biomes_1_15(&mut chunk_provider, center_block_arg)
@@ -449,7 +449,7 @@ pub fn get_all_biomes_1_14<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
     return extra_biomes;
 }
 
-pub fn read_seed_from_level_dat_zip(input_zip: &PathBuf, minecraft_version: Option<MinecraftVersion>) -> Result<i64, String> {
+pub fn read_seed_from_level_dat_zip(input_zip: &Path, minecraft_version: Option<MinecraftVersion>) -> Result<i64, String> {
     let reader = OpenOptions::new()
         .write(false)
         .read(true)
