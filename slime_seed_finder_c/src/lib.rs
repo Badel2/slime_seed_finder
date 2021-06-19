@@ -3,7 +3,6 @@ use slime_seed_finder::biome_layers;
 use slime_seed_finder::seed_info::MinecraftVersion;
 use std::ffi::CStr;
 use std::ffi::CString;
-use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::mem;
 use std::os::raw::c_char;
@@ -124,6 +123,11 @@ pub extern "C" fn read_biome_map_from_mc_world(
         Ok(x) => x,
         Err(e) => return c_err(format!("mc_version parse error: {}", e)),
     };
+
+    match version {
+        MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 => {}
+        _ => return c_err(format!("unsupported version: {:?}", version)),
+    }
 
     let mut chunk_provider = anvil::ZipChunkProvider::file(input_zip_path).unwrap();
     let points = anvil::get_all_biomes_1_15(&mut chunk_provider);
