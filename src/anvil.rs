@@ -7,6 +7,7 @@ pub use anvil_region::AnvilChunkProvider;
 pub use anvil_region::FolderChunkProvider;
 pub use anvil_region::ZipChunkProvider;
 use anvil_region::ChunkLoadError;
+use fastanvil::Chunk;
 use nbt::CompoundTag;
 use zip::ZipArchive;
 use std::collections::HashMap;
@@ -602,7 +603,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             for dz in (-5)..=5 {
                 for dx in (-5)..=5 {
                     let block = overworld.get_block(x + dx, y + dy, z + dz);
-                    let block_name = block.map(|b| b.name).unwrap_or(
+                    let block_name = block.map(|b| b.name.as_str()).unwrap_or(
                         // If the block does not exist, use empty string instead of block name
                         // This seems to be common when a dungeon is near the edge of the world:
                         // part of the floor is missing
@@ -829,7 +830,7 @@ pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block
 
 pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i32, i32), block_name: &str, only_check_chunks: Option<&[(i32, i32)]>) -> Result<Vec<(i64, i64, i64)>, String> {
     let mut dungeons = vec![];
-    let mut region = fastanvil::Region::new(region);
+    let mut region = fastanvil::RegionBuffer::new(region);
     region_for_each_chunk(&mut region, |chunk_x, chunk_z, data| {
         if let Some(only_check_chunks) = only_check_chunks {
             let chunk_x = region_x * 32 + chunk_x as i32;
@@ -840,7 +841,7 @@ pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i
             }
         }
 
-        let mut chunk: fastanvil::Chunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
+        let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
         //println!("Another chunk");
         //println!("{:?}: {:?}", (chunk_x, chunk_z), chunk);
         for x in 0..16 {

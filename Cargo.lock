@@ -323,15 +323,16 @@ dependencies = [
 
 [[package]]
 name = "fastanvil"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cde98a452a6def5d67b678b0b46863650f7926242b487b4eb2451d878f87f7c"
+checksum = "bced6118a206a80b7e16a6cfdc33f2c346864f2825ee4f67ba6457d6c8a1ddf1"
 dependencies = [
  "bit_field",
  "byteorder",
  "fastnbt",
  "flate2",
  "image",
+ "lazy_static",
  "log",
  "num_enum",
  "serde",
@@ -339,9 +340,9 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1375c4acd39a9335a01542100bb6298fab3a34585a7a2b4aec20d85b29f459cd"
+checksum = "b6d0e1114ddb912cbffe6057294ecefd11aeec30417f1e486fbb7fad1e0f0375"
 dependencies = [
  "byteorder",
  "serde",

@@ -1,6 +1,7 @@
 //! Extra functionality for fastanvil crate
 //! Ideally this would be merged upstream
 
+use fastanvil::Chunk;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::OpenOptions;
@@ -12,11 +13,9 @@ use std::path::PathBuf;
 /// A single dimesion of a minecraft world
 pub struct Dimension<S: Read + Seek> {
     // (region_x, region_z) => region
-    regions: HashMap<(i32, i32), Option<fastanvil::Region<S>>>,
+    regions: HashMap<(i32, i32), Option<fastanvil::RegionBuffer<S>>>,
     // (chunk_x, chunk_z) => chunk
-    // Invariant: the boxed slice must live as long as the Chunk, and it must be impossible for a
-    // caller to obtain access to the Chunk<'static>. Access to a Chunk<'a> is fine
-    chunks: HashMap<(i32, i32), (fastanvil::Chunk<'static>, Box<[u8]>)>,
+    chunks: HashMap<(i32, i32), fastanvil::JavaChunk>,
 }
 
 impl Dimension<std::fs::File> {
@@ -34,7 +33,7 @@ impl Dimension<std::fs::File> {
                 .open(region_path)
                 .unwrap();
 
-            let region = fastanvil::Region::new(file);
+            let region = fastanvil::RegionBuffer::new(file);
             regions.insert((region_x, region_z), Some(region));
         }
 
@@ -70,17 +69,9 @@ impl<S: Read + Seek> Dimension<S> {
     where R: Read {
         let mut chunk_bytes = vec![];
         reader.read_to_end(&mut chunk_bytes).expect("Failed to read");
-        let pinned_chunk_bytes = chunk_bytes.into_boxed_slice();
-        let static_ref_to_chunk_bytes: &'static [u8] = unsafe {
-            // Trust me, pinned_chunk_bytes will be valid for as long as "chunk"
-            let len = pinned_chunk_bytes.len();
-            let raw_pointer = &*pinned_chunk_bytes as *const [u8];
-            std::slice::from_raw_parts(raw_pointer as *const u8, len)
-        };
-
-        let chunk: fastanvil::Chunk = fastnbt::de::from_bytes(&static_ref_to_chunk_bytes).expect("Failed to deserialize chunk");
+        let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(&chunk_bytes).expect("Failed to deserialize chunk");
         // Overwrite chunks that did already exist
-        self.chunks.insert((chunk_x, chunk_z), (chunk, pinned_chunk_bytes));
+        self.chunks.insert((chunk_x, chunk_z), chunk);
         // If the region did not exist, insert None to indicate that some chunks from this region
         // exist
         let (region_x, region_z) = anvil_region::chunk_coords_to_region_coords(chunk_x, chunk_z);
@@ -95,7 +86,7 @@ impl<S: Read + Seek> Dimension<S> {
 
     /// Get the block at this coordinates
     // TODO: remove need to use mutable reference to self?
-    pub fn get_block<'a>(&'a mut self, x: i64, y: i64, z: i64) -> Option<&'a fastanvil::Block<'a>> {
+    pub fn get_block<'a>(&'a mut self, x: i64, y: i64, z: i64) -> Option<&'a fastanvil::Block> {
         let block_x = u8::try_from(x & 0xF).unwrap();
         let block_z = u8::try_from(z & 0xF).unwrap();
 
@@ -111,13 +102,13 @@ impl<S: Read + Seek> Dimension<S> {
             self.add_chunk(chunk_x, chunk_z, &mut Cursor::new(chunk_bytes)).expect("Failed to add chunk");
         }
 
-        let (chunk, _) = self.chunks.get_mut(&(chunk_x, chunk_z)).unwrap();
+        let chunk = self.chunks.get_mut(&(chunk_x, chunk_z)).unwrap();
 
         chunk.block(usize::from(block_x), isize::try_from(y).unwrap(), usize::from(block_z))
     }
 
     /// Iterate over all the chunks in this dimension. Iteration order is undefined.
-    pub fn iter_chunks<'a>(&'a self) -> impl Iterator<Item = &'a fastanvil::Chunk<'a>> {
+    pub fn iter_chunks<'a>(&'a self) -> impl Iterator<Item = &'a fastanvil::JavaChunk> {
         // TODO: iterate over regions, and lazily load them into memory
         // Note that it is possible to add chunks that do not belong to any region. In that case,
         // the region will have a None entry, and this iterator must check all the possible chunks.
@@ -131,7 +122,7 @@ impl<S: Read + Seek> Dimension<S> {
     }
 
     /// Iterate over all the blocks in this dimension. Iteration order is undefined.
-    pub fn iter_blocks<'a>(&'a self) -> impl Iterator<Item = &'a fastanvil::Block<'a>> {
+    pub fn iter_blocks<'a>(&'a self) -> impl Iterator<Item = &'a fastanvil::Block> {
         // TODO: use iter_chunks to implement this
 
         // https://github.com/rust-lang/rust/issues/36375
@@ -164,7 +155,7 @@ fn find_all_region_mca(path: PathBuf) -> Result<Vec<(i32, i32)>, std::io::Error>
 }
 
 // Copy of fastanvil::Region::for_each_chunk that ignores errors
-pub fn region_for_each_chunk<S>(region: &mut fastanvil::Region<S>, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> fastanvil::Result<()>
+pub fn region_for_each_chunk<S>(region: &mut fastanvil::RegionBuffer<S>, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> fastanvil::Result<()>
 where S: Seek + Read
 {
         let mut offsets = Vec::<fastanvil::ChunkLocation>::new();
