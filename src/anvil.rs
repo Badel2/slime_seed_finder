@@ -806,14 +806,13 @@ pub fn region_contains_at_least_one_of_this_chunks((region_x, region_z): (i32, i
     }
 }
 
-pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block_name: &str, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> Result<Vec<(i64, i64, i64)>, String> {
+pub fn iterate_blocks_in_world<A: AnvilChunkProvider, F: FnMut((i64, i64, i64), &fastanvil::Block)>(chunk_provider: &mut A, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>, mut f: F) -> Result<(), String> {
     let only_check_chunks = center_position_and_chunk_radius.map(|((x, _y, z), chunk_radius)| {
         let chunk_x = i32::try_from(x >> 4).unwrap();
         let chunk_z = i32::try_from(z >> 4).unwrap();
 
         chunk_square_around((chunk_x, chunk_z), chunk_radius)
     });
-    let mut found_blocks = vec![];
     for (region_x, region_z) in chunk_provider.list_regions().unwrap() {
         if !region_contains_at_least_one_of_this_chunks((region_x, region_z), only_check_chunks.as_deref()) {
             log::debug!("Skipping region {:?}", (region_x, region_z));
@@ -821,15 +820,25 @@ pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block
         }
         log::debug!("Checking region {:?}", (region_x, region_z));
         let region = chunk_provider.get_region(region_x, region_z).unwrap();
-        let more_blocks = find_blocks_in_region(region, (region_x, region_z), block_name, only_check_chunks.as_deref())?;
-        found_blocks.extend(more_blocks);
+        iterate_blocks_in_region(region, (region_x, region_z), only_check_chunks.as_deref(), &mut f)?;
     }
+
+    Ok(())
+}
+
+pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block_name: &str, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> Result<Vec<(i64, i64, i64)>, String> {
+    let mut found_blocks = vec![];
+
+    iterate_blocks_in_world(chunk_provider, center_position_and_chunk_radius, |(x, y, z), block| {
+        if block.name == block_name {
+            found_blocks.push((x, y, z));
+        }
+    })?;
 
     Ok(found_blocks)
 }
 
-pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i32, i32), block_name: &str, only_check_chunks: Option<&[(i32, i32)]>) -> Result<Vec<(i64, i64, i64)>, String> {
-    let mut dungeons = vec![];
+pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fastanvil::Block)>(region: R, (region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>, mut f: F) -> Result<(), String> {
     let mut region = fastanvil::RegionBuffer::new(region);
     region_for_each_chunk(&mut region, |chunk_x, chunk_z, data| {
         if let Some(only_check_chunks) = only_check_chunks {
@@ -854,18 +863,12 @@ pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i
             for y in 0..256 {
                 for z in 0..16 {
                     if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
-                        if block.name == block_name {
-                            let (x, y, z) = (x as i64, y as i64, z as i64);
-                            let (chunk_x, chunk_z) = (chunk_x as i64, chunk_z as i64);
-                            let block_x = i64::from(region_x) * 16 * 32 + chunk_x * 16 + x;
-                            let block_y = i64::from(y);
-                            let block_z = i64::from(region_z) * 16 * 32 + chunk_z * 16 + z;
-                            //println!("{:?}", (block_x, block_y, block_z));
-                            //println!("block {:?} chunk {:?}", (x, y, z), (chunk_x, chunk_z));
-                            //println!("{}", block_name);
-                            //log::debug!("{:?}: {}", (block_x, block_y, block_z), block.name);
-                            dungeons.push((block_x, block_y, block_z));
-                        }
+                        let (x, y, z) = (x as i64, y as i64, z as i64);
+                        let (chunk_x, chunk_z) = (chunk_x as i64, chunk_z as i64);
+                        let block_x = i64::from(region_x) * 16 * 32 + chunk_x * 16 + x;
+                        let block_y = i64::from(y);
+                        let block_z = i64::from(region_z) * 16 * 32 + chunk_z * 16 + z;
+                        f((block_x, block_y, block_z), block);
                     } else {
                         // TODO: check max y to avoid iterating from 0 to 255
                         //println!("No block?");
@@ -875,8 +878,9 @@ pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i
         }
     }).unwrap();
 
-    Ok(dungeons)
+    Ok(())
 }
+
 
 fn segregate_into_buckets<V>(list: Vec<((i64, i64, i64), V)>, size: u64) -> HashMap<(i64, i64, i64), Vec<((i64, i64, i64), V)>> {
     let size = size as i64;
