@@ -184,7 +184,14 @@ where S: Seek + Read
         offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
 
         for offset in offsets {
-            let chunk = region.load_chunk(offset.x, offset.z)?;
+            let chunk = match region.load_chunk(offset.x, offset.z) {
+                Ok(x) => x,
+                Err(e) => {
+                    // Ignore errors
+                    log::error!("Error loading chunk {:?}: {:?}", offset, e);
+                    continue;
+                }
+            };
             f(offset.x, offset.z, &chunk);
         }
 

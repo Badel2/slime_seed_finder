@@ -36,8 +36,8 @@ rand = { version = "0.8.3", optional = true }
 pretty_env_logger = "0.4.0"
 sha2 = "0.9.3"
 zip = { version = "0.5.11", default-features = false, features = ["deflate"] }
-fastanvil = "0.17.0"
-fastnbt = "0.17.0"
+fastanvil = { git = "https://github.com/owengage/fastnbt", rev = "10e0edf0758916395e1a0de5e62b7c7a42d8465e" }
+fastnbt = { git = "https://github.com/owengage/fastnbt", rev = "10e0edf0758916395e1a0de5e62b7c7a42d8465e" }
 
 [[bin]]
 name = "slime_seed_finder"

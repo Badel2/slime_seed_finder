@@ -841,7 +841,13 @@ pub fn find_blocks_in_region<R: Read + Seek>(region: R, (region_x, region_z): (i
             }
         }
 
-        let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
+        let chunk: fastanvil::JavaChunk = match fastnbt::de::from_bytes(data.as_slice()) {
+            Ok(x) => x,
+            Err(e) => {
+                log::warn!("Error when deserializing chunk {:?}: {:?}", (chunk_x, chunk_z), e);
+                return;
+            }
+        };
         //println!("Another chunk");
         //println!("{:?}: {:?}", (chunk_x, chunk_z), chunk);
         for x in 0..16 {
