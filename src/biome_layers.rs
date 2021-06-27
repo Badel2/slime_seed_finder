@@ -6993,4 +6993,14 @@ mod tests {
 
         assert_eq!(bad_colors, vec![]);
     }
+
+    #[test]
+    // TODO: this test fails, fix
+    #[ignore]
+    fn test_generation_jungle_fail() {
+        let a = Area { x: 188, z: -71, w: 1, h: 1 };
+        let version = MinecraftVersion::Java1_16;
+        let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], 168);
+    }
 }
