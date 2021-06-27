@@ -864,6 +864,10 @@
             resize();
             let lastLayer = document.getElementById("lastLayer").value | 0;
             startGame(lastLayer, showBiomeAtCursor);
+            Game.afterInit = function() {
+                Game.showGrid = false;
+                document.getElementById("center_button").click();
+            };
             initializeColorToBiomeIdMap();
         </script>
     </body>

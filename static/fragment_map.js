@@ -168,6 +168,9 @@ Game.init = function(tsize, canvasH, canvasW, activeLayer) {
     // Never have more than 3 elements in the cache
     this.lru_cache_size = 3;
     this.maxNumFragmentsOnScreen = 400;
+    if (this.afterInit) {
+        this.afterInit();
+    }
 };
 
 Game.update = function(delta) {
