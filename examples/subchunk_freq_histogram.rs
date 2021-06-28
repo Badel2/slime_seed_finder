@@ -10,6 +10,7 @@ use serde::{Serialize, Deserialize};
 use slime_seed_finder::anvil;
 use slime_seed_finder::anvil::ZipChunkProvider;
 use std::collections::BTreeMap;
+use std::fs::OpenOptions;
 use std::path::Path;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -24,6 +25,12 @@ fn main() {
     let args: Vec<_> = std::env::args().collect();
 
     let mut c = Counts::default();
+    let dimension = None;
+    let filename = format!("subchunk_freq_all.json");
+    //let dimension = Some("DIM-1");
+    //let filename = format!("subchunk_freq_all_nether.json");
+    //let dimension = Some("DIM1");
+    //let filename = format!("subchunk_freq_all_end.json");
 
     for zip_path in &args[1..] {
         let center_position_and_chunk_radius = None;
@@ -32,7 +39,9 @@ fn main() {
         let seed = anvil::read_seed_from_level_dat_zip(Path::new(zip_path), None).expect("failed to read seed from level.dat");
         println!("Seed: {}", seed);
 
-        let mut chunk_provider = ZipChunkProvider::file(zip_path).unwrap();
+        let zip_file = OpenOptions::new().write(false).read(true).create(false).open(zip_path).expect("failed to open zip file");
+
+        let mut chunk_provider = ZipChunkProvider::new_with_dimension(zip_file, dimension).unwrap();
 
         let mut counts: BTreeMap<String, Vec<u64>> = Default::default();
         anvil::iterate_blocks_in_world(
@@ -65,6 +74,5 @@ fn main() {
     }
     c.total = total;
 
-    let filename = format!("subchunk_freq_all.json");
     serde_json::to_writer(&std::fs::File::create(&filename).expect("failed to create file"), &c).expect("error writing file");
 }
