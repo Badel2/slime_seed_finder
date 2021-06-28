@@ -560,7 +560,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
         // Because we use a different NBT library to read blocks, we serialize the chunk NBT tag
         // using the named-binary-tag crate and deserialize it using the fastanvil crate
         let mut buf = Cursor::new(vec![]);
-        nbt::encode::write_compound_tag(&mut buf, c).expect("Serialization failed");
+        nbt::encode::write_compound_tag(&mut buf, &c).expect("Serialization failed");
 
         // To allow the reader to read...
         buf.set_position(0);
@@ -583,7 +583,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             // Because we use a different NBT library to read blocks, we serialize the chunk NBT tag
             // using the named-binary-tag crate and deserialize it using the fastanvil crate
             let mut buf = Cursor::new(vec![]);
-            nbt::encode::write_compound_tag(&mut buf, c).expect("Serialization failed");
+            nbt::encode::write_compound_tag(&mut buf, &c).expect("Serialization failed");
 
             // Set cursor position to 0 to allow the reader to read from the beginning
             buf.set_position(0);

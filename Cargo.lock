@@ -50,11 +50,11 @@ dependencies = [
 [[package]]
 name = "anvil-region"
 version = "0.3.0"
-source = "git+https://github.com/Badel2/anvil-region?rev=7804652c8d1642ed2d5e88ad0ad1064b815cb4ab#7804652c8d1642ed2d5e88ad0ad1064b815cb4ab"
+source = "git+https://github.com/Badel2/anvil-region?rev=dc6c43dea3187083caadb83d603cfb03df75599a#dc6c43dea3187083caadb83d603cfb03df75599a"
 dependencies = [
  "bitvec",
  "byteorder",
- "named-binary-tag 0.2.3",
+ "named-binary-tag 0.6.0",
  "zip",
 ]
 
@@ -104,12 +104,14 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "bitvec"
-version = "0.17.4"
+version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41262f11d771fd4a61aa3ce019fca363b4b6c282fca9da2a31186d3965a47a5c"
+checksum = "5237f00a8c86130a0cc317830e558b966dd7850d48a953d998c813f01a41b527"
 dependencies = [
- "either",
+ "funty",
  "radium",
+ "tap",
+ "wyz",
 ]
 
 [[package]]
@@ -360,6 +362,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "funty"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
+
+[[package]]
 name = "generic-array"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -595,9 +603,9 @@ dependencies = [
 
 [[package]]
 name = "named-binary-tag"
-version = "0.2.3"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d654702943d37d67f1491769ed46484c306f9b9d0d258348904bd63ffb101e8"
+checksum = "c3fb4f561e1575a4681fbee6718125397cb7d9963f049536ced212def3a33ecc"
 dependencies = [
  "byteorder",
  "flate2",
@@ -606,9 +614,9 @@ dependencies = [
 
 [[package]]
 name = "named-binary-tag"
-version = "0.5.0"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3fb4f561e1575a4681fbee6718125397cb7d9963f049536ced212def3a33ecc"
+checksum = "523298fac63bd954f9a2e03b962b8a4a0e95110ad1b2fa3e0d7048660ffecec3"
 dependencies = [
  "byteorder",
  "flate2",
@@ -911,9 +919,9 @@ dependencies = [
 
 [[package]]
 name = "radium"
-version = "0.3.0"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "def50a86306165861203e7f84ecffbbdfdea79f0e51039b33de1e952358c47ac"
+checksum = "643f8f41a8ebc4c5dc4515c82bb8abd397b527fc20fd681b7c011c2aee5d44fb"
 
 [[package]]
 name = "rand"
@@ -1216,7 +1224,7 @@ dependencies = [
  "image",
  "libc",
  "log",
- "named-binary-tag 0.2.3",
+ "named-binary-tag 0.6.0",
  "ndarray",
  "num_cpus",
  "pretty_env_logger",
@@ -1346,6 +1354,12 @@ dependencies = [
  "quote",
  "unicode-xid",
 ]
+
+[[package]]
+name = "tap"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tempfile"
@@ -1565,10 +1579,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
-name = "zip"
-version = "0.5.11"
+name = "wyz"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8264fcea9b7a036a4a5103d7153e988dbc2ebbafb34f68a3c2d404b6b82d74b6"
+checksum = "129e027ad65ce1453680623c3fb5163cbf7107bfe1aa32257e7d0e63f9ced188"
+dependencies = [
+ "tap",
+]
+
+[[package]]
+name = "zip"
+version = "0.5.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93ab48844d61251bb3835145c521d88aa4031d7139e8485990f60ca911fa0815"
 dependencies = [
  "byteorder",
  "crc32fast",
