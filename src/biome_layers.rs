@@ -2118,6 +2118,14 @@ impl GetMap for MapBiome {
     }
 }
 
+fn is_shallow_ocean(id: i32) -> bool {
+    use biome_id::*;
+    match id {
+        ocean | warmOcean | lukewarmOcean | coldOcean | frozenOcean => true,
+        _ => false,
+    }
+}
+
 fn is_deep_ocean(id: i32) -> bool {
     use biome_id::*;
     match id {
@@ -2343,7 +2351,7 @@ impl MapHills {
 
                 let var12 = (b11 - 2) % 29 == 0;
 
-                m.a[(x, z)] = if a11 != 0 && b11 >= 2 && (b11 - 2) % 29 == 1 && a11 < 128 {
+                m.a[(x, z)] = if b11 >= 2 && (b11 - 2) % 29 == 1 && !is_shallow_ocean(a11) {
                     get_mutated(self.mc_version, a11).unwrap_or(a11)
                 } else if r.next_int_n(3) != 0 && !var12 {
                     a11
@@ -6995,12 +7003,26 @@ mod tests {
     }
 
     #[test]
-    // TODO: this test fails, fix
-    #[ignore]
-    fn test_generation_jungle_fail() {
+    fn test_generation_bamboo_hills_fail1() {
         let a = Area { x: 188, z: -71, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16;
         let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1);
         assert_eq!(m.a[(0, 0)], 168);
+        // This generation has not changed since 1.14
+        let version = MinecraftVersion::Java1_14;
+        let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], 168);
+    }
+
+    #[test]
+    fn test_generation_bamboo_hills_fail2() {
+        let a = Area { x: -23, z: 163, w: 1, h: 1 };
+        let version = MinecraftVersion::Java1_16;
+        let m = generate_up_to_layer(version, a, -5450423930667436192, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], 169);
+        // This generation has not changed since 1.14
+        let version = MinecraftVersion::Java1_14;
+        let m = generate_up_to_layer(version, a, -5450423930667436192, version.num_layers() - 1);
+        assert_eq!(m.a[(0, 0)], 169);
     }
 }
