@@ -809,7 +809,11 @@ pub fn find_spawners_in_world(
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let mut chunk_provider = ZipChunkProvider::new_with_dimension(
+        Cursor::new(Vec::from(zipped_world)),
+        params.0.dimension.as_deref(),
+    )
+    .unwrap();
     let blocks = anvil::find_spawners_in_world(
         &mut chunk_provider,
         params

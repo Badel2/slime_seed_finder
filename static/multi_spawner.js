@@ -34,6 +34,10 @@ function findBlock() {
             centerZ = z | 0;
         }
         let chunkRadius = document.getElementById("search_radius").value | 0;
+        let dimension = document.getElementById("dimension").value;
+        if (dimension == "DIM0") {
+            dimension = null;
+        }
         let local_found_blocks = slime_seed_finder_web.find_spawners_in_world(
             region,
             {
@@ -41,6 +45,7 @@ function findBlock() {
                     { x: centerX, y: centerY, z: centerZ },
                     chunkRadius,
                 ],
+                dimension: dimension,
             }
         );
         console.log("Found following blocks:");
@@ -74,3 +79,20 @@ function findBlock() {
         }
     });
 }
+
+// https://stackoverflow.com/a/16779396
+function more(obj, elemId) {
+    var content = document.getElementById(elemId);
+
+    if (content.style.display == "none") {
+        content.style.display = "";
+    } else {
+        content.style.display = "none";
+    }
+}
+
+document.getElementById(
+    "advancedOptions"
+).style.display = document.getElementById("toggleAdvanced1").checked
+    ? ""
+    : "none";

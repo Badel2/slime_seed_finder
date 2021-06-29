@@ -124,16 +124,18 @@
                 <input type="file" id="filepicker" accept=".mca,.zip" />
             </div>
             <div class="card" style="grid-column: 1 / 2; grid-row: 3 / 4;">
-                <div style="display: none">
-                    Center coordinates: (x, y, z)
+                <div>
                     <input
-                        type="text"
-                        id="center_coords"
-                        placeholder="0,0,0"
-                        size="15"
+                        type="checkbox"
+                        id="toggleAdvanced1"
+                        onclick="more(this, 'advancedOptions')"
                     />
+                    <label for="toggleAdvanced1"> Show advanced options </label>
+                </div>
+                <br />
+                <div id="advancedOptions" class="smallCard">
+                    Search radius (in chunks, leave blank to search all chunks)
                     <br />
-                    Search radius (in chunks)
                     <input
                         type="text"
                         id="search_radius"
@@ -141,8 +143,29 @@
                         size="5"
                     />
                     <br />
+                    Center coordinates: (in blocks: x, y, z). Search around
+                    here. (only used if search radius is set) <br />
+                    <input
+                        type="text"
+                        id="center_coords"
+                        placeholder="0,0,0"
+                        size="15"
+                    />
+                    <br />
+                    Dimension <br />
+                    <select id="dimension">
+                        <option value="DIM0" selected>Overworld</option>
+                        <option value="DIM-1">Nether</option>
+                        <option value="DIM1">End</option>
+                    </select>
+                    <br />
                 </div>
-                <button id="button_find_block" onClick="findBlock()">
+                Start search:
+                <button
+                    id="button_find_block"
+                    style="width: 160px"
+                    onClick="findBlock()"
+                >
                     FIND MULTI SPAWNERS
                 </button>
                 <br />
@@ -152,7 +175,7 @@
                 <div id="how_many_found"></div>
                 <div id="dungeon_list"></div>
                 <textarea id="output_textarea" class="code" rows="20" readonly>
-Found blocks will appear here.</textarea
+Found spawners will appear here.</textarea
                 >
             </div>
         </div>
