@@ -838,12 +838,33 @@ pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block
     Ok(found_blocks)
 }
 
-pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fastanvil::Block)>(region: R, (region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>, mut f: F) -> Result<(), String> {
+pub fn iterate_chunks_in_world<A: AnvilChunkProvider, F: FnMut((i32, i32), &fastanvil::JavaChunk)>(chunk_provider: &mut A, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>, mut f: F) -> Result<(), String> {
+    let only_check_chunks = center_position_and_chunk_radius.map(|((x, _y, z), chunk_radius)| {
+        let chunk_x = i32::try_from(x >> 4).unwrap();
+        let chunk_z = i32::try_from(z >> 4).unwrap();
+
+        chunk_square_around((chunk_x, chunk_z), chunk_radius)
+    });
+    for (region_x, region_z) in chunk_provider.list_regions().unwrap() {
+        if !region_contains_at_least_one_of_this_chunks((region_x, region_z), only_check_chunks.as_deref()) {
+            log::debug!("Skipping region {:?}", (region_x, region_z));
+            continue;
+        }
+        log::debug!("Checking region {:?}", (region_x, region_z));
+        let region = chunk_provider.get_region(region_x, region_z).unwrap();
+        iterate_chunks_in_region(region, (region_x, region_z), only_check_chunks.as_deref(), &mut f)?;
+    }
+
+    Ok(())
+}
+
+
+pub fn iterate_chunks_in_region<R: Read + Seek, F: FnMut((i32, i32), &fastanvil::JavaChunk)>(region: R, (region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>, mut f: F) -> Result<(), String> {
     let mut region = fastanvil::RegionBuffer::new(region);
     region_for_each_chunk(&mut region, |chunk_x, chunk_z, data| {
+        let chunk_x = region_x * 32 + chunk_x as i32;
+        let chunk_z = region_z * 32 + chunk_z as i32;
         if let Some(only_check_chunks) = only_check_chunks {
-            let chunk_x = region_x * 32 + chunk_x as i32;
-            let chunk_z = region_z * 32 + chunk_z as i32;
             // Skip chunk if not in "only_check_chunks"
             if !only_check_chunks.contains(&(chunk_x, chunk_z)) {
                 return;
@@ -857,17 +878,23 @@ pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fasta
                 return;
             }
         };
-        //println!("Another chunk");
-        //println!("{:?}: {:?}", (chunk_x, chunk_z), chunk);
+
+        f((chunk_x, chunk_z), &chunk);
+    }).unwrap();
+
+    Ok(())
+}
+
+pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fastanvil::Block)>(region: R, (region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>, mut f: F) -> Result<(), String> {
+    iterate_chunks_in_region(region, (region_x, region_z), only_check_chunks, |(chunk_x, chunk_z), chunk| {
         for x in 0..16 {
             for y in 0..256 {
                 for z in 0..16 {
                     if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
                         let (x, y, z) = (x as i64, y as i64, z as i64);
-                        let (chunk_x, chunk_z) = (chunk_x as i64, chunk_z as i64);
-                        let block_x = i64::from(region_x) * 16 * 32 + chunk_x * 16 + x;
+                        let block_x = chunk_x as i64 * 16 + x;
                         let block_y = i64::from(y);
-                        let block_z = i64::from(region_z) * 16 * 32 + chunk_z * 16 + z;
+                        let block_z = chunk_z as i64 * 16 + z;
                         f((block_x, block_y, block_z), block);
                     } else {
                         // TODO: check max y to avoid iterating from 0 to 255
@@ -876,9 +903,7 @@ pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fasta
                 }
             }
         }
-    }).unwrap();
-
-    Ok(())
+    })
 }
 
 
