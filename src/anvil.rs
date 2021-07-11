@@ -595,7 +595,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             let y = i64::from(y);
             let z = i64::from(z);
             // Sanity check
-            assert_eq!(overworld.get_block(x, y, z).unwrap().name, "minecraft:spawner");
+            assert_eq!(overworld.get_block(x, y, z).unwrap().name(), "minecraft:spawner");
 
             let mut floor = vec![];
             // Read 11x11 area just below the spawner
@@ -603,7 +603,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             for dz in (-5)..=5 {
                 for dx in (-5)..=5 {
                     let block = overworld.get_block(x + dx, y + dy, z + dz);
-                    let block_name = block.map(|b| b.name.as_str()).unwrap_or(
+                    let block_name = block.map(|b| b.name()).unwrap_or(
                         // If the block does not exist, use empty string instead of block name
                         // This seems to be common when a dungeon is near the edge of the world:
                         // part of the floor is missing
@@ -830,7 +830,7 @@ pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block
     let mut found_blocks = vec![];
 
     iterate_blocks_in_world(chunk_provider, center_position_and_chunk_radius, |(x, y, z), block| {
-        if block.name == block_name {
+        if block.name() == block_name {
             found_blocks.push((x, y, z));
         }
     })?;
