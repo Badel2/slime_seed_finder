@@ -124,23 +124,44 @@ pub extern "C" fn read_biome_map_from_mc_world(
         Err(e) => return c_err(format!("mc_version parse error: {}", e)),
     };
 
-    match version {
+    let after_1_15 = match version {
+        MinecraftVersion::Java1_3
+        | MinecraftVersion::Java1_7
+        | MinecraftVersion::Java1_9
+        | MinecraftVersion::Java1_11
+        | MinecraftVersion::Java1_13
+        | MinecraftVersion::Java1_14 => false,
         MinecraftVersion::Java1_15
         | MinecraftVersion::Java1_16_1
         | MinecraftVersion::Java1_16
-        | MinecraftVersion::Java1_17 => {}
+        | MinecraftVersion::Java1_17 => true,
         _ => return c_err(format!("unsupported version: {:?}", version)),
-    }
+    };
 
     let mut chunk_provider = anvil::ZipChunkProvider::file(input_zip_path).unwrap();
-    let points = anvil::get_all_biomes_1_15(&mut chunk_provider);
-    let area = biome_layers::Area::from_coords4(points.iter().map(|(_biome_id, point)| *point));
 
-    // -1 is the unknown biome id, which will be ignored during comparison
-    let mut biomes_arr = vec![-1; (area.w * area.h) as usize].into_boxed_slice();
-    for (biome_id, point) in points {
-        let idx = (point.z - area.z) as usize * area.w as usize + (point.x - area.x) as usize;
-        biomes_arr[idx] = biome_id.0;
+    let mut biomes_arr;
+    let area;
+    if after_1_15 {
+        let points = anvil::get_all_biomes_1_15(&mut chunk_provider);
+        area = biome_layers::Area::from_coords4(points.iter().map(|(_biome_id, point)| *point));
+
+        // -1 is the unknown biome id, which will be ignored during comparison
+        biomes_arr = vec![-1; (area.w * area.h) as usize].into_boxed_slice();
+        for (biome_id, point) in points {
+            let idx = (point.z - area.z) as usize * area.w as usize + (point.x - area.x) as usize;
+            biomes_arr[idx] = biome_id.0;
+        }
+    } else {
+        let points = anvil::get_all_biomes_1_14(&mut chunk_provider);
+        area = biome_layers::Area::from_coords(points.iter().map(|(_biome_id, point)| *point));
+
+        // -1 is the unknown biome id, which will be ignored during comparison
+        biomes_arr = vec![-1; (area.w * area.h) as usize].into_boxed_slice();
+        for (biome_id, point) in points {
+            let idx = (point.z - area.z) as usize * area.w as usize + (point.x - area.x) as usize;
+            biomes_arr[idx] = biome_id.0;
+        }
     }
 
     let c_biomes_arr = biomes_arr.as_mut_ptr();
