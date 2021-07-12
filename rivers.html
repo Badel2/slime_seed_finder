@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            /* https://stackoverflow.com/questions/41429906/how-to-display-data-label-inside-html5-progress-bar-cross-browser-compatible */
+            .progress {
+                height: 1.5em;
+                width: 100%;
+                background-color: #c9c9c9;
+                position: relative;
+            }
+            .progress:before {
+                content: attr(data-label);
+                font-size: 0.8em;
+                position: absolute;
+                text-align: center;
+                top: 5px;
+                left: 0;
+                right: 0;
+            }
+            .progress .value {
+                background-color: #7cc4ff;
+                display: inline-block;
+                height: 100%;
+            }
+            .pixelated {
+                /* width: 512px; */
+                /* height: 512px; */
+                image-rendering: -moz-crisp-edges;
+                image-rendering: -webkit-crisp-edges;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+            }
+            div .canvasContainer {
+                height: 100%;
+                width: 100%;
+            }
+            #gridContainer textarea {
+                width: 100%;
+                margin: 0;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <a href="https://github.com/Badel2/slime_seed_finder"
+            >SLIME SEED FINDER</a
+        >
+        <strong>Under construction.</strong><br />
+        <div>
+            <div
+                id="progressBarLabel"
+                class="progress"
+                data-label="NOT RUNNING"
+            >
+                <span
+                    id="progressBarSpan"
+                    class="value"
+                    style="width:0%;"
+                ></span>
+            </div>
+        </div>
+        <div
+            id="gridContainer"
+            style="display: grid; grid-auto-flow: dense; align-items: center;"
+        >
+            <div style="grid-column: 1 / 3; grid-row: 1 / 2;">
+                <div>
+                    <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
+                    <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                    <select id="toolSelector">
+                        <option value="click">CLICK</option>
+                        <option value="move">MOVE</option>
+                        <option value="pencil">PENCIL</option>
+                        <option value="pencil_erase">PENCIL ERASE</option>
+                        <option value="bucket">BUCKET</option>
+                        <option value="bucket_erase">BUCKET ERASE</option>
+                    </select>
+                    <button id="undo_button" onClick="undo_selection()">
+                        UNDO
+                    </button>
+                </div>
+                <div id="position_info">
+                    Hover the mouse to show coordinates
+                </div>
+            </div>
+            <div
+                class="canvasContainer"
+                style="grid-column: 1 / 3; grid-row: 2 / 4;"
+            >
+                <canvas id="demo"></canvas>
+            </div>
+            <div style="grid-column: 3 / 4; grid-row: 1 / 2;">
+                <div id="extraBiomes">
+                    Insert extra biomes here: (block x, block z)<br />
+                    <input id="extraBiomeX" size="4" />
+                    <input id="extraBiomeZ" size="4" />
+                    <select id="extraBiomeId" style="width: 250px;">
+                        <option value="0">ocean [0]</option>
+                        <option value="1">plains [1]</option>
+                        <option value="2">desert [2]</option>
+                        <option value="3">extreme_hills [3]</option>
+                        <option value="4">forest [4]</option>
+                        <option value="5">taiga [5]</option>
+                        <option value="6">swampland [6]</option>
+                        <option value="7">river [7]</option>
+                        <option value="10">frozen_ocean [10]</option>
+                        <option value="11">frozen_river [11]</option>
+                        <option value="12">ice_flats [12]</option>
+                        <option value="13">ice_mountains [13]</option>
+                        <option value="14">mushroom_island [14]</option>
+                        <option value="15">mushroom_island_shore [15]</option>
+                        <option value="16">beach [16]</option>
+                        <option value="17">desert_hills [17]</option>
+                        <option value="18">forest_hills [18]</option>
+                        <option value="19">taiga_hills [19]</option>
+                        <option value="20">smaller_extreme_hills [20]</option>
+                        <option value="21">jungle [21]</option>
+                        <option value="22">jungle_hills [22]</option>
+                        <option value="23">jungle_edge [23]</option>
+                        <option value="24">deep_ocean [24]</option>
+                        <option value="25">stone_beach [25]</option>
+                        <option value="26">cold_beach [26]</option>
+                        <option value="27">birch_forest [27]</option>
+                        <option value="28">birch_forest_hills [28]</option>
+                        <option value="29">roofed_forest [29]</option>
+                        <option value="30">cold_taiga [30]</option>
+                        <option value="31">cold_taiga_hills [31]</option>
+                        <option value="32">redwood_taiga [32]</option>
+                        <option value="33">redwood_taiga_hills [33]</option>
+                        <option value="34"
+                            >extreme_hills_with_trees [34]</option
+                        >
+                        <option value="35">savanna [35]</option>
+                        <option value="36">savanna_rock [36]</option>
+                        <option value="37">mesa [37]</option>
+                        <option value="38">mesa_rock [38]</option>
+                        <option value="39">mesa_clear_rock [39]</option>
+                        <option value="44">warm_ocean [44]</option>
+                        <option value="45">lukewarm_ocean [45]</option>
+                        <option value="46">cold_ocean [46]</option>
+                        <option value="47">warm_deep_ocean [47]</option>
+                        <option value="48">lukewarm_deep_ocean [48]</option>
+                        <option value="49">cold_deep_ocean [49]</option>
+                        <option value="50">frozen_deep_ocean [50]</option>
+                        <option value="129">mutated_plains [129]</option>
+                        <option value="130">mutated_desert [130]</option>
+                        <option value="131">mutated_extreme_hills [131]</option>
+                        <option value="132">mutated_forest [132]</option>
+                        <option value="133">mutated_taiga [133]</option>
+                        <option value="134">mutated_swampland [134]</option>
+                        <option value="135">mutated_ice_flats [135]</option>
+                        <option value="149">mutated_jungle [149]</option>
+                        <option value="151">mutated_jungle_edge [151]</option>
+                        <option value="155">mutated_birch_forest [155]</option>
+                        <option value="156"
+                            >mutated_birch_forest_hills [156]</option
+                        >
+                        <option value="157">mutated_roofed_forest [157]</option>
+                        <option value="158">mutated_taiga_cold [158]</option>
+                        <option value="160">mutated_redwood_taiga [160]</option>
+                        <option value="161"
+                            >mutated_redwood_taiga_hills [161]</option
+                        >
+                        <option value="162"
+                            >mutated_extreme_hills_with_trees [162]</option
+                        >
+                        <option value="163">mutated_savanna [163]</option>
+                        <option value="164">mutated_savanna_rock [164]</option>
+                        <option value="165">mutated_mesa [165]</option>
+                        <option value="166">mutated_mesa_rock [166]</option>
+                        <option value="167"
+                            >mutated_mesa_clear_rock [167]</option
+                        >
+                        <option value="168">bamboo_jungle [168]</option>
+                        <option value="169">bamboo_jungle_hills [169]</option>
+                    </select>
+                    <button id="extraBiomeAdd" onClick="addExtraBiome()">
+                        +
+                    </button>
+                    <br />
+                    <button id="center_button">CENTER</button>
+                    <button onClick="load_selection()">
+                        &lt;&lt; LOAD JSON
+                    </button>
+                    <select id="minecraftVersion">
+                        <option value="1.7">Java 1.7 - 1.12</option>
+                        <option value="1.13">Java 1.13</option>
+                        <option value="1.14">Java 1.14</option>
+                        <option value="1.15">Java 1.15</option>
+                    </select>
+                </div>
+            </div>
+            <div style="grid-column: 3 / 4; grid-row: 2 / 3;">
+                <textarea
+                    id="selection_output"
+                    class="code"
+                    rows="20"
+                ></textarea>
+            </div>
+            <div style="grid-column: 4 / 5; grid-row: 1 / 2;">
+                <input
+                    id="num_candidates"
+                    class="code"
+                    rows="1"
+                    value="Estimate runtime"
+                    readonly
+                />
+                <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
+                <button id="comphdl_start" onClick="runGui()">RUN!</button>
+            </div>
+            <div style="grid-column: 4 / 5; grid-row: 2 / 3;">
+                <textarea id="output_textarea" class="code" rows="20" readonly>
+Found seeds will appear here.</textarea
+                >
+            </div>
+
+            <div
+                id="oneCanvas"
+                class="canvasContainer"
+                style="grid-column: 3 / 4; grid-row: 3 / 4;"
+            >
+                <canvas
+                    id="mapLayer43"
+                    class="pixelated"
+                    style="width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="twoCanvas"
+                class="canvasContainer"
+                style="grid-column: 4 / 5; grid-row: 3 / 4;"
+            >
+                <canvas
+                    id="mapLayer42"
+                    class="pixelated"
+                    style="width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="twoCanvasC"
+                class="canvasContainer"
+                style="grid-column: 4 / 5; grid-row: 3 / 4;"
+            >
+                <canvas
+                    id="mapLayer42Candidate"
+                    class="pixelated"
+                    style="opacity: 0.5; width: 100%;"
+                ></canvas>
+            </div>
+        </div>
+        <script type="text/javascript" src="rivers_common.js"></script>
+        <script type="text/javascript" src="rivers_select_map.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
+        <script type="text/javascript" src="rivers.js"></script>
+    </body>
+</html>

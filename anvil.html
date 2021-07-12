@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+                height: 40px;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            button {
+                height: 40px;
+                width: 90px;
+            }
+            select {
+                height: 40px;
+                width: 150px;
+            }
+            /* https://stackoverflow.com/questions/41429906/how-to-display-data-label-inside-html5-progress-bar-cross-browser-compatible */
+            .progress {
+                height: 1.5em;
+                width: 100%;
+                background-color: #c9c9c9;
+                position: relative;
+            }
+            .progress:before {
+                content: attr(data-label);
+                font-size: 0.8em;
+                position: absolute;
+                text-align: center;
+                top: 5px;
+                left: 0;
+                right: 0;
+            }
+            .progress .value {
+                background-color: #7cc4ff;
+                display: inline-block;
+                height: 100%;
+            }
+            .pixelated {
+                /* width: 512px; */
+                /* height: 512px; */
+                image-rendering: -moz-crisp-edges;
+                image-rendering: -webkit-crisp-edges;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+            }
+            div .canvasContainer {
+                height: 100%;
+                width: 100%;
+            }
+            .card {
+                border: 1px solid #ccc;
+                box-shadow: 2px 2px 6px 0px rgba(0, 0, 0, 0.3);
+                padding: 20px 20px 20px;
+                max-width: 640px;
+            }
+            #gridContainer textarea {
+                width: 100%;
+                margin: 0;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <a href="https://github.com/Badel2/slime_seed_finder"
+            >SLIME SEED FINDER</a
+        >
+        <strong>Under construction.</strong><br />
+        <div>
+            <div
+                id="progressBarLabel"
+                class="progress"
+                data-label="NOT RUNNING"
+            >
+                <span
+                    id="progressBarSpan"
+                    class="value"
+                    style="width:0%;"
+                ></span>
+            </div>
+        </div>
+        <div
+            id="gridContainer"
+            style="display: grid; grid-auto-flow: dense; align-items: center; grid-gap: 20px;"
+        >
+            <div class="card" style="grid-column: 1 / 2; grid-row: 1 / 2;">
+                Find the seed from a minecraft save based on the biome data.
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 2 / 3;">
+                Select a minecraft world save in zip file format.<br />
+                This file will not be uploaded to any server, don't worry.<br /><br />
+                <input type="file" id="filepicker" accept=".mca,.zip" />
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 3 / 4;">
+                Select the minecraft version used to PLAY the world.<br />
+                This is the version you select on the launcher, the version you
+                see on the F3 screen.<br />
+                <select id="minecraftPlayVersion">
+                    <option value="1.14" selected>Java 1.7 - 1.14</option>
+                    <option value="1.15">Java 1.15</option>
+                </select>
+                <!-- TODO: Only show this div if the selected minecraftPlayVersion is 1.15 -->
+                <div id="1.15-help">
+                    Starting from 1.15, the minecraft server sends the hash of
+                    the world seed to the client. With this hash, the search
+                    will be much faster. Enter it in decimal format, or leave
+                    the field blank:<br />
+                    <input id="worldSeedHash" />
+                </div>
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 4 / 5;">
+                Select the minecraft version used to GENERATE the world.<br />
+                This may be older than the version used to play it.<br />
+                You can guess the version based on these features:<br />
+                <!-- TODO: the program also could guess the version based on this features... -->
+                Boring oceans: 1.7 - 1.12<br />
+                Fancy oceans: 1.13<br />
+                New villages: 1.14<br />
+                Bees: 1.15<br /><br />
+                <select id="minecraftGenerateVersion">
+                    <option value="1.7">Java 1.7 - 1.12</option>
+                    <option value="1.13">Java 1.13</option>
+                    <option value="1.14" selected>Java 1.14</option>
+                    <option value="1.15">Java 1.15</option>
+                </select>
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 5 / 6;">
+                Start the seed search.<br />
+                This should take no more than 5 minutes.<br />
+                If you don't see any progress after 1 minute, the program
+                probably crashed.<br />
+                All the errors go to the developer console.<br /><br />
+                <button id="comphdl_start" onClick="runGui()">RUN!</button>
+            </div>
+            <div style="grid-column: 1 / 2; grid-row: 6 / 7;">
+                <textarea id="output_textarea" class="code" rows="20" readonly>
+Found seeds will appear here.</textarea
+                >
+            </div>
+        </div>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
+        <script type="text/javascript" src="anvil.js"></script>
+    </body>
+</html>

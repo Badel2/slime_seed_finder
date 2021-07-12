@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+                height: 40px;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            button {
+                height: 40px;
+                width: 90px;
+            }
+            select {
+                height: 40px;
+                width: 150px;
+            }
+            /* https://stackoverflow.com/questions/41429906/how-to-display-data-label-inside-html5-progress-bar-cross-browser-compatible */
+            .progress {
+                height: 1.5em;
+                width: 100%;
+                background-color: #c9c9c9;
+                position: relative;
+            }
+            .progress:before {
+                content: attr(data-label);
+                font-size: 0.8em;
+                position: absolute;
+                text-align: center;
+                top: 5px;
+                left: 0;
+                right: 0;
+            }
+            .progress .value {
+                background-color: #7cc4ff;
+                display: inline-block;
+                height: 100%;
+            }
+            .pixelated {
+                /* width: 512px; */
+                /* height: 512px; */
+                image-rendering: -moz-crisp-edges;
+                image-rendering: -webkit-crisp-edges;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+            }
+            div .canvasContainer {
+                height: 100%;
+                width: 100%;
+            }
+            .card {
+                border: 1px solid #ccc;
+                box-shadow: 2px 2px 6px 0px rgba(0, 0, 0, 0.3);
+                padding: 20px 20px 20px;
+                max-width: 640px;
+            }
+            .smallCard {
+                border: 1px solid #ddd;
+                box-shadow: 1px 1px 2px 0px rgba(0, 0, 0, 0.3);
+                padding: 15px 15px 15px;
+                max-width: 320px;
+                margin-top: 5px;
+                margin-bottom: 5px;
+                cursor: pointer;
+            }
+            .activeCard {
+                background-color: #808080;
+                color: white;
+            }
+            .smallCard:hover {
+                background-color: #888888;
+                color: white;
+            }
+            #gridContainer textarea {
+                width: 100%;
+                margin: 0;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <a href="https://github.com/Badel2/slime_seed_finder"
+            >SLIME SEED FINDER</a
+        >
+        <strong>Under construction.</strong><br />
+        <div>
+            <div
+                id="progressBarLabel"
+                class="progress"
+                data-label="NOT RUNNING"
+            >
+                <span
+                    id="progressBarSpan"
+                    class="value"
+                    style="width:0%;"
+                ></span>
+            </div>
+        </div>
+        <div
+            id="gridContainer"
+            style="display: grid; grid-auto-flow: dense; align-items: center; grid-gap: 20px;"
+        >
+            <div class="card" style="grid-column: 1 / 2; grid-row: 1 / 2;">
+                Find strings in a NBT file
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 2 / 3;">
+                Select a NBT file or a zip archive with many NBT files inside<br />
+                This file will not be uploaded to any server, don't worry.<br /><br />
+                <input type="file" id="filepicker" accept=".mca,.zip" />
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 3 / 4;">
+                SEARCH THIS EXACT STRING:
+                <br />
+                <input
+                    type="text"
+                    id="string_query"
+                    placeholder="minecraft:diamond_ore"
+                    size="50"
+                />
+                <br />
+                <button id="button_find_block" onClick="findBlock()">
+                    SEARCH
+                </button>
+                TODO: Add a progress bar here because sometimes it can be slow
+            </div>
+            <div class="card" style="grid-column: 1 / 2; grid-row: 4 / 5;">
+                <div id="how_many_found"></div>
+                <textarea id="output_textarea" class="code" rows="20" readonly>
+Search results will appear here.</textarea
+                >
+            </div>
+        </div>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
+        <script type="text/javascript" src="nbt_search.js"></script>
+    </body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            /* https://stackoverflow.com/questions/41429906/how-to-display-data-label-inside-html5-progress-bar-cross-browser-compatible */
+            .progress {
+                height: 1.5em;
+                width: 100%;
+                background-color: #c9c9c9;
+                position: relative;
+            }
+            .progress:before {
+                content: attr(data-label);
+                font-size: 0.8em;
+                position: absolute;
+                text-align: center;
+                top: 5px;
+                left: 0;
+                right: 0;
+            }
+            .progress .value {
+                background-color: #7cc4ff;
+                display: inline-block;
+                height: 100%;
+            }
+            .pixelated {
+                /* width: 512px; */
+                /* height: 512px; */
+                image-rendering: -moz-crisp-edges;
+                image-rendering: -webkit-crisp-edges;
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+            }
+            div .canvasContainer {
+                height: 100%;
+                width: 100%;
+            }
+            #gridContainer textarea {
+                width: 100%;
+                margin: 0;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <a href="https://github.com/Badel2/slime_seed_finder"
+            >SLIME SEED FINDER</a
+        >
+        <strong>Under construction.</strong><br />
+        <div>
+            <div
+                id="progressBarLabel"
+                class="progress"
+                data-label="NOT RUNNING"
+            >
+                <span
+                    id="progressBarSpan"
+                    class="value"
+                    style="width:0%;"
+                ></span>
+            </div>
+        </div>
+        <div
+            id="gridContainer"
+            style="display: grid; grid-auto-flow: dense; align-items: center;"
+        >
+            <div style="grid-column: 1 / 3; grid-row: 1 / 2;">
+                Upload a treasure map screenshot to use as guide:
+                <input type="file" id="screenshotFileInput" />
+                <div>
+                    <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
+                    <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                    <select id="toolSelector">
+                        <option value="click">CLICK</option>
+                        <option value="move">MOVE</option>
+                        <option value="pencil_ocean">PENCIL OCEAN</option>
+                        <option value="pencil_river">PENCIL RIVER</option>
+                        <option value="pencil_land">PENCIL LAND</option>
+                        <option value="pencil_unknown">PENCIL UNKNOWN</option>
+                        <option value="bucket_ocean">BUCKET OCEAN</option>
+                        <option value="bucket_river">BUCKET RIVER</option>
+                        <option value="bucket_land">BUCKET LAND</option>
+                    </select>
+                    <button id="undo_button" onClick="undo_selection()">
+                        UNDO
+                    </button>
+                    Map fragment X:
+                    <input id="fragmentX" size="3" />
+                    Z:
+                    <input id="fragmentZ" size="3" />
+                    <input id="showLayer1Overlay" type="checkbox" />
+                    Draw map 1
+                    <input id="showLayer2Overlay" type="checkbox" />
+                    Draw map 2
+                </div>
+                <div id="position_info">
+                    Hover the mouse to show coordinates
+                </div>
+            </div>
+            <div
+                class="canvasContainer"
+                style="grid-column: 1 / 3; grid-row: 2 / 4;"
+            >
+                <canvas id="demo"></canvas>
+            </div>
+            <div style="grid-column: 3 / 4; grid-row: 1 / 2;">
+                <div id="extraBiomes">
+                    Insert extra biomes here: (block x, block z)<br />
+                    <input id="extraBiomeX" size="4" />
+                    <input id="extraBiomeZ" size="4" />
+                    <select id="extraBiomeId" style="width: 250px;">
+                        <option value="0">OCEAN</option>
+                        <option value="1">RIVER</option>
+                        <option value="2">LAND</option>
+                    </select>
+                    <button id="extraBiomeAdd" onClick="addExtraBiome()">
+                        +
+                    </button>
+                    <br />
+                    <button id="center_button">CENTER</button>
+                    <button onClick="load_selection()">
+                        &lt;&lt; LOAD JSON
+                    </button>
+                    <select id="minecraftVersion">
+                        <option value="1.7">Java 1.7 - 1.12</option>
+                        <option value="1.13">Java 1.13</option>
+                        <option value="1.14">Java 1.14</option>
+                        <option value="1.15">Java 1.15</option>
+                    </select>
+                </div>
+            </div>
+            <div style="grid-column: 3 / 4; grid-row: 2 / 3;">
+                <textarea
+                    id="selection_output"
+                    class="code"
+                    rows="20"
+                ></textarea>
+            </div>
+            <div style="grid-column: 4 / 5; grid-row: 1 / 2;">
+                <input
+                    id="num_candidates"
+                    class="code"
+                    rows="1"
+                    value="Estimate runtime"
+                    readonly
+                />
+                <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
+                <button id="comphdl_start" onClick="runGui()">RUN!</button>
+            </div>
+            <div style="grid-column: 4 / 5; grid-row: 2 / 3;">
+                <textarea id="output_textarea" class="code" rows="20" readonly>
+Found seeds will appear here.</textarea
+                >
+            </div>
+
+            <div
+                id="oneCanvas"
+                class="canvasContainer"
+                style="grid-column: 3 / 4; grid-row: 3 / 4;"
+            >
+                <canvas
+                    id="mapLayer43"
+                    class="pixelated"
+                    style="width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="twoCanvas"
+                class="canvasContainer"
+                style="grid-column: 4 / 5; grid-row: 3 / 4;"
+            >
+                <canvas
+                    id="mapLayer42"
+                    class="pixelated"
+                    style="width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="twoCanvasC"
+                class="canvasContainer"
+                style="grid-column: 4 / 5; grid-row: 3 / 4;"
+            >
+                <canvas
+                    id="mapLayer42Candidate"
+                    class="pixelated"
+                    style="opacity: 0.5; width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="treasureCanvasDiv"
+                class="canvasContainer"
+                style="grid-column: 1 / 3; grid-row: 4 / 5;"
+            >
+                <canvas
+                    id="treasureCanvas"
+                    class="pixelated"
+                    style="width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="treasureScreenshotDiv"
+                class="canvasContainer"
+                style="grid-column: 1 / 3; grid-row: 5 / 6;"
+            >
+                <canvas
+                    id="screenshotMapCanvas"
+                    class="pixelated"
+                    style="width: 100%;"
+                ></canvas>
+            </div>
+            <div
+                id="infoDiv"
+                class="canvasContainer"
+                style="grid-column: 1 / 5; grid-row: 6 / 7;"
+            >
+                How to draw the treasure map. Coordinates are very important!
+                Use the horizontal water lines to line up, as they are always
+                the same for all the maps. Black and gray in the map is always
+                land. Use that information to draw the outline. Then, use the
+                bucket to fill the outside with land, or the inside with ocean.
+                Make sure to draw closed figures, so the bucket doesn't mess up.
+                After you have a good portion of a river (TODO: about 10x10?),
+                switch off the treasure map and replace the ocean with river.
+            </div>
+        </div>
+        <script type="text/javascript" src="treasure_common.js"></script>
+        <script type="text/javascript" src="treasure_select_map.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
+        <script type="text/javascript" src="treasure.js"></script>
+    </body>
+</html>

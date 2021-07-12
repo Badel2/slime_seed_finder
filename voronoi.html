@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>genLayerVoronoiZoom playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+        </style>
+        <script src="./delaunator.min.js"></script>
+    </head>
+    <body>
+        GRID SIZE:
+        <span id="gridSizeXValue">?</span>
+        <input
+            type="range"
+            min="2"
+            max="13"
+            value="3"
+            class="slider"
+            id="gridSizeX"
+        />
+        POINTS
+        <button id="genRandom">RANDOM</button>
+        <button id="genCenter1">CENTER-1</button>
+        <button id="genCenter">CENTER</button>
+        CANVAS SIZE:
+        <input id="canvasSizeLol" type="text" size="4" value="720" />
+        <br />
+        <input type="checkbox" id="showVoronoi" checked /> Show voronoi overlay
+        <input type="checkbox" id="showGrid" checked /><input
+            type="checkbox"
+            id="showGrid2"
+            checked
+        />
+        Show point grid
+        <input type="checkbox" id="showGridSmall" checked /><input
+            type="checkbox"
+            id="showGridSmall2"
+            checked
+        />
+        Show small grid <input type="checkbox" id="showResult" checked /><input
+            type="checkbox"
+            id="showResult2"
+            checked
+        />
+        Show result
+        <input type="checkbox" id="showNegativeCircles" checked /> Show
+        exclusion zones
+        <input type="checkbox" id="showPositiveCircles" checked /> Show
+        inclusion zones
+        <br />
+        <canvas id="voronoi" width="720" height="720"></canvas>
+        <canvas id="voronoi2" width="720" height="720"></canvas>
+        <br />
+        <div id="genInfo"></div>
+        <script src="./voronoi.js"></script>
+    </body>
+</html>
