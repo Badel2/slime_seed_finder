@@ -52,7 +52,7 @@ fn main() {
                 let sub_x = x & 0xF;
                 let sub_z = z & 0xF;
                 let idx = sub_z as usize * 16 + sub_x as usize;
-                counts.entry(block.name.to_string()).or_insert_with(|| vec![0; 256])[idx] += 1;
+                counts.entry(block.name().to_string()).or_insert_with(|| vec![0; 256])[idx] += 1;
             }
         )
         .unwrap();

@@ -69,7 +69,7 @@ fn main() {
                                 let sub_x = (x - diamonds_position.0 + 8) & 0xF;
                                 let sub_z = (z - diamonds_position.2 + 8) & 0xF;
                                 let idx = sub_z as usize * 16 + sub_x as usize;
-                                counts.entry(block.name.to_string()).or_insert_with(|| vec![0; 256])[idx] += 1;
+                                counts.entry(block.name().to_string()).or_insert_with(|| vec![0; 256])[idx] += 1;
                             } else {
                                 // TODO: check max y to avoid iterating from 0 to 255
                                 //println!("No block?");
@@ -108,7 +108,7 @@ fn find_diamonds_in_chunk(chunk: &fastanvil::JavaChunk) -> Option<(i64, i64, i64
         for y in 0..256 {
             for z in 0..16 {
                 if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
-                    if block.name == "minecraft:diamond_ore" || block.name == "minecraft:deepslate_diamond_ore" {
+                    if block.name() == "minecraft:diamond_ore" || block.name() == "minecraft:deepslate_diamond_ore" {
                         all_diamonds.push((x, y, z));
                     }
                 } else {
