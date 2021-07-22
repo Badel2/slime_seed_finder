@@ -16,6 +16,7 @@ use std::convert::TryFrom;
 use std::path::Path;
 use std::fs::OpenOptions;
 use log::*;
+use crate::biome_layers::Area;
 use crate::biome_layers::is_oceanic;
 use crate::biome_info::biome_id;
 use crate::chunk::Point;
@@ -333,6 +334,8 @@ pub fn get_biomes_from_chunk_1_15(chunk: &CompoundTag) -> Result<&Vec<i32>, Stri
     match biomes_array.len() {
         0 => {}
         1024 => {}
+        // TODO: this is used by experimental 1.18 snapshots
+        1536 => {}
         n => panic!("Unexpected biomes_array len: {}", n),
     }
 
@@ -369,6 +372,66 @@ pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
     let mut biome_data = HashMap::new();
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     for (chunk_x, chunk_z) in all_chunks {
+        let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+
+        let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();
+
+        for (i_b, b) in biomes_array.into_iter().enumerate().take(4 * 4) {
+            // TODO: this is not tested
+            let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
+            let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
+            let b = b.clone();
+
+            match b {
+                127 => {
+                    // Ignore void biome (set by WorldDownloader for unknown biomes)
+                }
+                b => {
+                    biome_data.insert(Point4 { x: block_x, z: block_z }, BiomeId(b));
+                }
+            }
+        }
+    }
+
+    debug!("biome_data.len(): {}", biome_data.len());
+
+    let mut extra_biomes = vec![];
+    extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
+    //debug!("extra_biomes: {:?}", extra_biomes);
+
+    return extra_biomes;
+}
+
+fn area4_contains_chunk(area: Area, chunk_x: i32, chunk_z: i32) -> bool {
+    // Create square from chunk corners, in 1:4 scale
+    let p00 = (chunk_x * 4, chunk_z * 4);
+    let p11 = ((chunk_x + 1) * 4 - 1, (chunk_z + 1) * 4 - 1);
+    let p01 = (p00.0, p11.1);
+    let p10 = (p11.0, p00.1);
+    let chunk_corners = [p00, p11, p01, p10];
+
+    // If area contains any of this points, return true
+    if chunk_corners.iter().any(|p| area.contains(i64::from(p.0), i64::from(p.1))) {
+        return true;
+    }
+
+    // Else, either the area is far away from the chunk, or the area is completely inside the chunk
+    // TODO: assuming that the area is larger than one chunk in both dimensions
+
+    false
+}
+
+/// Get the biomes present in the area, reading from the world save. For version >= 1.15
+pub fn get_biomes_from_area_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, area: Area) -> Vec<(BiomeId, Point4)> {
+    let mut biome_data = HashMap::new();
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    for (chunk_x, chunk_z) in all_chunks {
+        // TODO: area uses coordinates in 1:4 scale
+        // chunks are 1:16 scale
+        // How to ensure that this chunk is not inside the area?
+        if !area4_contains_chunk(area, chunk_x, chunk_z) {
+            continue;
+        }
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
 
         let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();

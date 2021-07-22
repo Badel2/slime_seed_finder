@@ -1018,3 +1018,40 @@ pub fn get_biome_id_to_biome_name_map() -> HashMap<String, String> {
 
     h
 }
+
+#[js_export]
+pub fn read_fragment_biome_map(
+    zipped_world: TypedArray<u8>,
+    _version: String,
+    fx: i32,
+    fy: i32,
+    frag_size: usize,
+) -> Vec<u8> {
+    use slime_seed_finder::anvil::ZipChunkProvider;
+    use std::io::Cursor;
+    // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
+    let mut zip_chunk_provider =
+        ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+
+    let frag_size = frag_size as u64;
+    let area = Area {
+        x: fx as i64 * frag_size as i64,
+        z: fy as i64 * frag_size as i64,
+        w: frag_size,
+        h: frag_size,
+    };
+
+    // TODO: assuming that version >= 1.15
+    let biomes = anvil::get_biomes_from_area_1_15(&mut zip_chunk_provider, area);
+
+    let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
+    for (expected_biome_id, p) in &biomes {
+        if area.contains(p.x, p.z) {
+            map.set(p.x, p.z, expected_biome_id.0);
+        } else {
+            // TODO: print error when this is fixed
+        }
+    }
+
+    biome_layers::draw_map_image(&map)
+}
