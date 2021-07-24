@@ -1026,6 +1026,7 @@ pub fn read_fragment_biome_map(
     fx: i32,
     fy: i32,
     frag_size: usize,
+    y_offset: u32,
 ) -> Vec<u8> {
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
@@ -1042,7 +1043,7 @@ pub fn read_fragment_biome_map(
     };
 
     // TODO: assuming that version >= 1.15
-    let biomes = anvil::get_biomes_from_area_1_15(&mut zip_chunk_provider, area);
+    let biomes = anvil::get_biomes_from_area_1_15(&mut zip_chunk_provider, area, y_offset);
 
     let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
     for (expected_biome_id, p) in &biomes {

@@ -36,6 +36,9 @@
             <strong>Under construction.</strong>
             <span>Select world.zip:</span>
             <input type="file" id="filepicker" accept=".mca,.zip" />
+            <span>Select y-offset (from 0 to 95)</span>
+            <input type="text" id="y_offset" size="3" value="63" />
+
             <!--
             ENTER SEED:
             <input type="text" id="worldSeed" placeholder="Enter world seed" />
@@ -117,7 +120,10 @@
                         let array = new Uint8Array(arrayBuffer);
                         region = array;
                         console.log("Loaded region file. Size:", array.length);
-                        Game.clear();
+                        let y_offset_input = document.getElementById(
+                            "y_offset"
+                        );
+                        Game.clear("y=" + (y_offset_input.value | 0));
                     };
                     reader.readAsArrayBuffer(this.files[0]);
                 },
@@ -666,6 +672,9 @@
                     let minecraft_version = document.getElementById(
                         "minecraftVersion"
                     ).value;
+                    let y_offset =
+                        document.getElementById("y_offset").value || 0;
+                    y_offset = y_offset | 0;
                     return work1
                         .sendMsg({
                             region: region,
@@ -673,6 +682,7 @@
                             fx: fx,
                             fy: fy,
                             FRAG_SIZE: FRAG_SIZE,
+                            y_offset: y_offset,
                         })
                         .then(function(e) {
                             /*
@@ -774,6 +784,17 @@
             }
 
             map.generateFragment = generateFragmentB;
+
+            let y_offset_input = document.getElementById("y_offset");
+            let old_y_offset = y_offset_input.value | 0;
+            // Only regenerate map if the input has been static for 500ms
+            y_offset_input.oninput = debounced(500, function() {
+                if ((y_offset_input.value | 0) != old_y_offset) {
+                    // Regenerate map when seed changes
+                    Game.clear("y=" + (y_offset_input.value | 0));
+                    old_y_offset = y_offset_input.value | 0;
+                }
+            });
 
             function setSeed(seed) {
                 let ws = document.getElementById("worldSeed");

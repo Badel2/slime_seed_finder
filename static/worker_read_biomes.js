@@ -12,12 +12,14 @@ function doCalculation(slime_seed_finder_web, data, cb) {
     let fx = data.fx;
     let fy = data.fy;
     let FRAG_SIZE = data.FRAG_SIZE;
+    let y_offset = data.y_offset;
     let rvec = slime_seed_finder_web.read_fragment_biome_map(
         region,
         version,
         fx,
         fy,
-        FRAG_SIZE
+        FRAG_SIZE,
+        y_offset
     );
     let result = { rvec: rvec };
     cb(err, result);

@@ -422,7 +422,7 @@ fn area4_contains_chunk(area: Area, chunk_x: i32, chunk_z: i32) -> bool {
 }
 
 /// Get the biomes present in the area, reading from the world save. For version >= 1.15
-pub fn get_biomes_from_area_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, area: Area) -> Vec<(BiomeId, Point4)> {
+pub fn get_biomes_from_area_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, area: Area, y_offset: u32) -> Vec<(BiomeId, Point4)> {
     let mut biome_data = HashMap::new();
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     for (chunk_x, chunk_z) in all_chunks {
@@ -436,7 +436,11 @@ pub fn get_biomes_from_area_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, 
 
         let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();
 
-        for (i_b, b) in biomes_array.into_iter().enumerate().take(4 * 4) {
+        // Since 1.15, the biomes array is 3D, so we need to select the "y offset".
+        // In 1.15 - 1.17 the y offset can be 0 - 64, and since 1.18 it is 0 - 96.
+        // We return an empty list of biomes if the y offset is out of bounds.
+        let y_skip = usize::try_from(y_offset).unwrap_or(usize::MAX).saturating_mul(4 * 4);
+        for (i_b, b) in biomes_array.into_iter().enumerate().skip(y_skip).take(4 * 4) {
             // TODO: this is not tested
             let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
             let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
