@@ -1,0 +1,26 @@
+[package]
+name = "slime_seed_finder_webnode"
+version = "0.1.0"
+authors = ["Badel2 <2badel2@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+slime_seed_finder = { "path" = ".." }
+image = { version = "0.23", default-features = false }
+log = { version = "0.4.14", features = ["std"] }
+minecraft_screenshot_parser = "0.3"
+named-binary-tag = "0.6.0"
+palette = "0.6.0"
+serde = { version = "1.0.126", features = ["derive"] }
+serde_json = "1.0.64"
+stdweb = { git = "https://github.com/Badel2/stdweb", rev = "942dadf9b36df45cb689d52c18753d3d6df4ee9e" }
+zip = { version = "0.5.13", default-features = false }
+node-bindgen = { version = "5.0", features = ["serde-json"] }
+
+[build-dependencies]
+node-bindgen = { version = "5.0", features = ["build"] }

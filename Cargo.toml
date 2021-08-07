@@ -46,4 +46,5 @@ required-features = ["base_main"]
 members = [
     "slime_seed_finder_c",
     "slime_seed_finder_web",
+    "slime_seed_finder_webnode",
 ]
