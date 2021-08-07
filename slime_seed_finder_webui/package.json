@@ -1,0 +1,28 @@
+{
+    "name": "slime_seed_finder_webui",
+    "version": "0.1.0",
+    "description": "minecraft utility tools",
+    "main": "src/main/index.js",
+    "scripts": {
+        "start": "electron .",
+        "compile-rust": "cd ../slime_seed_finder_webnode && nj-cli build --release",
+        "copy-rust": "rm -rf rust-dist && cp -rv ../slime_seed_finder_webnode/dist rust-dist",
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "pack": "electron-builder --dir",
+        "prepare-dist": "npm run compile-rust && npm run copy-rust",
+        "dist": "npm run prepare-dist && electron-builder"
+    },
+    "build": {
+        "appId": "com.github.badel2.slime_seed_finder_webui"
+    },
+    "author": "Badel2",
+    "license": "GPLv3",
+    "devDependencies": {
+        "electron": "^13.1.7",
+        "electron-builder": "^22.11.7",
+        "prettier": "2.3.2"
+    },
+    "dependencies": {
+        "source-map-support": "^0.5.19"
+    }
+}
