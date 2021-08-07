@@ -32,6 +32,12 @@ jobs:
       - name: Run tests
         run: cargo test --verbose --features="main"
 
+      - name: Install nj-cli
+        run: ./ci/install_nj_cli.sh
+
+      - name: Build node bindings
+        run: ./ci/build_node_bindings.sh
+
       - name: Install cargo-web
         run: ./ci/install_cargo_web.sh
 
