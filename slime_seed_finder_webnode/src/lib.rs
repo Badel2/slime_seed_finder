@@ -41,9 +41,10 @@ pub use wasm_gui::*;
 //    // Don't start, wait for user to press button
 //}
 
-#[node_bindgen(name = "init")]
+#[node_bindgen(mt, name = "init")]
 //pub fn init<F: Fn(i32, String) + Send + Sync + 'static>(env: JsEnv, console: F) -> Result<napi_value, NjError> {
 pub fn init(console: JsCallbackFunction) -> bool {
+//pub fn init() -> Result<JsThen<impl Stream<Item = String>, impl FnMut(String)>, NjError> {
     //pub fn init(env: JsEnv, console: Box<dyn Fn(i32, String) + Send + Sync + 'static>) -> Result<napi_value, NjError> {
     // Hopefully enable logging?
     //node_bindgen::core::init_logger();

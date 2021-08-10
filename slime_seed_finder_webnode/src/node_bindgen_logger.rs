@@ -133,8 +133,8 @@ impl Logger {
         }
         //let offset_of_known_static_in_elf_file = 0x0000000000856010;
         //let offset_of_log_state_in_elf_file = 0x0000000000856528;
-        let offset_of_known_static_in_elf_file = 0x0000000000248060;
-        let offset_of_log_state_in_elf_file = 0x0000000000248010;
+        let offset_of_known_static_in_elf_file = 0x00000000002790e8;
+        let offset_of_log_state_in_elf_file = 0x0000000000279088;
         let logger_state: *mut AtomicUsize =
             (address_of_known_static - offset_of_known_static_in_elf_file
                 + offset_of_log_state_in_elf_file) as *mut _;
