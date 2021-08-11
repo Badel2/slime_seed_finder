@@ -47,3 +47,15 @@ And to test changes to Rust code:
 ```
 npm run compile-rust && npm run copy-rust
 ```
+
+### Publish
+
+We use github actions to automatically compile and publish images for Windows,
+Linux, and MacOS. All thanks to
+[action-electron-builder](https://github.com/samuelmeuli/action-electron-builder).
+Steps to make the release:
+
+1. Update the version in your project's `package.json` file (e.g. `1.2.3`)
+2. Commit that change (`git commit -am v1.2.3`)
+3. Tag your commit (`git tag v1.2.3`). Make sure your tag name's format is `v*.*.*`. Your workflow will use this tag to detect when to create a release
+4. Push your changes to GitHub (`git push && git push --tags`)
