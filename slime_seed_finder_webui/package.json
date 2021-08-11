@@ -17,7 +17,10 @@
         "dist": "npm run prepare-dist && electron-builder"
     },
     "build": {
-        "appId": "com.github.badel2.slime_seed_finder_webui"
+        "appId": "com.github.badel2.slime_seed_finder_webui",
+        "snap": {
+            "publish": ["github"]
+        }
     },
     "author": "Badel2",
     "license": "GPLv3",
