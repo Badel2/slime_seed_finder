@@ -6,7 +6,7 @@
     "scripts": {
         "start": "electron .",
         "compile-rust": "cd ../slime_seed_finder_webnode && nj-cli build --release",
-        "copy-rust": "rm -rf rust-dist && cp -rv ../slime_seed_finder_webnode/dist rust-dist",
+        "copy-rust": "shx rm -rf rust-dist && shx cp -r ../slime_seed_finder_webnode/dist rust-dist",
         "test": "echo \"Error: no test specified\" && exit 1",
         "pack": "electron-builder --dir",
         "prepare-dist": "npm run compile-rust && npm run copy-rust",
@@ -20,7 +20,8 @@
     "devDependencies": {
         "electron": "^13.1.7",
         "electron-builder": "^22.11.7",
-        "prettier": "2.3.2"
+        "prettier": "2.3.2",
+        "shx": "^0.3.3"
     },
     "dependencies": {
         "source-map-support": "^0.5.19"
