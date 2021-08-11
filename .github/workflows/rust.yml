@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - v*
 
 env:
   CARGO_TERM_COLOR: always
@@ -55,6 +57,8 @@ jobs:
           force_orphan: true
 
   publish_electron:
+    # Only run this job if this is a tag
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     # Do not publish if web demo job fails
     needs: build
     runs-on: ${{ matrix.os }}
