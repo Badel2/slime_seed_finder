@@ -56,8 +56,7 @@ jobs:
 
   publish_electron:
     # Do not publish if web demo job fails
-    # TODO: commented out for testing
-    #needs: build
+    needs: build
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
