@@ -18,9 +18,23 @@
     },
     "build": {
         "appId": "com.github.badel2.slime_seed_finder_webui",
+        "artifactName": "${productName}-${os}.${ext}",
+        "linux": {
+            "target": [
+                "AppImage",
+                "snap",
+                "tar.xz"
+            ]
+        },
         "snap": {
             "publish": [
                 "github"
+            ]
+        },
+        "win": {
+            "target": [
+                "portable",
+                "zip"
             ]
         }
     },
