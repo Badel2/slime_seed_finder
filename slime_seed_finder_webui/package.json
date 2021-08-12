@@ -9,7 +9,7 @@
     "main": "src/main/index.js",
     "scripts": {
         "start": "electron .",
-        "compile-rust": "cd ../slime_seed_finder_webnode && nj-cli build --release",
+        "compile-rust": "cd ../slime_seed_finder_webnode && npx electron-build-env nj-cli build --release",
         "copy-rust": "shx rm -rf rust-dist && shx cp -r ../slime_seed_finder_webnode/dist rust-dist",
         "test": "echo \"Error: no test specified\" && exit 1",
         "pack": "electron-builder --dir",
@@ -19,7 +19,9 @@
     "build": {
         "appId": "com.github.badel2.slime_seed_finder_webui",
         "snap": {
-            "publish": ["github"]
+            "publish": [
+                "github"
+            ]
         }
     },
     "author": "Badel2",
@@ -31,6 +33,7 @@
         "shx": "^0.3.3"
     },
     "dependencies": {
+        "electron-build-env": "^0.2.0",
         "source-map-support": "^0.5.19"
     }
 }
