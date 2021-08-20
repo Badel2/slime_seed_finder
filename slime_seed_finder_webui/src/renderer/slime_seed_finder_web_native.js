@@ -6,7 +6,7 @@ if (typeof Rust === "undefined") {
 
 Rust.slime_seed_finder_web = new Promise((resolve, reject) => {
     setTimeout(() => {
-        let rust_addon = require("../../rust-dist");
+        let rust_addon = window.electron.Rust.slime_seed_finder_web;
         console.log(
             "Loaded rust addon in slime_seed_finder_web_native.js:",
             rust_addon

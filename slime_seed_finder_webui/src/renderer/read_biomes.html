@@ -119,8 +119,7 @@
                     let reader = new FileReader();
                     reader.onload = function() {
                         let arrayBuffer = this.result;
-                        //let array = new Uint8Array(arrayBuffer);
-                        let array = Buffer.from(arrayBuffer);
+                        let array = new Uint8Array(arrayBuffer);
                         region = array;
                         console.log("Loaded region file. Size:", array.length);
                         let y_offset_input = document.getElementById(
@@ -655,7 +654,10 @@
                 return sendMsg(payload, this.workers[this.incr]);
             };
 
-            const work1 = new Wrapper();
+            //const workersEnabled = window.Worker !== undefined;
+            const workersEnabled = false;
+
+            const work1 = workersEnabled && new Wrapper();
 
             let FRAG_SIZE = 256;
             // Generate fragment
