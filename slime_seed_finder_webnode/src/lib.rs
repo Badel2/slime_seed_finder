@@ -6,6 +6,7 @@ use node_bindgen::core::val::JsObject;
 use node_bindgen::core::NjError;
 use node_bindgen::derive::node_bindgen;
 use node_bindgen::sys::napi_value;
+use serde_json::Value;
 use std::panic;
 
 mod node_bindgen_logger;
@@ -41,15 +42,24 @@ pub use wasm_gui::*;
 //    // Don't start, wait for user to press button
 //}
 
-#[node_bindgen(mt, name = "init")]
-//pub fn init<F: Fn(i32, String) + Send + Sync + 'static>(env: JsEnv, console: F) -> Result<napi_value, NjError> {
-pub fn init(console: JsCallbackFunction) -> bool {
+#[node_bindgen(name = "init")]
+pub fn init<F: Fn(Value) + Send + Sync + 'static>(console: F) -> bool {
+//pub fn init(console: JsCallbackFunction) -> bool {
 //pub fn init() -> Result<JsThen<impl Stream<Item = String>, impl FnMut(String)>, NjError> {
-    //pub fn init(env: JsEnv, console: Box<dyn Fn(i32, String) + Send + Sync + 'static>) -> Result<napi_value, NjError> {
     // Hopefully enable logging?
-    //node_bindgen::core::init_logger();
-    //log::debug!("Current logger: {:p}", log::logger());
-    node_bindgen_logger::Logger::force_init_with_level(console, ::log::LevelFilter::Debug);
+    node_bindgen_logger::Logger::force_init_with_level(move |level, msg, fmt1, fmt2, fmt3| {
+        // TODO: node_bindgen breaks if F has more than one argument, so here we serialize the
+        // arguments into a serde_json array, and in javascript we can simply do
+        // console.log(...args)
+        let args = Value::Array(vec![
+            Value::from(level),
+            Value::String(msg),
+            Value::String(fmt1.to_string()),
+            Value::String(fmt2.to_string()),
+            Value::String(fmt3.to_string()),
+        ]);
+        console(args)
+    }, ::log::LevelFilter::Debug);
 
     log::info!("Initialized logger");
     log::debug!("And it works");

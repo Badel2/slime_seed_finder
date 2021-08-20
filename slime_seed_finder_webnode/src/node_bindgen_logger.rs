@@ -89,8 +89,8 @@ impl Logger {
         Self::try_init_with_level(console, level).unwrap();
     }
 
-    //pub fn force_init_with_level<F: Fn(i32, String) + Sync + Send + 'static>(env: JsEnv, console: F, level: LevelFilter) {
-    pub fn force_init_with_level(console: JsCallbackFunction, level: LevelFilter) {
+    pub fn force_init_with_level<F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static>(console: F, level: LevelFilter) {
+    //pub fn force_init_with_level(console: JsCallbackFunction, level: LevelFilter) {
         let logger = Self {
             filter: level,
             console: Box::new(move |level: Level, msg: String| {
@@ -110,6 +110,7 @@ impl Logger {
                 };
 
                 //console.call(vec![Value::from(js_function_index), Value::String(msg), Value::String(format1.to_string()), Value::String(format2.to_string()), Value::String(format3.to_string())]).expect("failed to call console");
+                console(js_function_index, msg, format1, format2, format3);
             }),
         };
         log::set_max_level(logger.filter());
@@ -118,7 +119,10 @@ impl Logger {
 
         match log::set_logger(leak_logger) {
             Ok(_) => return,
-            Err(_) => {}
+            Err(_) => {
+                eprintln!("Error: cannot set logger because a logger is already set");
+                return;
+            }
         }
 
         // In case of error, try to find address of log::STATE, and set it from
