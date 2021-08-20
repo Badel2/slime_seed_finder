@@ -673,57 +673,25 @@
 
                     return Promise.resolve(c);
                 }
+                let minecraft_version = document.getElementById(
+                    "minecraftVersion"
+                ).value;
+                let y_offset = document.getElementById("y_offset").value || 0;
+                y_offset = y_offset | 0;
                 //if (window.Worker) {
+                let proms;
                 if (false) {
-                    let minecraft_version = document.getElementById(
-                        "minecraftVersion"
-                    ).value;
-                    let y_offset =
-                        document.getElementById("y_offset").value || 0;
-                    y_offset = y_offset | 0;
-                    return work1
-                        .sendMsg({
-                            region: region,
-                            version: minecraft_version,
-                            fx: fx,
-                            fy: fy,
-                            FRAG_SIZE: FRAG_SIZE,
-                            y_offset: y_offset,
-                        })
-                        .then(function(e) {
-                            /*
-                        console.log("Copying to canvas: " + fx + ", " + fy);
-                        */
-                            // Create off-screen canvas
-                            let c = document.createElement("canvas");
-                            c.width = FRAG_SIZE;
-                            c.height = FRAG_SIZE;
-                            let ctx = c.getContext("2d");
-                            // Generate fragment
-                            let imageData = ctx.createImageData(
-                                FRAG_SIZE,
-                                FRAG_SIZE
-                            );
-                            //imageData.data = rvec; // please
-                            for (
-                                let i = 0;
-                                i < FRAG_SIZE * FRAG_SIZE * 4;
-                                i++
-                            ) {
-                                imageData.data[i] = e.rvec[i];
-                            }
-                            ctx.putImageData(imageData, 0, 0);
-                            return c;
-                        });
+                    proms = work1.sendMsg({
+                        region: region,
+                        version: minecraft_version,
+                        fx: fx,
+                        fy: fy,
+                        FRAG_SIZE: FRAG_SIZE,
+                        y_offset: y_offset,
+                    });
                 } else {
-                    return Rust.slime_seed_finder_web.then(
+                    proms = Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
-                            let minecraft_version = document.getElementById(
-                                "minecraftVersion"
-                            ).value;
-                            let y_offset =
-                                document.getElementById("y_offset").value || 0;
-                            y_offset = y_offset | 0;
                             //return Promise.resolve({ rvec: new Uint8Array(slime_seed_finder_web.read_fragment_biome_map(
                             //    region, minecraft_version, fx, fy, FRAG_SIZE, y_offset,
                             //))})
@@ -738,32 +706,6 @@
                                 )
                                 .then(function(e) {
                                     return { rvec: new Uint8Array(e) };
-                                })
-                                .then(function(e) {
-                                    /*
-                console.log("Copying to canvas: " + fx + ", " + fy);
-                */
-                                    // Create off-screen canvas
-                                    let c = document.createElement("canvas");
-                                    c.width = FRAG_SIZE;
-                                    c.height = FRAG_SIZE;
-                                    let ctx = c.getContext("2d");
-                                    // Generate fragment
-                                    let imageData = ctx.createImageData(
-                                        FRAG_SIZE,
-                                        FRAG_SIZE
-                                    );
-                                    //imageData.data = rvec; // please
-                                    for (
-                                        let i = 0;
-                                        i < FRAG_SIZE * FRAG_SIZE * 4;
-                                        i++
-                                    ) {
-                                        imageData.data[i] = e.rvec[i];
-                                        //imageData.data[i] = 0x80;
-                                    }
-                                    ctx.putImageData(imageData, 0, 0);
-                                    return c;
                                 });
                         },
                         function(err) {
@@ -771,6 +713,23 @@
                         }
                     );
                 }
+                return proms.then(function(e) {
+                    //console.log("Copying to canvas: " + fx + ", " + fy);
+                    // Create off-screen canvas
+                    let c = document.createElement("canvas");
+                    c.width = FRAG_SIZE;
+                    c.height = FRAG_SIZE;
+                    let ctx = c.getContext("2d");
+                    // Generate fragment
+                    let imageData = ctx.createImageData(FRAG_SIZE, FRAG_SIZE);
+                    //imageData.data = rvec; // please
+                    for (let i = 0; i < FRAG_SIZE * FRAG_SIZE * 4; i++) {
+                        imageData.data[i] = e.rvec[i];
+                        //imageData.data[i] = 0x80;
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+                    return c;
+                });
             }
 
             let color_to_biome_id_map = null;
