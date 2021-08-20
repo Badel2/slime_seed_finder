@@ -104,6 +104,7 @@
         </div>
 
         <div style="clear: both;"></div>
+        <script src="is_electron.js"></script>
         <script src="impetus.js"></script>
         <script src="common.js"></script>
         <script src="fragment_map.js"></script>
@@ -654,8 +655,18 @@
                 return sendMsg(payload, this.workers[this.incr]);
             };
 
-            //const workersEnabled = window.Worker !== undefined;
-            const workersEnabled = false;
+            // Enable web workers?
+            // This makes the application faster thanks to using more threads, but it doesn't work
+            // in electron when "nodeIntegration" is set to false.
+            // Setting "nodeIntegrationInWorkers" to true could fix this issue but the electron
+            // documentation strongly recommends to never load native node modules from inside web
+            // workers. So for now we simply use 1 thread in electron.
+            let workersEnabled;
+            if (isElectron()) {
+                workersEnabled = false;
+            } else {
+                workersEnabled = window.Worker !== undefined;
+            }
 
             const work1 = workersEnabled && new Wrapper();
 
@@ -678,9 +689,8 @@
                 ).value;
                 let y_offset = document.getElementById("y_offset").value || 0;
                 y_offset = y_offset | 0;
-                //if (window.Worker) {
                 let proms;
-                if (false) {
+                if (workersEnabled) {
                     proms = work1.sendMsg({
                         region: region,
                         version: minecraft_version,
@@ -692,11 +702,10 @@
                 } else {
                     proms = Rust.slime_seed_finder_web.then(
                         function(slime_seed_finder_web) {
-                            //return Promise.resolve({ rvec: new Uint8Array(slime_seed_finder_web.read_fragment_biome_map(
-                            //    region, minecraft_version, fx, fy, FRAG_SIZE, y_offset,
-                            //))})
-                            return slime_seed_finder_web
-                                .read_fragment_biome_map(
+                            // Need additional Promise.resolve here because slime_seed_finder_web.read_fragment_biome_map may not return a Promise,
+                            // depending on the implementation. Native node module returns a promise, WebAssembly module does not return a Promise
+                            return Promise.resolve(
+                                slime_seed_finder_web.read_fragment_biome_map(
                                     region,
                                     minecraft_version,
                                     fx,
@@ -704,9 +713,9 @@
                                     FRAG_SIZE,
                                     y_offset
                                 )
-                                .then(function(e) {
-                                    return { rvec: new Uint8Array(e) };
-                                });
+                            ).then(function(e) {
+                                return { rvec: new Uint8Array(e) };
+                            });
                         },
                         function(err) {
                             console.error(err);
