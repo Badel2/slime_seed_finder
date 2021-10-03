@@ -44,10 +44,8 @@ pub use wasm_gui::*;
 
 #[node_bindgen(name = "init")]
 pub fn init<F: Fn(Value) + Send + Sync + 'static>(console: F) -> bool {
-//pub fn init(console: JsCallbackFunction) -> bool {
-//pub fn init() -> Result<JsThen<impl Stream<Item = String>, impl FnMut(String)>, NjError> {
-    // Hopefully enable logging?
-    node_bindgen_logger::Logger::force_init_with_level(move |level, msg, fmt1, fmt2, fmt3| {
+    // Enable logging
+    node_bindgen_logger::Logger::init_with_level(move |level, msg, fmt1, fmt2, fmt3| {
         // TODO: node_bindgen breaks if F has more than one argument, so here we serialize the
         // arguments into a serde_json array, and in javascript we can simply do
         // console.log(...args)
@@ -62,7 +60,6 @@ pub fn init<F: Fn(Value) + Send + Sync + 'static>(console: F) -> bool {
     }, ::log::LevelFilter::Debug);
 
     log::info!("Initialized logger");
-    log::debug!("And it works");
 
     true
 }

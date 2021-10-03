@@ -20,6 +20,7 @@ use node_bindgen::sys::napi_value;
 use serde_json::Value;
 use std::fmt;
 use std::fmt::Write;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 // This struct is from the pretty_env_logger crate
@@ -60,6 +61,7 @@ static MAX_MODULE_WIDTH: AtomicUsize = AtomicUsize::new(0);
 pub struct Logger {
     filter: LevelFilter,
     console: Box<dyn Fn(Level, String) + Sync + Send>,
+    currently_logging: Mutex<()>,
 }
 
 impl Logger {
@@ -69,28 +71,10 @@ impl Logger {
         self.filter
     }
 
-    pub fn try_init_with_level<F: Fn(Level, String) + Sync + Send + 'static>(
+    pub fn try_init_with_level<F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static>(
         console: F,
         level: LevelFilter,
     ) -> Result<(), SetLoggerError> {
-        let logger = Self {
-            filter: level,
-            console: Box::new(console),
-        };
-
-        log::set_max_level(logger.filter());
-        log::set_boxed_logger(Box::new(logger))
-    }
-
-    pub fn init_with_level<F: Fn(Level, String) + Sync + Send + 'static>(
-        console: F,
-        level: LevelFilter,
-    ) {
-        Self::try_init_with_level(console, level).unwrap();
-    }
-
-    pub fn force_init_with_level<F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static>(console: F, level: LevelFilter) {
-    //pub fn force_init_with_level(console: JsCallbackFunction, level: LevelFilter) {
         let logger = Self {
             filter: level,
             console: Box::new(move |level: Level, msg: String| {
@@ -112,42 +96,18 @@ impl Logger {
                 //console.call(vec![Value::from(js_function_index), Value::String(msg), Value::String(format1.to_string()), Value::String(format2.to_string()), Value::String(format3.to_string())]).expect("failed to call console");
                 console(js_function_index, msg, format1, format2, format3);
             }),
+            currently_logging: Mutex::new(()),
         };
+
         log::set_max_level(logger.filter());
-        let box_logger = Box::new(logger);
-        let leak_logger = Box::leak(box_logger);
+        log::set_boxed_logger(Box::new(logger))
+    }
 
-        match log::set_logger(leak_logger) {
-            Ok(_) => return,
-            Err(_) => {
-                eprintln!("Error: cannot set logger because a logger is already set");
-                return;
-            }
-        }
-
-        // In case of error, try to find address of log::STATE, and set it from
-        // INITIALIZED (2) to UNINITIALIZED (0), to allow setting a new logger
-        // 0x0000000000839010
-        // Address of this static: 0x7fe072338010
-        // TODO: this was a really bad idea
-        static mut ASDF_KNOWN_ADDRESS: usize = 0;
-        let address_of_known_static = unsafe { &ASDF_KNOWN_ADDRESS } as *const usize as usize;
-        unsafe {
-            ASDF_KNOWN_ADDRESS = 9;
-        }
-        //let offset_of_known_static_in_elf_file = 0x0000000000856010;
-        //let offset_of_log_state_in_elf_file = 0x0000000000856528;
-        let offset_of_known_static_in_elf_file = 0x00000000002790e8;
-        let offset_of_log_state_in_elf_file = 0x0000000000279088;
-        let logger_state: *mut AtomicUsize =
-            (address_of_known_static - offset_of_known_static_in_elf_file
-                + offset_of_log_state_in_elf_file) as *mut _;
-        let current_logger_state = unsafe { (*logger_state).load(Ordering::Relaxed) };
-        assert_eq!(current_logger_state, 2);
-        //panic!("{:?}: {:?}", logger_state, unsafe { (*logger_state).load(Ordering::Relaxed) });
-        unsafe { (*logger_state).store(0, Ordering::Relaxed) };
-
-        log::set_logger(leak_logger).unwrap();
+    pub fn init_with_level<F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static>(
+        console: F,
+        level: LevelFilter,
+    ) {
+        Self::try_init_with_level(console, level).unwrap();
     }
 }
 
@@ -160,6 +120,16 @@ impl Log for Logger {
         if !self.enabled(record.metadata()) {
             return;
         }
+
+        // Avoid recursive logging (when there is an error when logging, logging that error may
+        // generate another error, which also needs to get logged, and so on)
+        let _lock = match self.currently_logging.try_lock() {
+            Ok(x) => x,
+            Err(_e) => {
+                eprintln!("Dropping log message because the previous log call has not completed yet: {:?}", record);
+                return;
+            }
+        };
 
         // This formatting is from the pretty_env_logger crate
         let target = record.target();
