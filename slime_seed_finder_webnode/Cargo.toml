@@ -21,6 +21,7 @@ serde_json = "1.0.64"
 stdweb = { git = "https://github.com/Badel2/stdweb", rev = "942dadf9b36df45cb689d52c18753d3d6df4ee9e" }
 zip = { version = "0.5.13", default-features = false }
 node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c", features = ["serde-json"] }
+log4rs = "1"
 
 [build-dependencies]
 node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c", features = ["build"] }

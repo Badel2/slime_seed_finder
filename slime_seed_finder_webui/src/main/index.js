@@ -1,4 +1,4 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 
 function createWindow() {
@@ -17,6 +17,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    app.setAppLogsPath();
+    console.info("Log folder set to", app.getPath("logs"));
     let rust_addon = require("../../rust-dist");
     console.log("Loaded rust addon in main.js:", rust_addon);
 
@@ -29,4 +31,9 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", function() {
     if (process.platform !== "darwin") app.quit();
+});
+
+ipcMain.on("getLogsPath", function(event, options) {
+    let path = app.getPath("logs");
+    event.returnValue = path;
 });

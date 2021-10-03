@@ -11,10 +11,8 @@ Rust.slime_seed_finder_web = new Promise((resolve, reject) => {
             "Loaded rust addon in slime_seed_finder_web_native.js:",
             rust_addon
         );
-        rust_addon.init(function(args) {
-            let level = args.shift();
-            console.log(...args);
-        });
+        let logs_path = window.electron.getLogsPath();
+        rust_addon.init(logs_path);
         resolve(rust_addon);
     }, 0);
 });

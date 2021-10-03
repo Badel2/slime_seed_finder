@@ -1,4 +1,4 @@
-const { contextBridge } = require("electron");
+const { contextBridge, ipcRenderer } = require("electron");
 const ssf = require("../../rust-dist");
 
 const slime_seed_finder_web = {};
@@ -11,5 +11,8 @@ for (let name of Object.getOwnPropertyNames(ssf)) {
 contextBridge.exposeInMainWorld("electron", {
     Rust: {
         slime_seed_finder_web: slime_seed_finder_web,
+    },
+    getLogsPath: function() {
+        return ipcRenderer.sendSync("getLogsPath", null);
     },
 });

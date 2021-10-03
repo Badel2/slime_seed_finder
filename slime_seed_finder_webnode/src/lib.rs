@@ -8,6 +8,12 @@ use node_bindgen::derive::node_bindgen;
 use node_bindgen::sys::napi_value;
 use serde_json::Value;
 use std::panic;
+use log::LevelFilter;
+use log4rs::append::file::FileAppender;
+use log4rs::encode::json::JsonEncoder;
+use log4rs::Config;
+use log4rs::config::Appender;
+use log4rs::config::Root;
 
 mod node_bindgen_logger;
 pub mod wasm_gui;
@@ -43,23 +49,38 @@ pub use wasm_gui::*;
 //}
 
 #[node_bindgen(name = "init")]
-pub fn init<F: Fn(Value) + Send + Sync + 'static>(console: F) -> bool {
-    // Enable logging
-    node_bindgen_logger::Logger::init_with_level(move |level, msg, fmt1, fmt2, fmt3| {
-        // TODO: node_bindgen breaks if F has more than one argument, so here we serialize the
-        // arguments into a serde_json array, and in javascript we can simply do
-        // console.log(...args)
-        let args = Value::Array(vec![
-            Value::from(level),
-            Value::String(msg),
-            Value::String(fmt1.to_string()),
-            Value::String(fmt2.to_string()),
-            Value::String(fmt3.to_string()),
-        ]);
-        console(args)
-    }, ::log::LevelFilter::Debug);
+pub fn init(log_dir_path: String) -> bool {
+    // Set panic hook so we get backtrace in console
+    let next_hook = panic::take_hook();
+    panic::set_hook(Box::new(move |info| {
+        log::error!("PANIC: {}", &info.to_string());
+        next_hook(info);
+    }));
 
-    log::info!("Initialized logger");
+    // TODO: use Path::push instead of format
+    let log_file_path = format!("{}/log_pid_{}.txt", log_dir_path, std::process::id());
+
+    // Enable logging
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(JsonEncoder::new()))
+        .build(&log_file_path)
+        .unwrap();
+
+    // Log Trace level output to file
+    let config = Config::builder()
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(
+            Root::builder()
+                .appender("logfile")
+                .build(LevelFilter::Trace),
+        )
+        .unwrap();
+
+    // Use this to change log levels at runtime.
+    // This means you can change the default log level to trace
+    // if you are trying to debug an issue and need more logs on then turn it off
+    // once you are done.
+    let _handle = log4rs::init_config(config).expect("failed to init logger");
 
     true
 }
