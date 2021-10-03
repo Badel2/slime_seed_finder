@@ -1208,8 +1208,7 @@ dependencies = [
 [[package]]
 name = "nj-build"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d17ba7479c149a332a1b2eb185040fd89cc8ec0976cb82c852dd719c734bf1"
+source = "git+https://github.com/infinyon/node-bindgen?rev=3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c#3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c"
 dependencies = [
  "cc",
  "http_req",
@@ -1218,8 +1217,7 @@ dependencies = [
 [[package]]
 name = "nj-core"
 version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5178b6345ee9ac1599900a40988bdb7be4bb3abc7b3ba0ebb9b112a1a4379b7b"
+source = "git+https://github.com/infinyon/node-bindgen?rev=3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c#3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c"
 dependencies = [
  "async-trait",
  "ctor",
@@ -1237,8 +1235,7 @@ dependencies = [
 [[package]]
 name = "nj-derive"
 version = "3.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a639d3248104847b63569503e5bd0b99b114e295be49a0d96c6deb607557b025"
+source = "git+https://github.com/infinyon/node-bindgen?rev=3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c#3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c"
 dependencies = [
  "Inflector",
  "proc-macro2",
@@ -1249,14 +1246,12 @@ dependencies = [
 [[package]]
 name = "nj-sys"
 version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8de78f0e9f8a2a4f224273e282f9b61bfe8d598b22fe9d00a57b09e1f6b1cd51"
+source = "git+https://github.com/infinyon/node-bindgen?rev=3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c#3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c"
 
 [[package]]
 name = "node-bindgen"
 version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "496ec8dfc653697ba4e5f4d068efdeca350ebb4507b1227e906b7b9b03806f8e"
+source = "git+https://github.com/infinyon/node-bindgen?rev=3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c#3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c"
 dependencies = [
  "nj-build",
  "nj-core",
