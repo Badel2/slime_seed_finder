@@ -41,7 +41,7 @@
     "author": "Badel2",
     "license": "GPLv3",
     "devDependencies": {
-        "electron": "^13.1.7",
+        "electron": "^13.3.0",
         "electron-builder": "^22.11.7",
         "prettier": "2.3.2",
         "shx": "^0.3.3"
