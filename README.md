@@ -129,8 +129,8 @@ Minecraft world with seed 1 or 2 is to manually set the seed to that number.
 In order to locally test the web demos:
 
 ```
-# Install cargo web
-cargo install cargo-web
+# Install wasm_bindgen
+cargo install -f wasm-bindgen-cli
 # And run this after each change
 ./ci/build_demo.sh
 ```

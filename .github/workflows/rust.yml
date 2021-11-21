@@ -43,8 +43,8 @@ jobs:
       - name: Build node bindings
         run: ./ci/build_node_bindings.sh
 
-      - name: Install cargo-web
-        run: ./ci/install_cargo_web.sh
+      - name: Install wasm_bindgen
+        run: ./ci/install_wasm_bindgen.sh
 
       - name: Build web demo
         run: ./ci/build_demo.sh
