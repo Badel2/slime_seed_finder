@@ -1,9 +1,7 @@
+use log::*;
 use palette::{Gradient, LinSrgb};
 use serde::{Deserialize, Serialize};
-use stdweb::console;
-use stdweb::js_export;
-use stdweb::serde::Serde;
-use stdweb::web::TypedArray;
+use wasm_bindgen::prelude::*;
 
 use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_info::biome_name;
@@ -27,6 +25,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::rc::Rc;
 
+#[wasm_bindgen]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Options {
@@ -34,6 +33,7 @@ pub struct Options {
     range: Option<(u32, u32)>,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DrawRivers {
@@ -43,6 +43,7 @@ pub struct DrawRivers {
     l42: Vec<u8>,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateRiversCandidate {
@@ -51,6 +52,7 @@ pub struct GenerateRiversCandidate {
     area: Area,
 }
 
+#[wasm_bindgen]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnvilOptions {
@@ -58,29 +60,34 @@ pub struct AnvilOptions {
     version: String,
 }
 
-#[js_export]
-//pub fn slime_seed_finder(chunks_str: &str, no_chunks_str: &str) -> String {
-//    let r = find_seed(chunks_str, no_chunks_str);
-pub fn slime_seed_finder(o: Serde<Options>) -> String {
-    let o = o.0;
-    console!(log, "Hello from Rust");
+#[wasm_bindgen]
+pub fn slime_seed_finder(o: JsValue) -> String {
+    let o: Options = match o.into_serde() {
+        Ok(o) => o,
+        Err(e) => {
+            return format!("Error parsing args: {}", e);
+        }
+    };
+    debug!("Hello from Rust");
     let r = find_seed(o);
 
     format!("Found {} seeds!\n{:#?}", r.len(), r)
 }
 
-#[js_export]
-pub fn river_seed_finder(o: String) -> Vec<String> {
+#[wasm_bindgen]
+pub fn river_seed_finder(o: String) -> Vec<JsValue> {
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
-    console!(log, "Hello from Rust");
+    debug!("Hello from Rust");
     let r = find_seed_rivers(o);
 
-    r.into_iter().map(|seed| format!("{}", seed)).collect()
+    r.into_iter()
+        .map(|seed| JsValue::from_str(&format!("{}", seed)))
+        .collect()
 }
 
-#[js_export]
-pub fn draw_rivers(o: String) -> Serde<DrawRivers> {
+#[wasm_bindgen]
+pub fn draw_rivers(o: String) -> JsValue {
     // TODO: detect when there are two separate river areas and return a vec of maps?
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
@@ -101,23 +108,26 @@ pub fn draw_rivers(o: String) -> Serde<DrawRivers> {
     let area_hd = Area::from_coords(hd_coords.iter().copied());
     let target_map_hd = biome_layers::map_with_river_at(&hd_coords, area_hd);
 
-    Serde(DrawRivers {
+    let ret = DrawRivers {
         l43_area: target_map_hd.area(),
         l43: biome_layers::draw_map_image(&target_map_hd),
         l42_area: m.area(),
         l42: biome_layers::draw_map_image(&m),
-    })
+    };
+    JsValue::from_serde(&ret)
+        .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
-#[js_export]
-pub fn generate_rivers_candidate(o: String) -> Serde<DrawRivers> {
+#[wasm_bindgen]
+/// Returns `DrawRivers` object
+pub fn generate_rivers_candidate(o: String) -> JsValue {
     let o: Result<GenerateRiversCandidate, _> = serde_json::from_str(&o);
     let o = o.unwrap();
 
     // TODO: only works for version 1.7
     let magic_layer_river_candidate = 141;
 
-    Serde(DrawRivers {
+    let ret = DrawRivers {
         l43_area: Area {
             x: 0,
             z: 0,
@@ -132,12 +142,19 @@ pub fn generate_rivers_candidate(o: String) -> Serde<DrawRivers> {
             o.seed.parse().unwrap(),
             magic_layer_river_candidate,
         ),
-    })
+    };
+    JsValue::from_serde(&ret)
+        .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
-#[js_export]
-pub fn count_candidates(o: Serde<Options>) -> String {
-    let o = o.0;
+#[wasm_bindgen]
+pub fn count_candidates(o: JsValue) -> String {
+    let o: Options = match o.into_serde() {
+        Ok(o) => o,
+        Err(e) => {
+            return format!("Error parsing args: {}", e);
+        }
+    };
     let c: Vec<_> = o.seed_info.positive.slime_chunks;
     let nc: Vec<_> = o.seed_info.negative.slime_chunks;
 
@@ -149,16 +166,23 @@ pub fn count_candidates(o: Serde<Options>) -> String {
     return format!("{} * 2^30 candidates", num_cand);
 }
 
-#[js_export]
-pub fn draw_reverse_voronoi(o: Serde<Options>) -> Vec<u8> {
-    let o = o.0;
+#[wasm_bindgen]
+pub fn draw_reverse_voronoi(o: JsValue) -> Vec<u8> {
+    let o: Options = match o.into_serde() {
+        Ok(o) => o,
+        Err(e) => {
+            error!("Error parsing args: {}", e);
+            // Return empty vec as error
+            return vec![];
+        }
+    };
     let target_map = seed_info::biomes_to_map(o.seed_info.biomes);
 
     let m = biome_layers::reverse_map_voronoi_zoom(&target_map).unwrap_or_default();
     biome_layers::draw_map_image(&m)
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn extend48(s: &str) -> String {
     let mut r = vec![];
     for s in s.lines() {
@@ -168,13 +192,13 @@ pub fn extend48(s: &str) -> String {
                     x
                 } else {
                     let error_string = format!("Input must be lower than 2^48");
-                    console!(error, &error_string);
+                    error!("{}", error_string);
                     return error_string;
                 }
             }
             Err(e) => {
                 let error_string = format!("{}", e);
-                console!(error, &error_string);
+                error!("{}", error_string);
                 return error_string;
             }
         };
@@ -190,7 +214,7 @@ pub fn extend48(s: &str) -> String {
     s
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn count_rivers(o: String) -> String {
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
@@ -206,20 +230,20 @@ pub fn find_seed(o: Options) -> Vec<u64> {
     let nc: Vec<_> = o.seed_info.negative.slime_chunks;
 
     if (c.len() == 0) && (nc.len() == 0) {
-        console!(log, "Can't find seed without chunks");
+        error!("Can't find seed without chunks");
         return vec![];
     }
     let sc = SlimeChunks::new(&c, 0, &nc, 0);
     let num_cand = sc.num_low_18_candidates() as u32;
-    console!(log, format!("Found {} * 2^30 candidates", num_cand));
-    console!(log, format!("ETA: about {} seconds", num_cand * 7));
+    info!("Found {} * 2^30 candidates", num_cand);
+    info!("ETA: about {} seconds", num_cand * 7);
     let seeds = sc.find_seed();
 
     {
         // Display only seeds that could be generated by java (empty box)
         let java_seeds: Vec<_> = seeds.iter().map(|&s| JavaRng::extend_long_48(s)).collect();
 
-        console!(log, format!("Java seeds: \n{:#?}", java_seeds));
+        info!("Java seeds: \n{:#?}", java_seeds);
     }
 
     seeds
@@ -263,12 +287,12 @@ pub fn find_seed_rivers(o: Options) -> Vec<i64> {
             biome_layers::river_seed_finder_26_range(rivers, 0, 1 << 24)
         }
     } else {
-        console!(error, "Can't find seed without rivers");
+        error!("Can't find seed without rivers");
         vec![]
     }
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn generate_fragment(
     version: String,
     fx: i32,
@@ -284,7 +308,7 @@ pub fn generate_fragment(
                 let seed = if let Ok(s) = seed.parse() {
                     s
                 } else {
-                    console!(error, format!("{} is not a valid seed", seed));
+                    error!("{} is not a valid seed", seed);
                     return empty_map_as_error();
                 };
                 let frag_size = frag_size as u64;
@@ -301,15 +325,12 @@ pub fn generate_fragment(
                 } else if version == "TreasureMap15" {
                     MinecraftVersion::Java1_15
                 } else {
-                    console!(
-                        error,
-                        format!("{} is not a valid treasure map version", version)
-                    );
+                    error!("{} is not a valid treasure map version", version);
                     return empty_map_as_error();
                 };
                 return biome_layers::generate_image_treasure_map(mc_version, area, seed);
             } else {
-                console!(error, format!("{} is not a valid version", version));
+                error!("{} is not a valid version", version);
                 return empty_map_as_error();
             }
         }
@@ -318,7 +339,7 @@ pub fn generate_fragment(
     generate_fragment_up_to_layer(version, fx, fy, seed, frag_size, num_layers)
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn generate_fragment_up_to_layer(
     version: String,
     fx: i32,
@@ -336,7 +357,7 @@ pub fn generate_fragment_up_to_layer(
                 let seed = if let Ok(s) = seed.parse() {
                     s
                 } else {
-                    console!(error, format!("{} is not a valid seed", seed));
+                    error!("{} is not a valid seed", seed);
                     return empty_map_as_error();
                 };
                 let frag_size = frag_size as u64;
@@ -353,15 +374,12 @@ pub fn generate_fragment_up_to_layer(
                 } else if version == "TreasureMap15" {
                     MinecraftVersion::Java1_15
                 } else {
-                    console!(
-                        error,
-                        format!("{} is not a valid treasure map version", version)
-                    );
+                    error!("{} is not a valid treasure map version", version);
                     return empty_map_as_error();
                 };
                 return biome_layers::generate_image_treasure_map(mc_version, area, seed);
             } else {
-                console!(error, format!("{} is not a valid version", version));
+                error!("{} is not a valid version", version);
                 return empty_map_as_error();
             }
         }
@@ -369,7 +387,7 @@ pub fn generate_fragment_up_to_layer(
     let seed = if let Ok(s) = seed.parse() {
         s
     } else {
-        console!(error, format!("{} is not a valid seed", seed));
+        error!("{} is not a valid seed", seed);
         return empty_map_as_error();
     };
 
@@ -407,18 +425,21 @@ pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4]
     }
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn generate_fragment_slime_map(
     fx: i32,
     fy: i32,
-    seeds: Vec<String>,
+    seeds: Vec<JsValue>,
     frag_size: usize,
 ) -> Vec<u8> {
     let seeds = seeds.into_iter().map(|s| {
-        s.parse().unwrap_or_else(|s| {
-            console!(error, format!("{} is not a valid seed", s));
-            panic!("{} is not a valid seed", s);
-        })
+        s.as_string()
+            .unwrap_or_else(|| String::new())
+            .parse()
+            .unwrap_or_else(|s| {
+                error!("{} is not a valid seed", s);
+                panic!("{} is not a valid seed", s);
+            })
     });
 
     let frag_size = frag_size as u64;
@@ -432,7 +453,7 @@ pub fn generate_fragment_slime_map(
     let num_seeds = seeds.len();
     if num_seeds > (0x10000) {
         // 65k seeds
-        console!(log, "This may take a while");
+        info!("This may take a while");
     }
     let (w, h) = (area.w as usize, area.h as usize);
     let mut map_sum = vec![0; w * h];
@@ -466,7 +487,7 @@ pub fn generate_fragment_slime_map(
     v
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn is_i64(seed: String) -> String {
     match seed.parse::<i64>() {
         Ok(_) => format!("OK"),
@@ -474,7 +495,7 @@ pub fn is_i64(seed: String) -> String {
     }
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn add_2_n(seed: String, n: u8) -> String {
     if n >= 64 {
         return seed;
@@ -487,7 +508,7 @@ pub fn add_2_n(seed: String, n: u8) -> String {
     }
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn sub_2_n(seed: String, n: u8) -> String {
     if n >= 64 {
         return seed;
@@ -500,7 +521,7 @@ pub fn sub_2_n(seed: String, n: u8) -> String {
     }
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> String {
     let base: i64 = base.parse().unwrap();
     let n: i64 = n.parse().unwrap();
@@ -518,7 +539,7 @@ pub fn gen_test_seed_base_n_bits(base: String, n: String, bits: String) -> Strin
     s
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn similar_biome_seed(seed: String) -> String {
     if let Ok(s) = seed.parse::<i64>() {
         format!("{}", McRng::similar_biome_seed(s))
@@ -527,9 +548,9 @@ pub fn similar_biome_seed(seed: String) -> String {
     }
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn draw_treasure_map(o: String) -> Vec<u8> {
-    console!(log, format!("Parsing options: {}", o));
+    debug!("Parsing options: {}", o);
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
     let first_treasure_map = &o.seed_info.treasure_maps[0];
@@ -563,9 +584,9 @@ pub fn draw_treasure_map(o: String) -> Vec<u8> {
     biome_layers::draw_treasure_map_image(&tmap)
 }
 
-#[js_export]
-pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
-    console!(log, format!("Parsing options: {}", o));
+#[wasm_bindgen]
+pub fn treasure_map_seed_finder(o: String) -> Vec<JsValue> {
+    debug!("Parsing options: {}", o);
     let o: Result<Options, _> = serde_json::from_str(&o);
     let o = o.unwrap();
     let version = o.seed_info.version.parse().unwrap();
@@ -576,10 +597,7 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
         w: 128,
         h: 128,
     });
-    console!(
-        log,
-        format!("First treasure map len: {}", first_treasure_map.map.len())
-    );
+    info!("First treasure map len: {}", first_treasure_map.map.len());
     assert_eq!(first_treasure_map.map.len(), 128 * 128);
     for (i, v) in first_treasure_map.map.iter().enumerate() {
         let (x, z) = (i % 128, i / 128);
@@ -598,14 +616,13 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<String> {
         biome_layers::treasure_map_river_seed_finder(&pmap, version, 0, 1 << 24)
     };
 
-    r.into_iter().map(|seed| format!("{}", seed)).collect()
+    r.into_iter()
+        .map(|seed| JsValue::from_str(&format!("{}", seed)))
+        .collect()
 }
 
-#[js_export]
-pub fn anvil_region_to_river_seed_finder(
-    zipped_world: TypedArray<u8>,
-    is_minecraft_1_15: bool,
-) -> String {
+#[wasm_bindgen]
+pub fn anvil_region_to_river_seed_finder(zipped_world: &[u8], is_minecraft_1_15: bool) -> String {
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
@@ -648,12 +665,9 @@ pub struct ExtractMapResult {
     land_water: Vec<u8>,
 }
 
-#[js_export]
-pub fn extract_map_from_screenshot(
-    width: u32,
-    height: u32,
-    screenshot: TypedArray<u8>,
-) -> Serde<Option<ExtractMapResult>> {
+#[wasm_bindgen]
+/// Returns `Option<ExtractMapResult>`
+pub fn extract_map_from_screenshot(width: u32, height: u32, screenshot: &[u8]) -> JsValue {
     let img = image::RgbaImage::from_raw(width, height, Vec::from(screenshot)).unwrap();
     let mut img = image::DynamicImage::ImageRgba8(img);
     minecraft_screenshot_parser::crosshair::remove_crosshair(&mut img);
@@ -680,13 +694,15 @@ pub fn extract_map_from_screenshot(
             }
         }
 
-        Serde(Some(ExtractMapResult {
+        let ret = ExtractMapResult {
             cropped_scaled_img: detected_map.cropped_scaled_img.to_bytes(),
             treasure_map_img,
             land_water,
-        }))
+        };
+        JsValue::from_serde(&ret)
+            .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
     } else {
-        Serde(None)
+        JsValue::NULL
     }
 }
 
@@ -725,8 +741,9 @@ pub struct FoundDungeon {
     pub floor: Vec<String>,
 }
 
-#[js_export]
-pub fn read_dungeons(zipped_world: TypedArray<u8>) -> Serde<Vec<FoundDungeon>> {
+#[wasm_bindgen]
+/// Returns `Vec<FoundDungeon>`
+pub fn read_dungeons(zipped_world: &[u8]) -> Vec<JsValue> {
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
@@ -740,16 +757,30 @@ pub fn read_dungeons(zipped_world: TypedArray<u8>) -> Serde<Vec<FoundDungeon>> {
             kind: kind.to_string(),
             floor,
         })
+        .map(|found_dungeon| {
+            JsValue::from_serde(&found_dungeon)
+                .unwrap_or_else(|e| JsValue::from_str(&format!("Error serializing result: {}", e)))
+        })
         .collect();
-    Serde(dungeons)
+
+    dungeons
 }
 
-#[js_export]
+#[wasm_bindgen]
+/// Returns `Vec<Position>`
 pub fn find_blocks_in_world(
-    zipped_world: TypedArray<u8>,
+    zipped_world: &[u8],
     block_name: &str,
-    center_position_and_chunk_radius: Serde<Option<(Position, u32)>>,
-) -> Serde<Vec<Position>> {
+    center_position_and_chunk_radius: JsValue,
+) -> Vec<JsValue> {
+    let center_position_and_chunk_radius: Option<(Position, u32)> =
+        match center_position_and_chunk_radius.into_serde() {
+            Ok(x) => x,
+            Err(e) => {
+                error!("Failed to parse argument `center_position_and_chunk_radius`, will ignore it. Error: {}", e);
+                None
+            }
+        };
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
@@ -758,16 +789,23 @@ pub fn find_blocks_in_world(
         &mut chunk_provider,
         block_name,
         center_position_and_chunk_radius
-            .0
             .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
     )
     .unwrap();
-    let blocks: Vec<Position> = blocks
+    let blocks: Vec<_> = blocks
         .into_iter()
         .map(|(x, y, z)| Position { x, y, z })
+        .map(|pos| {
+            JsValue::from_serde(&pos).unwrap_or_else(|e| {
+                JsValue::from_str(&format!(
+                    "Failed to serialize position {:?}, error was: {}",
+                    pos, e
+                ))
+            })
+        })
         .collect();
 
-    Serde(blocks)
+    blocks
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -801,28 +839,33 @@ pub struct FindMultiDungeonsOutput {
     pub spawners: Vec<FoundDungeon1>,
 }
 
-#[js_export]
-pub fn find_spawners_in_world(
-    zipped_world: TypedArray<u8>,
-    params: Serde<FindMultiDungeonsParams>,
-) -> Serde<Vec<FindMultiDungeonsOutput>> {
+#[wasm_bindgen]
+/// Returns `Vec<FindMultiDungeonsOutput>`
+pub fn find_spawners_in_world(zipped_world: &[u8], params: JsValue) -> Vec<JsValue> {
+    let params: FindMultiDungeonsParams = match params.into_serde() {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Failed to parse params: {}", e);
+            // Return empty vector as error
+            return vec![];
+        }
+    };
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
     let mut chunk_provider = ZipChunkProvider::new_with_dimension(
         Cursor::new(Vec::from(zipped_world)),
-        params.0.dimension.as_deref(),
+        params.dimension.as_deref(),
     )
     .unwrap();
     let blocks = anvil::find_spawners_in_world(
         &mut chunk_provider,
         params
-            .0
             .center_position_and_chunk_radius
             .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
     )
     .unwrap();
-    let blocks: Vec<FindMultiDungeonsOutput> = blocks
+    let blocks: Vec<_> = blocks
         .into_iter()
         .map(
             |anvil::FindMultiSpawnersOutput {
@@ -847,9 +890,14 @@ pub fn find_spawners_in_world(
                     .collect(),
             },
         )
+        .map(|x| {
+            JsValue::from_serde(&x).unwrap_or_else(|e| {
+                JsValue::from_str(&format!("Failed to serialize result: {}", e))
+            })
+        })
         .collect();
 
-    Serde(blocks)
+    blocks
 }
 
 #[derive(Debug, Serialize)]
@@ -858,8 +906,9 @@ pub struct NbtSearchResult {
     nbt_path: String,
 }
 
-#[js_export]
-pub fn nbt_search(zipped_world: TypedArray<u8>, block_name: &str) -> Serde<Vec<NbtSearchResult>> {
+#[wasm_bindgen]
+/// Returns `Vec<NbtSearchResult>`
+pub fn nbt_search(zipped_world: &[u8], block_name: &str) -> Vec<JsValue> {
     use std::io::Cursor;
     use std::io::Read;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
@@ -870,7 +919,7 @@ pub fn nbt_search(zipped_world: TypedArray<u8>, block_name: &str) -> Serde<Vec<N
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).unwrap();
         let filename = file.name().to_string();
-        log::debug!("Filename: {}", filename);
+        debug!("Filename: {}", filename);
         //r.push(NbtSearchResult { filename: filename.clone(), nbt_path: format!("")});
         let mut buf = vec![];
         file.read_to_end(&mut buf).unwrap();
@@ -879,9 +928,9 @@ pub fn nbt_search(zipped_world: TypedArray<u8>, block_name: &str) -> Serde<Vec<N
         match read_maybe_compressed_nbt_file(&mut file) {
             Ok(root_tag) => {
                 visit_nbt(&nbt::Tag::Compound(root_tag), |nbt_path, tag| {
-                    //log::debug!("Visiting {}", nbt_path.to_string());
+                    //debug!("Visiting {}", nbt_path.to_string());
                     if let nbt::Tag::String(s) = tag {
-                        //log::debug!("Is a string: {:?}", s);
+                        //debug!("Is a string: {:?}", s);
                         if s == block_name {
                             let nbt_path = nbt_path.to_string();
                             r.push(NbtSearchResult {
@@ -893,12 +942,18 @@ pub fn nbt_search(zipped_world: TypedArray<u8>, block_name: &str) -> Serde<Vec<N
                 })
             }
             Err(e) => {
-                log::error!("{:?}", e);
+                error!("{:?}", e);
             }
         }
     }
 
-    Serde(r)
+    r.into_iter()
+        .map(|x| {
+            JsValue::from_serde(&x).unwrap_or_else(|e| {
+                JsValue::from_str(&format!("Failed to serialize result: {}", e))
+            })
+        })
+        .collect()
 }
 
 fn read_maybe_compressed_nbt_file<F: std::io::Read + std::io::Seek>(
@@ -989,11 +1044,12 @@ fn visit_nbt<F: FnMut(&NbtPath, &nbt::Tag)>(root: &nbt::Tag, visit: F) {
     visit_inner(&mut nbt_path, &root, visit);
 }
 
-#[js_export]
-pub fn get_color_to_biome_map() -> HashMap<String, i32> {
+#[wasm_bindgen]
+/// Returns HashMap<String, i32>
+pub fn get_color_to_biome_map() -> JsValue {
     let rgba_to_biome = biome_layers::color_to_biome_map();
 
-    rgba_to_biome
+    let ret: HashMap<String, i32> = rgba_to_biome
         .into_iter()
         .map(|(rgba, biome_id)| {
             let [r, g, b, _a] = rgba;
@@ -1002,11 +1058,14 @@ pub fn get_color_to_biome_map() -> HashMap<String, i32> {
 
             (color_string, biome_id)
         })
-        .collect()
+        .collect();
+    JsValue::from_serde(&ret)
+        .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
-#[js_export]
-pub fn get_biome_id_to_biome_name_map() -> HashMap<String, String> {
+#[wasm_bindgen]
+/// Returns HashMap<String, String>
+pub fn get_biome_id_to_biome_name_map() -> JsValue {
     let num_biomes = 256;
     let mut h = HashMap::with_capacity(usize::try_from(num_biomes).unwrap());
 
@@ -1016,12 +1075,14 @@ pub fn get_biome_id_to_biome_name_map() -> HashMap<String, String> {
         }
     }
 
-    h
+    let ret = h;
+    JsValue::from_serde(&ret)
+        .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
-#[js_export]
+#[wasm_bindgen]
 pub fn read_fragment_biome_map(
-    zipped_world: TypedArray<u8>,
+    zipped_world: &[u8],
     _version: String,
     fx: i32,
     fy: i32,
