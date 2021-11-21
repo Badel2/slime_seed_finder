@@ -46,6 +46,13 @@ jobs:
       - name: Install wasm_bindgen
         run: ./ci/install_wasm_bindgen.sh
 
+      - name: Install wasm32-unknown-unknown toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            target: wasm32-unknown-unknown
+            override: false
+
       - name: Build web demo
         run: ./ci/build_demo.sh
 
