@@ -134,7 +134,8 @@ pub extern "C" fn read_biome_map_from_mc_world(
         MinecraftVersion::Java1_15
         | MinecraftVersion::Java1_16_1
         | MinecraftVersion::Java1_16
-        | MinecraftVersion::Java1_17 => true,
+        | MinecraftVersion::Java1_17
+        | MinecraftVersion::Java1_18 => true,
         _ => return c_err(format!("unsupported version: {:?}", version)),
     };
 

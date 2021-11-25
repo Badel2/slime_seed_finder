@@ -34,8 +34,8 @@ rand = { version = "0.8.4", optional = true }
 pretty_env_logger = "0.4.0"
 sha2 = "0.9.5"
 zip = { version = "0.5.13", default-features = false, features = ["deflate"] }
-fastanvil = "0.21.0"
-fastnbt = "1.1.0"
+fastanvil = "0.22.0"
+fastnbt = "1.2.0"
 
 [[bin]]
 name = "slime_seed_finder"

@@ -35,6 +35,7 @@ pub enum MinecraftVersion {
     Java1_16_1, // From 1.16 to 1.16.1
     Java1_16, // From 1.16.2 to 1.16.5
     Java1_17,
+    Java1_18,
 }
 
 impl MinecraftVersion {
@@ -51,6 +52,7 @@ impl MinecraftVersion {
             MinecraftVersion::Java1_16_1 => 51, // actually 52 but bamboo jungle is inlined...
             MinecraftVersion::Java1_16 => 51, // actually 52 but bamboo jungle is inlined...
             MinecraftVersion::Java1_17 => 51, // actually 52 but bamboo jungle is inlined...
+            MinecraftVersion::Java1_18 => 1, // TODO: write generator...
             _ => panic!("Biome generator for version {:?} is not implemented", self),
         }
     }
@@ -81,6 +83,7 @@ impl FromStr for MinecraftVersion {
                 }
             }
             "1.17" => MinecraftVersion::Java1_17,
+            "1.18" => MinecraftVersion::Java1_18,
             _ => return Err(s.to_string())
         })
     }

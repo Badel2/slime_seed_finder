@@ -14,6 +14,7 @@ use crate::java_rng::JavaRng;
 use crate::chunk::Point;
 use crate::chunk::Point2;
 use crate::chunk::Point4;
+use crate::chunk::Point3D4;
 use crate::biome_info::biome_id;
 use crate::biome_info::BIOME_COLORS;
 use crate::biome_info::BIOME_INFO;
@@ -171,6 +172,48 @@ impl Area {
         Area { x: x_min, z: z_min, w: (x_max - x_min + 1) as u64, h: (z_max - z_min + 1) as u64 }
     }
 }
+
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Area3D {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64,
+    pub sx: u64,
+    pub sy: u64,
+    pub sz: u64,
+}
+
+impl Area3D {
+    /// Creates the smallest area that will contain all the coords
+    pub fn from_coords4<I>(c: I) -> Area3D
+    where
+        I: IntoIterator<Item = Point3D4>
+    {
+        let mut c = c.into_iter();
+        let c0 = c.next();
+        if c0.is_none() {
+            // On empty coords, return empty area
+            return Area3D { x: 0, y: 0, z: 0, sx: 0, sy: 0, sz: 0 };
+        }
+
+        let c0 = c0.unwrap();
+        let Point3D4 { x: mut x_min, y: mut y_min, z: mut z_min } = c0;
+        let Point3D4 { x: mut x_max, y: mut y_max, z: mut z_max } = c0;
+
+        for Point3D4 {x, y, z} in c {
+            use std::cmp::{min, max};
+            x_min = min(x_min, x);
+            y_min = min(y_min, y);
+            z_min = min(z_min, z);
+            x_max = max(x_max, x);
+            y_max = max(y_max, y);
+            z_max = max(z_max, z);
+        }
+
+        Area3D { x: x_min, y: y_min, z: z_min, sx: (x_max - x_min + 1) as u64, sy: (y_max - y_min + 1) as u64, sz: (z_max - z_min + 1) as u64 }
+    }
+}
+
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Map {
@@ -6204,6 +6247,11 @@ pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32, version: Minecraf
 
     Box::new(g51)
 }
+
+pub fn generate_up_to_layer_1_18(a: Area, world_seed: i64, layer: u32, version: MinecraftVersion) -> Map {
+    todo!()
+}
+
 
 #[cfg(test)]
 mod tests {

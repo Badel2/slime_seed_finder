@@ -1057,6 +1057,53 @@ fn main() {
 
                     println!("All biomes match");
                 }
+                MinecraftVersion::Java1_18 => {
+                    let world_seed = anvil::read_seed_from_level_dat_zip(&input_zip, Some(version)).unwrap();
+                    if JavaRng::create_from_long(world_seed as u64).is_none() {
+                        println!("Warning: this seed cannot be generated with Java Random nextLong");
+                    }
+                    println!("Seed from level.dat {}", world_seed);
+                    let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+                    let biomes = anvil::get_all_biomes_1_18(&mut chunk_provider);
+                    println!("Got {} biomes", biomes.len());
+                    // TODO: generate 3D area
+                    let points = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z });
+                    let area = Area::from_coords(points);
+                    println!("Area: {:?}", area);
+
+                    if draw_biome_map {
+                        println!("Drawing biome map");
+                        let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
+                        let desired_y = 20;
+                        for (expected_biome_id, p) in &biomes {
+                            if p.y != desired_y {
+                                continue;
+                            }
+                            map.set(p.x, p.z, expected_biome_id.0);
+                        }
+                        let map_image = biome_layers::draw_map_image(&map);
+                        let x = area.x;
+                        let z = area.z;
+                        let width = area.w.try_into().unwrap();
+                        let height = area.h.try_into().unwrap();
+                        let output_file = format!("biome_map_mc_{}_{}_{}_{}_{}x{}.png", mc_version, world_seed, x, z, width, height);
+                        image::save_buffer(output_file.clone(), &map_image, width, height, image::ColorType::Rgba8).unwrap();
+                        println!("Saved image to {}", output_file);
+                    }
+
+                    // Generate area with 1:4 resolution
+                    let map = biome_layers::generate_up_to_layer_1_18(area, world_seed, version.num_layers() - 1, version);
+
+                    // Compare maps :D
+                    for (expected_biome_id, p) in biomes {
+                        let b = map.get(p.x, p.z);
+                        if b != expected_biome_id.0 {
+                            panic!("Mismatch at ({}, {}): expected {} generated {}", p.x, p.z, expected_biome_id.0, b);
+                        }
+                    }
+
+                    println!("All biomes match");
+                }
                 _ => {
                     unimplemented!("Version {} is not supported", mc_version);
                 }

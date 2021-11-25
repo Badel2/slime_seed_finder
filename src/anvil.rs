@@ -19,8 +19,10 @@ use log::*;
 use crate::biome_layers::Area;
 use crate::biome_layers::is_oceanic;
 use crate::biome_info::biome_id;
+use crate::biome_info::UNKNOWN_BIOME_ID;
 use crate::chunk::Point;
 use crate::chunk::Point4;
+use crate::chunk::Point3D4;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use crate::fastanvil_ext::Dimension;
@@ -30,6 +32,7 @@ use std::io::Cursor;
 use std::io::Read;
 use std::io::Seek;
 use std::str::FromStr;
+use std::convert::TryInto;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -317,7 +320,7 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
     (vec![], vec![])
 }
 
-/// Get all the biomes present in the chunk. For version >= 1.15
+/// Get all the biomes present in the chunk. For version >= 1.15 but < 1.18
 pub fn get_biomes_from_chunk_1_15(chunk: &CompoundTag) -> Result<&Vec<i32>, String> {
     let level_compound_tag = chunk.get_compound_tag("Level").unwrap();
     let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
@@ -367,7 +370,7 @@ pub fn get_biomes_from_chunk_1_14(chunk: &CompoundTag) -> Result<Vec<i32>, Strin
     Ok(biomes_array)
 }
 
-/// Get all the biomes present in the save. For version >= 1.15
+/// Get all the biomes present in the save. For version >= 1.15 but < 1.18
 pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec<(BiomeId, Point4)> {
     let mut biome_data = HashMap::new();
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
@@ -391,6 +394,62 @@ pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
                 }
             }
         }
+    }
+
+    debug!("biome_data.len(): {}", biome_data.len());
+
+    let mut extra_biomes = vec![];
+    extra_biomes.extend(biome_data.iter().map(|(p, b)| (*b, *p)));
+    //debug!("extra_biomes: {:?}", extra_biomes);
+
+    return extra_biomes;
+}
+
+/// Get all the biomes present in the save. For version >= 1.18
+pub fn get_all_biomes_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec<(BiomeId, Point3D4)> {
+    let mut biome_data = HashMap::new();
+    let all_regions = chunk_provider.list_regions().expect("Error listing regions");
+    for (region_x, region_z) in all_regions {
+        let r = chunk_provider.get_region(region_x, region_z).expect("Error loading region");
+        let mut rb = fastanvil::RegionBuffer::new(r);
+
+        rb.for_each_chunk(|rel_chunk_x, rel_chunk_z, data| {
+            let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
+            //log::debug!("chunk {:?}: {:?}", (region_x, region_z, rel_chunk_x, rel_chunk_z), chunk);
+            // TODO: biomes are stored in 1:4 scale, so we don't need to iterate over all y values,
+            // we could iterate in steps of 4. Test this.
+            let y_range = chunk.y_range();
+            for y in y_range.step_by(4) {
+                for ix in 0..4 {
+                    for iz in 0..4 {
+                        let x = ix * 4;
+                        let z = iz * 4;
+                        // TODO: some chunk sections have 1 biome only, we could skip some
+                        // calculations in that case.
+                        // TODO: there is a bug, chunks at the border that have not fully generated
+                        // yet seem to have biome: plains. Maybe we could detect that case and set
+                        // the biome to unknown or "not generated". But note that some chunks may
+                        // have only 1 biome plains because they are actually plains, so the check
+                        // cannot be "if all biomes == plains".
+                        let b = chunk.biome(x, y, z).unwrap_or_else(|| {
+                            panic!("biome not present, what to do? coords: {:?}", (region_x, region_z, rel_chunk_x, rel_chunk_z, x, y, z));
+                        });
+                        let block_x: i64 = (region_x as i64 * 512) + (rel_chunk_x as i64 * 16) + x as i64;
+                        let block_z: i64 = (region_z as i64 * 512) + (rel_chunk_z as i64 * 16) + z as i64;
+                        let block_y: i64 = y.try_into().unwrap();
+                        // Divide by 4 to get 1:4 scale
+                        let block_x = block_x >> 2;
+                        let block_y = block_y >> 2;
+                        let block_z = block_z >> 2;
+                        let biome_id = match b {
+                            fastanvil::biome::Biome::Unknown => BiomeId(UNKNOWN_BIOME_ID),
+                            b => BiomeId(i32::from(b)),
+                        };
+                        biome_data.insert(Point3D4 { x: block_x, y: block_y, z: block_z }, biome_id);
+                    }
+                }
+            }
+        }).expect("for_each_chunk error");
     }
 
     debug!("biome_data.len(): {}", biome_data.len());

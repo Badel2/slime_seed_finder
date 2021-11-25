@@ -64,6 +64,13 @@ impl Point4 {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Point3D4 {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
