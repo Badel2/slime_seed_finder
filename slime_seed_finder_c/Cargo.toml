@@ -10,7 +10,12 @@ name = "slime_seed_finder"
 crate-type = ["cdylib"]      # Creates dynamic lib
 # crate-type = ["staticlib"] # Creates static lib
 
+[features]
+# TODO: need to enable all features here to make cbindgen generate bindings
+default = ["image"]
+
 [dependencies]
+image = { version = "0.23.14", optional = true }
 slime_seed_finder = { "path" = ".." }
 
 [build-dependencies]

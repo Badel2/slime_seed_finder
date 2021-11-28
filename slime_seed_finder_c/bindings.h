@@ -3,13 +3,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct Map {
+typedef struct Map3D {
   int64_t x;
+  int64_t y;
   int64_t z;
-  uint64_t w;
-  uint64_t h;
+  uint64_t sx;
+  uint64_t sy;
+  uint64_t sz;
   int32_t *a;
-} Map;
+} Map3D;
 
 /**
  * # Safety
@@ -24,11 +26,13 @@ char *read_seed_from_mc_world(const char *input_zip_path, const char *mc_version
 /**
  * # Safety
  *
- * The pointer `map.a` must be the same as when this `Map` was initialized, but it may have been
- * modified. The values `map.w` and `map.h` must be the same as when this `Map` was initialized.
+ * The pointer `map.a` must be the same as when this `Map3D` was initialized, but it may have been
+ * modified. The values `map.w` and `map.h` must be the same as when this `Map3D` was initialized.
  */
-void free_map(struct Map map);
+void free_map(struct Map3D map);
 
 char *read_biome_map_from_mc_world(const char *input_zip_path,
                                    const char *mc_version,
-                                   struct Map *biome_map);
+                                   struct Map3D *biome_map);
+
+char *draw_map3d_image_to_file(const struct Map3D *biome_map, const char *output_file_path);
