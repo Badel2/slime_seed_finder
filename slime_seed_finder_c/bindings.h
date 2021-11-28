@@ -26,8 +26,9 @@ char *read_seed_from_mc_world(const char *input_zip_path, const char *mc_version
 /**
  * # Safety
  *
- * The pointer `map.a` must be the same as when this `Map3D` was initialized, but it may have been
- * modified. The values `map.w` and `map.h` must be the same as when this `Map3D` was initialized.
+ * The pointer `map.a` must be the same as when this `Map3D` was initialized. The contents of the
+ * array `map.a` may have been modified. The values `map.sx`, `map.sy`, and `map.sz` must be the
+ * same as when this `Map3D` was initialized.
  */
 void free_map(struct Map3D map);
 
