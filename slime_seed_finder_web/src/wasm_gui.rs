@@ -1083,7 +1083,7 @@ pub fn get_biome_id_to_biome_name_map() -> JsValue {
 #[wasm_bindgen]
 pub fn read_fragment_biome_map(
     zipped_world: &[u8],
-    _version: String,
+    version_str: String,
     fx: i32,
     fy: i32,
     frag_size: usize,
@@ -1091,6 +1091,14 @@ pub fn read_fragment_biome_map(
 ) -> Vec<u8> {
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
+    let version: MinecraftVersion = match version_str.parse() {
+        Ok(s) => s,
+        Err(e) => {
+            error!("{:?} is not a valid version: {}", version_str, e);
+            // Return empty vec as error
+            return vec![];
+        }
+    };
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
     let mut zip_chunk_provider =
         ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
@@ -1103,8 +1111,26 @@ pub fn read_fragment_biome_map(
         h: frag_size,
     };
 
+    let biomes;
     // TODO: assuming that version >= 1.15
-    let biomes = anvil::get_biomes_from_area_1_15(&mut zip_chunk_provider, area, y_offset);
+    match version {
+        MinecraftVersion::Java1_15
+        | MinecraftVersion::Java1_16
+        | MinecraftVersion::Java1_16_1
+        | MinecraftVersion::Java1_17 => {
+            biomes = anvil::get_biomes_from_area_1_15(&mut zip_chunk_provider, area, y_offset);
+        }
+        MinecraftVersion::Java1_18 => {
+            // Convert offset into level: offset goes from [0, 95], level goes from [-64, 319]
+            let y_level: i64 = -64 + y_offset as i64 * 4;
+            biomes = anvil::get_biomes_from_area_1_18(&mut zip_chunk_provider, area, y_level);
+        }
+        _ => {
+            error!("Version {:?} is not supported", version_str);
+            // Return empty vec as error
+            return vec![];
+        }
+    }
 
     let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
     for (expected_biome_id, p) in &biomes {

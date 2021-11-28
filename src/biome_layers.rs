@@ -171,6 +171,22 @@ impl Area {
 
         Area { x: x_min, z: z_min, w: (x_max - x_min + 1) as u64, h: (z_max - z_min + 1) as u64 }
     }
+
+    pub fn intersects(&self, other: &Area) -> bool {
+        // Rect intersection from stackoverflow
+        // https://stackoverflow.com/a/306379
+        fn value_in_range<T: PartialOrd>(value: T, min: T, max: T) -> bool {
+            value >= min && value <= max
+        }
+
+        let x_overlap = value_in_range(self.x, other.x, other.x + other.w as i64) ||
+                    value_in_range(other.x, self.x, self.x + self.w as i64);
+
+        let z_overlap = value_in_range(self.z, other.z, other.z + other.h as i64) ||
+                        value_in_range(other.z, self.z, self.z + self.h as i64);
+
+        x_overlap && z_overlap
+    }
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
