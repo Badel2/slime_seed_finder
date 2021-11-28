@@ -570,7 +570,6 @@ pub fn get_biomes_from_area_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A, 
                     });
                     let block_x: i64 = (region_x as i64 * 512) + (rel_chunk_x as i64 * 16) + x as i64;
                     let block_z: i64 = (region_z as i64 * 512) + (rel_chunk_z as i64 * 16) + z as i64;
-                    let block_y: i64 = y.try_into().unwrap();
                     // Divide by 4 to get 1:4 scale
                     let block_x = block_x >> 2;
                     let block_z = block_z >> 2;
