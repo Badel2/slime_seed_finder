@@ -626,8 +626,7 @@ pub fn anvil_region_to_river_seed_finder(zipped_world: &[u8], is_minecraft_1_15:
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut zip_chunk_provider =
-        ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let mut zip_chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
     let center_block = Point { x: 0, z: 0 };
     let s = if is_minecraft_1_15 {
         let (rivers, _extra_biomes) =
@@ -747,7 +746,7 @@ pub fn read_dungeons(zipped_world: &[u8]) -> Vec<JsValue> {
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
     let dungeons = anvil::find_dungeons(&mut chunk_provider).unwrap();
     // Convert DungeonKind to string in order to serialize it
     let dungeons: Vec<_> = dungeons
@@ -784,7 +783,7 @@ pub fn find_blocks_in_world(
     use slime_seed_finder::anvil::ZipChunkProvider;
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
     let blocks = anvil::find_blocks_in_world(
         &mut chunk_provider,
         block_name,
@@ -854,7 +853,7 @@ pub fn find_spawners_in_world(zipped_world: &[u8], params: JsValue) -> Vec<JsVal
     use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
     let mut chunk_provider = ZipChunkProvider::new_with_dimension(
-        Cursor::new(Vec::from(zipped_world)),
+        Cursor::new(zipped_world),
         params.dimension.as_deref(),
     )
     .unwrap();
@@ -912,7 +911,7 @@ pub fn nbt_search(zipped_world: &[u8], block_name: &str) -> Vec<JsValue> {
     use std::io::Cursor;
     use std::io::Read;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let reader = Cursor::new(Vec::from(zipped_world));
+    let reader = Cursor::new(zipped_world);
     let mut zip = zip::read::ZipArchive::new(reader).unwrap();
 
     let mut r = vec![];
@@ -1100,8 +1099,7 @@ pub fn read_fragment_biome_map(
         }
     };
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut zip_chunk_provider =
-        ZipChunkProvider::new(Cursor::new(Vec::from(zipped_world))).unwrap();
+    let mut zip_chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
 
     let frag_size = frag_size as u64;
     let area = Area {
