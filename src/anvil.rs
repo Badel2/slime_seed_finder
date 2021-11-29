@@ -413,7 +413,7 @@ pub fn get_all_biomes_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
         let r = chunk_provider.get_region(region_x, region_z).expect("Error loading region");
         let mut rb = fastanvil::RegionBuffer::new(r);
 
-        rb.for_each_chunk(|rel_chunk_x, rel_chunk_z, data| {
+        region_for_each_chunk(&mut rb, |rel_chunk_x, rel_chunk_z, data| {
             let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
             //log::debug!("chunk {:?}: {:?}", (region_x, region_z, rel_chunk_x, rel_chunk_z), chunk);
             // TODO: biomes are stored in 1:4 scale, so we don't need to iterate over all y values,
@@ -534,7 +534,7 @@ pub fn get_biomes_from_area_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A, 
         let r = chunk_provider.get_region(region_x, region_z).expect("Error loading region");
         let mut rb = fastanvil::RegionBuffer::new(r);
 
-        rb.for_each_chunk(|rel_chunk_x, rel_chunk_z, data| {
+        region_for_each_chunk(&mut rb, |rel_chunk_x, rel_chunk_z, data| {
             // TODO: area uses coordinates in 1:4 scale
             // chunks are 1:16 scale
             // How to ensure that this chunk is not inside the area?
