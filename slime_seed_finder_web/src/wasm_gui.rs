@@ -141,6 +141,7 @@ pub fn generate_rivers_candidate(o: String) -> JsValue {
             o.area,
             o.seed.parse().unwrap(),
             magic_layer_river_candidate,
+            0,
         ),
     };
     JsValue::from_serde(&ret)
@@ -299,6 +300,7 @@ pub fn generate_fragment(
     fy: i32,
     seed: String,
     frag_size: usize,
+    y_offset: u32,
 ) -> Vec<u8> {
     let empty_map_as_error = || vec![0; frag_size * frag_size * 4];
     let version1: MinecraftVersion = match version.parse() {
@@ -336,7 +338,7 @@ pub fn generate_fragment(
         }
     };
     let num_layers = version1.num_layers();
-    generate_fragment_up_to_layer(version, fx, fy, seed, frag_size, num_layers)
+    generate_fragment_up_to_layer(version, fx, fy, seed, frag_size, num_layers, y_offset)
 }
 
 #[wasm_bindgen]
@@ -347,6 +349,8 @@ pub fn generate_fragment_up_to_layer(
     seed: String,
     frag_size: usize,
     layer: u32,
+    // y_offset used to render slice of 3D biome
+    y_offset: u32,
 ) -> Vec<u8> {
     let empty_map_as_error = || vec![0; frag_size * frag_size * 4];
     let frag_size = frag_size as usize;
@@ -400,7 +404,7 @@ pub fn generate_fragment_up_to_layer(
     };
     //let last_layer = 43;
     //let map = cubiomes_test::call_layer(last_layer, seed, area);
-    let v = biome_layers::generate_image_up_to_layer(version, area, seed, layer);
+    let v = biome_layers::generate_image_up_to_layer(version, area, seed, layer, y_offset);
 
     v
 }

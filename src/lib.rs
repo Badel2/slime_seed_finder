@@ -22,3 +22,7 @@ pub mod biome_info;
 pub mod population;
 pub mod fastanvil_ext;
 pub mod zip_ext;
+pub mod xoroshiro128plusplus;
+pub mod spline;
+pub mod climate;
+pub mod biome_info_118;

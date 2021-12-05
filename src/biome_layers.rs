@@ -1,11 +1,16 @@
 use crate::mc_rng::McRng;
+use crate::xoroshiro128plusplus::Xoroshiro128PlusPlus;
 use crate::noise_generator::NoiseGeneratorPerlin;
+use crate::noise_generator::NoiseGeneratorDoublePerlin128;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use log::debug;
 use ndarray::Array2;
+use ndarray::Array3;
 use serde::{Serialize, Deserialize};
+use lazy_static::lazy_static;
 use std::rc::Rc;
+use std::sync::Arc;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -14,11 +19,14 @@ use crate::java_rng::JavaRng;
 use crate::chunk::Point;
 use crate::chunk::Point2;
 use crate::chunk::Point4;
+use crate::chunk::Point3D;
 use crate::chunk::Point3D4;
 use crate::biome_info::biome_id;
 use crate::biome_info::BIOME_COLORS;
 use crate::biome_info::BIOME_INFO;
 use crate::biome_info::UNKNOWN_BIOME_ID;
+use crate::spline::Spline;
+use crate::climate::Climate;
 
 // The different Map* layers are copied from
 // https://github.com/Cubitect/cubiomes
@@ -228,6 +236,30 @@ impl Area3D {
 
         Area3D { x: x_min, y: y_min, z: z_min, sx: (x_max - x_min + 1) as u64, sy: (y_max - y_min + 1) as u64, sz: (z_max - z_min + 1) as u64 }
     }
+
+    /// Create 3D area from 2D area and a single y level
+    pub fn from_area2d_and_y_level(area: Area, y_level: i64) -> Area3D {
+        Self {
+            x: area.x,
+            y: y_level,
+            z: area.z,
+            sx: area.w,
+            sy: 1,
+            sz: area.h,
+        }
+    }
+
+    /// If the y dimension of this area is 1, convert it into a 2D area
+    pub fn into_area2d(self) -> Area {
+        assert_eq!(self.sy, 1);
+
+        Area {
+            x: self.x,
+            z: self.z,
+            w: self.sx,
+            h: self.sz,
+        }
+    }
 }
 
 
@@ -350,6 +382,72 @@ impl GetMap for CachedMap {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct Map3D {
+    pub x: i64,
+    pub y: i64,
+    pub z: i64,
+    pub a: Array3<i32>,
+}
+
+impl Map3D {
+    pub fn new(a: Area3D) -> Self {
+        Self { x: a.x, y: a.y, z: a.z, a: Array3::zeros((a.sx as usize, a.sy as usize, a.sz as usize)) }
+    }
+    /// Create map from generator function
+    pub fn from_area_fn<F: FnMut((usize, usize, usize)) -> i32>(a: Area3D, f: F) -> Self {
+        Self { x: a.x, y: a.y, z: a.z, a: Array3::from_shape_fn((a.sx as usize, a.sy as usize, a.sz as usize), f) }
+    }
+    pub fn area(&self) -> Area3D {
+        let (sx, sy, sz) = self.a.dim();
+        Area3D { x: self.x, y: self.y, z: self.z, sx: sx as u64, sy: sy as u64, sz: sz as u64 }
+    }
+    /// Get value at real coordinate (x, y, z)
+    pub fn get(&self, real_x: i64, real_y: i64, real_z: i64) -> i32 {
+        self.a[((real_x - self.x) as usize, (real_y - self.y) as usize, (real_z - self.z) as usize)]
+    }
+    /// Set value at real coordinate (x, y, z)
+    pub fn set(&mut self, real_x: i64, real_y: i64, real_z: i64, value: i32) {
+        self.a[((real_x - self.x) as usize, (real_y - self.y) as usize, (real_z - self.z) as usize)] = value;
+    }
+
+    /// If the y dimension of this map is 1, convert it into a 2D map
+    pub fn into_map2d(self) -> Map {
+        let area = self.area();
+        assert_eq!(area.sy, 1, "Cannot convert 3D map into 2D map because y size is {} instead of 1", area.sy);
+
+        let mut m = Map::new(area.into_area2d());
+
+        for i in 0..area.sx {
+            for j in 0..area.sz {
+                let (i, j) = (i as usize, j as usize);
+                m.a[(i, j)] = self.a[(i, 0, j)];
+            }
+        }
+
+        m
+    }
+
+    /// Convert 3D map into 2D map, by taking slices at every y level and concatenating the result
+    /// along the z axis.
+    pub fn flatten_into_2d(self) -> Map {
+        let area = self.area();
+
+        let mut m = Map::new(area.into_area2d());
+
+        for k in 0..area.sy {
+            for i in 0..area.sx {
+                for j in 0..area.sz {
+                    let (i, j, k) = (i as usize, j as usize, k as usize);
+                    m.a[(i, j + k * area.sx as usize * area.sz as usize)] = self.a[(i, k, j)];
+                }
+            }
+        }
+
+        m
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Biome {
     pub id: i32,
@@ -450,9 +548,63 @@ fn is_biome_snowy(id: i32) -> bool {
 }
 pub fn biome_to_color(id: i32) -> [u8; 4] {
     let mut id = id as usize;
+
     if id > 255 {
         // Invalid biome but proceed anyway
         id &= 0xFF;
+    }
+
+    if (174..(174+20)).contains(&id) {
+        // 1.18 biomes are not present in BIOME_COLORS map, hardcode them here for the moment
+        // Colors from cubiomes util.c
+        /*
+        174 => "DripstoneCaves",
+        175 => "FrozenPeaks",
+        176 => "Grove",
+        177 => "JaggedPeaks",
+        178 => "LushCaves",
+        179 => "Meadow",
+        180 => "NetherWastes",
+        181 => "OldGrowthBirchForest",
+        182 => "OldGrowthPineTaiga",
+        183 => "OldGrowthSpruceTaiga",
+        184 => "SnowyPlains",
+        185 => "SnowySlopes",
+        186 => "SparseJungle",
+        187 => "StonyPeaks",
+        188 => "StonyShore",
+        189 => "WindsweptForest",
+        190 => "WindsweptGravellyHills",
+        191 => "WindsweptHills",
+        192 => "WindsweptSavanna",
+        193 => "WoodedBadlands",
+        */
+        let [r, g, b] = match id {
+            174 => [78, 48, 18],
+            175 => [176, 179, 206],
+            176 => [71, 114, 108],
+            177 => [220, 220, 200],
+            178 => [40, 60, 0],
+            179 => [96, 164, 69],
+            180 => [87, 37, 38],
+            181 => [0x4f, 0x6c, 0x56],
+            182 => [0x48, 0x65, 0x5f],
+            183 => [0x38, 0x58, 0x4f],
+            184 => [0xc0, 0xd2, 0xb0],
+            185 => [196, 196, 196],
+            186 => [0x38, 0x55, 0x04],
+            187 => [123, 143, 116],
+            188 => [0x71, 0x71, 0x7b],
+            189 => [0x53, 0x4d, 0x48],
+            190 => [0x43, 0x44, 0x43],
+            191 => [0x59, 0x55, 0x53],
+            192 => [0x7e, 0x79, 0x58],
+            193 => [0x83, 0x38, 0x06],
+            // Give unique colors to unknown biomes, so they can be shown as "Biome #id" in the web
+            // demo
+            id => [1, 255, id as u8],
+        };
+        return [r, g, b, 255];
     }
 
     let (r, g, b);
@@ -504,6 +656,11 @@ struct Layer {
 pub trait GetMap {
     fn get_map(&self, area: Area) -> Map;
     fn get_map_from_pmap(&self, pmap: &Map) -> Map;
+}
+
+pub trait GetMap3D {
+    fn get_map_3d(&self, area: Area3D) -> Map3D;
+    fn get_map_from_pmap_3d(&self, pmap: &Map3D) -> Map3D;
 }
 
 // Test layer which always generates a map consisting of only zeros.
@@ -1076,6 +1233,433 @@ impl GetMap for MapVoronoiZoom115 {
 
         m
     }
+}
+
+pub struct MapVoronoiZoom118 {
+    hashed_world_seed: i64,
+    pub parent: Option<Rc<dyn GetMap3D>>,
+}
+
+impl MapVoronoiZoom118 {
+    pub fn new(world_seed: i64) -> Self {
+        Self { hashed_world_seed: sha256_long_to_long(world_seed), parent: None }
+    }
+}
+
+// TODO: tests
+impl GetMap3D for MapVoronoiZoom118 {
+    fn get_map_3d(&self, area: Area3D) -> Map3D {
+        if let Some(ref parent) = self.parent {
+            // TODO: Area::double(), Area::quadruple(), etc
+            // Example 1:
+            // area  1x1: we want to generate 1x1
+            // parea 2x2: we need 2x2 from the previous layer
+            // narea 4x4: instead of 8x8, we only zoom the top left corner
+            // now we need to crop that 4x4 into 1x1
+            //
+            // Example 2:
+            // area  10x10: we want to generate 10x10
+            // parea 4x4: we need 4x4 from the previous layer
+            // narea 12x12: instead of 16x16, we skip the bottom and right pixels
+            // now we need to crop that 12x12 into 10x10
+            // But wait. We actually need parea 5x5, for the worst case:
+            // |...*|****|****|*...|....|
+            // So it makes sense to rewrite this algorithm and account for that
+            // cases, allowing some optimizations
+            let parea = Area3D {
+                x: (area.x - 2) >> 2,
+                y: (area.y - 2) >> 2,
+                z: (area.z - 2) >> 2,
+                sx: (area.sx >> 2) + 2 + 1, // TODO: without the +1 the slicing fails
+                sy: (area.sy >> 2) + 2 + 1,
+                sz: (area.sz >> 2) + 2 + 1,
+            };
+
+            let narea = Area3D {
+                sx: (parea.sx - 1) << 2,
+                sy: (parea.sy - 1) << 2,
+                sz: (parea.sz - 1) << 2,
+                ..area
+            };
+
+            let pmap = parent.get_map_3d(parea);
+            let mut map = self.get_map_from_pmap_3d(&pmap);
+            let (nsx, nsy, nsz) = map.a.dim();
+            assert_eq!((nsx, nsy, nsz), (narea.sx as usize, narea.sy as usize, narea.sz as usize));
+            // TODO: is this correct?
+            let (nx, ny, nz) = ((area.x - 2) & 3, (area.y - 2) & 3, (area.z - 2) & 3);
+            map.x += nx;
+            map.y += ny;
+            map.z += nz;
+            let (nx, ny, nz) = (nx as usize, ny as usize, nz as usize);
+            map.a.slice_collapse(s![
+                    nx..nx + area.sx as usize,
+                    ny..ny + area.sy as usize,
+                    nz..nz + area.sz as usize
+            ]);
+
+            map
+        } else {
+            panic!("Parent not set");
+        }
+    }
+    fn get_map_from_pmap_3d(&self, pmap: &Map3D) -> Map3D {
+        let (p_sx, p_sy, p_sz) = pmap.a.dim();
+        let p_x = pmap.x;
+        let p_y = pmap.y;
+        let p_z = pmap.z;
+        // TODO: x and z are correct?
+        let mut area: Area3D = Default::default();
+        area.x = ((p_x + 0) << 2) + 2;
+        area.y = ((p_y + 0) << 2) + 2;
+        area.z = ((p_z + 0) << 2) + 2;
+        area.sx = ((p_sx - 1) << 2) as u64;
+        area.sy = ((p_sy - 1) << 2) as u64;
+        area.sz = ((p_sz - 1) << 2) as u64;
+        let mut m = Map3D::new(area);
+
+        // From a 2x2 pmap we can only generate 1 tile, because we need a 1 margin
+        // for x+1 and z+1
+        // 2x2 => 4x4
+        // 3x3 => 8x8
+        // 4x4 => 12x12
+
+        // TODO: add y loop
+        for x in 0..p_sx - 1 {
+            let mut v00 = pmap.a[(x, 0, 0)];
+            let mut v10 = pmap.a[(x+1, 0, 0)];
+
+            for z in 0..p_sz - 1 {
+                let v01 = pmap.a[(x, 0, z+1)]; //& 0xFF;
+                let v11 = pmap.a[(x+1, 0, z+1)]; //& 0xFF;
+
+                // Missed optimization (not present in Java):
+                // if v00 == v01 == v10 == v11,
+                // buf will always be set to the same value, so skip
+                // all the calculations
+                if v00 == v01 && v00 == v10 && v00 == v11 {
+                    for j in 0..4 {
+                        for i in 0..4 {
+                            let idx = ((x << 2) + i, 0, (z << 2) + j);
+                            m.a[idx] = v00;
+                        }
+                    }
+
+                    v00 = v01;
+                    v10 = v11;
+                    continue;
+                }
+
+                // For each pixel from pmap we want to generate 4x4 pixels in buf
+                // Calculate the positions of the 2x2x2 points from (px, py, pz) to (px+1, py+1, pz+1)
+                let pos_offset = {
+                    let px = (p_x + x as i64) as i32;
+                    let pz = (p_z + z as i64) as i32;
+                    // y = 0; py = (y - 2) >> 2
+                    let py = -1;
+                    voronoi_1_15_pos_offset(self.hashed_world_seed, px, py, pz)
+                };
+                let biome_at = [v00, v01, v00, v01, v10, v11, v10, v11];
+                for j in 0..4 {
+                    for i in 0..4 {
+                        let idx = ((x << 2) + i, 0, (z << 2) + j);
+                        // y = 0; y2 = (y - 2)
+                        let y2 = -2;
+                        m.a[idx] = map_voronoi_1_15(i as i32, y2, j as i32, &pos_offset, &biome_at);
+                    }
+                }
+
+                v00 = v01;
+                v10 = v11;
+            }
+        }
+
+        m
+    }
+}
+
+/// Overworld and Nether biome generator for 1.18
+pub struct MapGenBiomeNoise3D118 {
+    world_seed: i64,
+    shift: NoiseGeneratorDoublePerlin128,
+    temperature: NoiseGeneratorDoublePerlin128,
+    humidity: NoiseGeneratorDoublePerlin128,
+    continentalness: NoiseGeneratorDoublePerlin128,
+    erosion: NoiseGeneratorDoublePerlin128,
+    weirdness: NoiseGeneratorDoublePerlin128,
+    sp: Arc<Spline>,
+}
+
+impl MapGenBiomeNoise3D118 {
+    pub fn new(world_seed: i64) -> Self {
+        let mut pxr = Xoroshiro128PlusPlus::with_u64_seed(world_seed as u64);
+        let xlo = pxr.next_long();
+        let xhi = pxr.next_long();
+
+        let amp_s = [1.0, 1.0, 1.0, 0.0];
+        // md5 "minecraft:offset"
+        pxr = Xoroshiro128PlusPlus::new(xlo ^ 0x080518cf6af25384, xhi ^ 0x3f3dfb40a54febd5);
+        let shift = NoiseGeneratorDoublePerlin128::new(&mut pxr, &amp_s, -3);
+
+        let amp_t = [1.5, 0.0, 1.0, 0.0, 0.0, 0.0];
+        // md5 "minecraft:temperature"
+        pxr = Xoroshiro128PlusPlus::new(xlo ^ 0x5c7e6b29735f0d7f, xhi ^ 0xf7d86f1bbc734988);
+        let temperature = NoiseGeneratorDoublePerlin128::new(&mut pxr, &amp_t, -10);
+
+        let amp_h = [1.0, 1.0, 0.0, 0.0, 0.0, 0.0];
+        // md5 "minecraft:vegetation"
+        pxr = Xoroshiro128PlusPlus::new(xlo ^ 0x81bb4d22e8dc168e, xhi ^ 0xf1c8b4bea16303cd);
+        let humidity = NoiseGeneratorDoublePerlin128::new(&mut pxr, &amp_h, -8);
+
+        let amp_c = [1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 1.0, 1.0, 1.0];
+        // md5 "minecraft:continentalness"
+        pxr = Xoroshiro128PlusPlus::new(xlo ^ 0x83886c9d0ae3a662, xhi ^ 0xafa638a61b42e8ad);
+        let continentalness = NoiseGeneratorDoublePerlin128::new(&mut pxr, &amp_c, -9);
+
+        let amp_e = [1.0, 1.0, 0.0, 1.0, 1.0];
+        // md5 "minecraft:erosion"
+        pxr = Xoroshiro128PlusPlus::new(xlo ^ 0xd02491e6058f6fd8, xhi ^ 0x4792512c94c17a80);
+        let erosion = NoiseGeneratorDoublePerlin128::new(&mut pxr, &amp_e, -9);
+
+        let amp_w = [1.0, 2.0, 1.0, 0.0, 0.0, 0.0];
+        // md5 "minecraft:ridge"
+        pxr = Xoroshiro128PlusPlus::new(xlo ^ 0xefc8ef4d36102b34, xhi ^ 0x1beeeb324a0f24ea);
+        let weirdness = NoiseGeneratorDoublePerlin128::new(&mut pxr, &amp_w, -7);
+
+        lazy_static! {
+            static ref CONTINENTAL_SPLINE: Arc<Spline> = Arc::new(Spline::new_continental());
+        }
+        let sp = Arc::clone(&CONTINENTAL_SPLINE);
+
+        Self { world_seed, shift, temperature, humidity, continentalness, erosion, weirdness, sp }
+    }
+
+    fn sample_biome_noise(&self, np: Option<&mut Climate>, pos: Point3D, dat: &mut u64) -> i32 {
+        let x = pos.x as f64;
+        let y = pos.y;
+        let z = pos.z as f64;
+        let mut px = x;
+        let mut pz = z;
+
+        px += self.shift.sample(x, 0.0, z) * 4.0;
+        pz += self.shift.sample(z, x, 0.0) * 4.0;
+
+        let c = self.continentalness.sample(px, 0.0, pz);
+        let e = self.erosion.sample(px, 0.0, pz);
+        let w = self.weirdness.sample(px, 0.0, pz);
+
+        let np_param = [c, e, -3.0 * ((w.abs() - 0.6666667).abs() - 0.33333334), w];
+        let np_param = np_param.map(|x| x as f32);
+        let off = self.sp.get_spline(&np_param) + 0.015;
+
+        //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
+        let d = 1.0 - ((y << 2) as f32) / 128.0 - 83.0/160.0 + off;
+
+        let t = self.temperature.sample(px, 0.0, pz);
+        let h = self.humidity.sample(px, 0.0, pz);
+
+        let mut l_np = Climate::default();
+        let p_np = np.unwrap_or(&mut l_np);
+
+        p_np.temperature = (10000.0*t) as i64;
+        p_np.humidity = (10000.0*h) as i64;
+        p_np.continentalness = (10000.0*c) as i64;
+        p_np.erosion = (10000.0*e) as i64;
+        p_np.depth = (10000.0*d) as i64;
+        p_np.weirdness = (10000.0*w) as i64;
+
+        let id = p2overworld(p_np, dat);
+
+        id
+    }
+
+    /// part:
+    /// 0: shift_x
+    /// 1: shift_z
+    /// 2: temperature
+    /// 3: humidity
+    /// 4: continentalness
+    /// 5: erosion
+    /// 6: weirdness
+    /// 7: depth
+    /// 8: biome
+    /// 50: climate distance to next biome (for debugging biome_info_118.rs)
+    /// 51: difference between search_bruteforce and search_tree (for debugging biome_info_118.rs)
+    // TODO: ensure that the return value is always in range [0, 255], so that converting to
+    // grayscale color is easy
+    fn partial_sample_biome_noise(&self, np: Option<&mut Climate>, pos: Point3D, dat: &mut u64, part: u32) -> i32 {
+        let clamp_float_to_u8_range = |f, fmin, fmax| {
+            let mut updated_limits = false;
+            static mut LIMITS: [(f64, f64); 100] = [(f64::MAX, f64::MIN); 100];
+            if let Some((lmin, lmax)) = unsafe { LIMITS.get_mut(part as usize) } {
+                if f > *lmax {
+                    *lmax = f;
+                    updated_limits = true;
+                }
+                if f < *lmin {
+                    *lmin = f;
+                    updated_limits = true;
+                }
+            }
+            let r = (f - fmin) * 256.0 / (fmax - fmin);
+            let r = r as i32;
+
+            if !(0..=255).contains(&r) {
+                let string_in_the_stack;
+                let arg_name = match part {
+                    0 => "shift_x",
+                    1 => "shift_z",
+                    _ => {
+                        string_in_the_stack = format!("arg_{}", part);
+                        &string_in_the_stack
+                    }
+                };
+                if updated_limits {
+                    let limits_filter_max: Vec<_> = unsafe { LIMITS.iter().enumerate().filter_map(|(i, k)| if *k == (f64::MAX, f64::MIN) { None } else { Some((i, k)) }).collect() };
+                    log::error!("{}={} set to {}. LIMITS: {:?}", arg_name, f, r, limits_filter_max);
+                }
+
+                // Return middle point value on overflow, to make it easier to spot on the map
+                127
+            } else {
+                r
+            }
+        };
+
+        let x = pos.x as f64;
+        let y = pos.y;
+        let z = pos.z as f64;
+        let mut px = x;
+        let mut pz = z;
+
+        let shift_x = self.shift.sample(x, 0.0, z) * 4.0;
+        px += shift_x;
+
+        if part == 0 {
+            return clamp_float_to_u8_range(shift_x, -6.0, 6.0);
+        }
+
+        let shift_z = self.shift.sample(z, x, 0.0) * 4.0;
+        pz += shift_z;
+
+        if part == 1 {
+            return clamp_float_to_u8_range(shift_z, -6.0, 6.0);
+        }
+
+        let mut l_np = Climate::default();
+        let p_np = np.unwrap_or(&mut l_np);
+
+        let t = self.temperature.sample(px, 0.0, pz);
+        p_np.temperature = (10000.0*t) as i64;
+
+        if part == 2 {
+            return clamp_float_to_u8_range(p_np.temperature as f64, -12010.0, 12010.0);
+        }
+
+        let h = self.humidity.sample(px, 0.0, pz);
+        p_np.humidity = (10000.0*h) as i64;
+
+        if part == 3 {
+            return clamp_float_to_u8_range(p_np.humidity as f64, -10500.0, 10000.0);
+        }
+
+        let c = self.continentalness.sample(px, 0.0, pz);
+        p_np.continentalness = (10000.0*c) as i64;
+
+        if part == 4 {
+            return clamp_float_to_u8_range(p_np.continentalness as f64, -14200.0, 15000.0);
+        }
+
+        let e = self.erosion.sample(px, 0.0, pz);
+        p_np.erosion = (10000.0*e) as i64;
+
+        if part == 5 {
+            return clamp_float_to_u8_range(p_np.erosion as f64, -13500.0, 13500.0);
+        }
+
+        let w = self.weirdness.sample(px, 0.0, pz);
+        p_np.weirdness = (10000.0*w) as i64;
+
+        if part == 6 {
+            return clamp_float_to_u8_range(p_np.weirdness as f64, -16000.0, 16100.0);
+        }
+
+        let np_param = [c as f32, e as f32, -3.0 * (((w as f32).abs() - 0.6666667).abs() - 0.33333334), w as f32];
+        let off = self.sp.get_spline(&np_param) + 0.015;
+
+        //double py = y + sampleDoublePerlin(&bn->shift, y, z, x) * 4.0;
+        let d = 1.0 - ((y << 2) as f32) / 128.0 - 83.0/160.0 + off;
+        p_np.depth = (10000.0*d) as i64;
+
+        if part == 7 {
+            return clamp_float_to_u8_range(p_np.depth as f64, -25000.0, 25000.0);
+        }
+
+        if part == 50 {
+            let dist_sq = debug_distance_to_second_biome(p_np, dat);
+            // +1 because in case of 0 distance log2(0) = -inf we want log2(1) = 0
+            let dist = ((dist_sq + 1) as f64).log2();
+            return clamp_float_to_u8_range(dist as f64, 0.0, 25.0);
+        }
+        if part == 51 {
+            let diff = debug_search_bruteforce_xor_search_tree(p_np, dat);
+            // Binary image
+            let dist = if diff == 0 { 0 } else { 255 };
+            return clamp_float_to_u8_range(dist as f64, 0.0, 256.0);
+        }
+
+        let id = p2overworld(p_np, dat);
+
+        if part == 8 {
+            return id;
+        }
+
+        panic!("Invalid part in partial_sample_biome_noise: {}", part);
+    }
+
+    pub fn partial_get_map_3d(&self, area: Area3D, part: u32) -> Map3D {
+        let mut dat = 0;
+        Map3D::from_area_fn(area, |(x, y, z)| {
+            let x = area.x + x as i64;
+            let y = area.y + y as i64;
+            let z = area.z + z as i64;
+            self.partial_sample_biome_noise(None, Point3D { x, y, z }, &mut dat, part)
+        })
+    }
+}
+
+impl GetMap3D for MapGenBiomeNoise3D118 {
+    fn get_map_3d(&self, area: Area3D) -> Map3D {
+        let mut dat = 0;
+        Map3D::from_area_fn(area, |(x, y, z)| {
+            let x = area.x + x as i64;
+            let y = area.y + y as i64;
+            let z = area.z + z as i64;
+            self.sample_biome_noise(None, Point3D { x, y, z }, &mut dat)
+        })
+    }
+
+    // MapIsland is the first layer, so it does not need pmap
+    fn get_map_from_pmap_3d(&self, pmap: &Map3D) -> Map3D {
+        let area = pmap.area();
+
+        self.get_map_3d(area)
+    }
+}
+
+fn p2overworld(np: &Climate, dat: &mut u64) -> i32 {
+    crate::biome_info_118::BIOME_LIST.search(np).unwrap().0
+}
+
+fn debug_distance_to_second_biome(np: &Climate, dat: &mut u64) -> i64 {
+    crate::biome_info_118::BIOME_LIST.distance_to_second_biome(np).unwrap()
+}
+
+fn debug_search_bruteforce_xor_search_tree(np: &Climate, dat: &mut u64) -> i32 {
+    let bb = crate::biome_info_118::BIOME_LIST.search_bruteforce(np).unwrap();
+    let bt = crate::biome_info_118::BIOME_LIST.search_tree(np).unwrap();
+
+    bb.0 ^ bt.0
 }
 
 // Return the index of the minimum element of the input array, or None if the array is empty.
@@ -4617,7 +5201,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             // Compare only rivers
             //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
             // Compare all biomes (slower)
-            let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1);
+            let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1, 0);
             let candidate_score = count_rivers_and(&g42, &target_map);
             if candidate_score < target_score * 90 / 100 {
                 // Skip this seed
@@ -4632,7 +5216,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
         let max_misses = extra_biomes.len() - target;
         for (biome, Point {x, z}) in extra_biomes.iter().cloned() {
             let area = Area { x, z, w: 1, h: 1 };
-            let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
+            let g43 = generate_up_to_layer(version, area, world_seed, last_layer, 0);
             if g43.a[(0, 0)] == biome.0 {
                 hits += 1;
             } else {
@@ -4670,7 +5254,7 @@ pub fn filter_seeds_using_biomes(candidates: &[i64], extra_biomes: &[(BiomeId, P
         let max_misses = extra_biomes.len() - target;
         for (biome, Point {x, z}) in extra_biomes.iter().cloned() {
             let area = Area { x, z, w: 1, h: 1 };
-            let g43 = generate_up_to_layer(version, area, world_seed, last_layer);
+            let g43 = generate_up_to_layer(version, area, world_seed, last_layer, 0);
             if g43.a[(0, 0)] == biome.0 {
                 hits += 1;
             } else {
@@ -5043,6 +5627,25 @@ pub fn draw_map_image(map: &Map) -> Vec<u8> {
     v
 }
 
+pub fn draw_map_image_noise(map: &Map) -> Vec<u8> {
+    let (w, h) = map.a.dim();
+    let mut v = vec![0; w*h*4];
+    for x in 0..w {
+        for z in 0..h {
+            let a = map.a[(x, z)];
+            let gray = a as u8;
+            let color = [gray, gray, gray, 0xFF];
+            let i = z * w + x;
+            v[i*4+0] = color[0];
+            v[i*4+1] = color[1];
+            v[i*4+2] = color[2];
+            v[i*4+3] = color[3];
+        }
+    }
+
+    v
+}
+
 static TREASURE_MAP_COLORS: [u32; 64] = [
     0x000000,
     0x7FB238,
@@ -5241,23 +5844,33 @@ pub fn generate_fragment_treasure_map(version: MinecraftVersion, area: Area, see
     mt.get_map(area)
 }
 
-pub fn generate_image(version: MinecraftVersion, area: Area, seed: i64) -> Vec<u8> {
+pub fn generate_image(version: MinecraftVersion, area: Area, seed: i64, y_offset: u32) -> Vec<u8> {
     let num_layers = version.num_layers();
-    generate_image_up_to_layer(version, area, seed, num_layers)
+    generate_image_up_to_layer(version, area, seed, num_layers, y_offset)
 }
 
-pub fn generate_image_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, layer: u32) -> Vec<u8> {
-    let map = generate_up_to_layer(version, area, seed, layer);
+pub fn generate_image_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, layer: u32, y_offset: u32) -> Vec<u8> {
+    let map = generate_up_to_layer(version, area, seed, layer, y_offset);
 
-    draw_map_image(&map)
+    match (version, layer) {
+        // Layers [0, 7] are used to visualize noise.
+        // Layers 8 and 9 can use the default draw_map_image.
+        // Layer 50 is similar to noise, except it should be easy to spot low values.
+        // Layer 51 is a binary map of biome ids that are different in search_bruteforce and
+        // search_tree
+        (MinecraftVersion::Java1_18, 0..=7 | 50 | 51) => {
+            draw_map_image_noise(&map)
+        }
+        _ => draw_map_image(&map),
+    }
 }
 
-pub fn generate(version: MinecraftVersion, a: Area, world_seed: i64) -> Map {
+pub fn generate(version: MinecraftVersion, a: Area, world_seed: i64, y_offset: u32) -> Map {
     let num_layers = version.num_layers();
-    generate_up_to_layer(version, a, world_seed, num_layers)
+    generate_up_to_layer(version, a, world_seed, num_layers, y_offset)
 }
 
-pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, num_layers: u32) -> Map {
+pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, num_layers: u32, y_offset: u32) -> Map {
     match version {
         MinecraftVersion::Java1_3 => generate_up_to_layer_1_3(area, seed, num_layers),
         MinecraftVersion::Java1_7 => generate_up_to_layer_1_7(area, seed, num_layers, version),
@@ -5273,6 +5886,13 @@ pub fn generate_up_to_layer(version: MinecraftVersion, area: Area, seed: i64, nu
         // 1.16.2 and later is different
         MinecraftVersion::Java1_16 => generate_up_to_layer_1_15(area, seed, num_layers, version),
         MinecraftVersion::Java1_17 => generate_up_to_layer_1_15(area, seed, num_layers, version),
+        // 1.18 introduces 3D biomes in the overworld
+        MinecraftVersion::Java1_18 => {
+            let y_level = y_offset as i64 - 16;
+            let area = Area3D::from_area2d_and_y_level(area, y_level);
+            let map3d = generate_up_to_layer_1_18(area, seed, num_layers, version);
+            map3d.into_map2d()
+        }
         _ => {
             panic!("Biome generation in version {:?} is not implemented", version);
         }
@@ -6264,10 +6884,32 @@ pub fn generator_up_to_layer_1_15(world_seed: i64, layer: u32, version: Minecraf
     Box::new(g51)
 }
 
-pub fn generate_up_to_layer_1_18(a: Area, world_seed: i64, layer: u32, version: MinecraftVersion) -> Map {
-    todo!()
+pub fn generate_up_to_layer_1_18(a: Area3D, world_seed: i64, layer: u32, version: MinecraftVersion) -> Map3D {
+    match layer {
+        0..=8 | 50 | 51 => {
+            let g0 = MapGenBiomeNoise3D118::new(world_seed);
+            g0.partial_get_map_3d(a, layer)
+        }
+        _ => {
+            generator_up_to_layer_1_18(world_seed, layer, version).get_map_3d(a)
+        }
+    }
 }
 
+pub fn generator_up_to_layer_1_18(world_seed: i64, layer: u32, version: MinecraftVersion) -> Box<dyn GetMap3D> {
+    // Layers:
+    // [0, 8]: before voronoi
+    // 9: after voronoi
+    // TODO: use helper layer to call partial_get_map_3d
+    // currently this function just assumes that layers [0, 8] are always 8
+    let g0 = MapGenBiomeNoise3D118::new(world_seed);
+    if layer <= 8 { return Box::new(g0); }
+    let mut g1 = MapVoronoiZoom118::new(world_seed);
+    g1.parent = Some(Rc::new(g0));
+    if layer == 9 { return Box::new(g1); }
+
+    Box::new(g1)
+}
 
 #[cfg(test)]
 mod tests {
@@ -6290,7 +6932,8 @@ mod tests {
         let world_seed = 2251799825931796;
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
-        let m33 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 33);
+        let y_offset = 0;
+        let m33 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 33, y_offset);
 
         let g34 = HelperMapZoomAllEdges::new(1000, world_seed);
         let g35 = HelperMapZoomAllEdges::new(1001, world_seed);
@@ -6343,7 +6986,8 @@ mod tests {
         let world_seed = 2251799825931796;
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
-        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 30);
+        let y_offset = 0;
+        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 30, y_offset);
 
         let g31 = MapZoom::new(1002, world_seed);
         let g32 = MapZoom::new(1003, world_seed);
@@ -6382,7 +7026,8 @@ mod tests {
         let world_seed = 2251799825931796;
         let (w, h) = (200, 25);
         let area = Area { x: 0, z: 0, w, h };
-        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 31);
+        let y_offset = 0;
+        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 31, y_offset);
 
         let g32 = HelperMapZoomAllEdges::new(1003, world_seed);
         let g33 = MapSmooth::new(1000, world_seed);
@@ -6509,7 +7154,8 @@ mod tests {
         let map_smooth = MapSmooth::new(1000, world_seed);
         let (w, h) = (300, 300);
         let area = Area { x: 0, z: 0, w, h };
-        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 32);
+        let y_offset = 0;
+        let m = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 32, y_offset);
 
         let b = map_smooth.get_map_from_pmap(&m);
         let c = map_smooth.get_map_from_pmap(&b);
@@ -6693,7 +7339,8 @@ mod tests {
     #[test]
     fn generate_t() {
         let a = Area { x: 0, z: 0, w: 100, h: 100 };
-        generate(MinecraftVersion::Java1_7, a, 1234);
+        let y_offset = 0;
+        generate(MinecraftVersion::Java1_7, a, 1234, y_offset);
     }
 
     #[test]
@@ -6701,7 +7348,8 @@ mod tests {
         // This is a regression test for
         // https://github.com/Cubitect/cubiomes/issues/23
         let a = Area { x: -3000, z: -3000, w: 1, h: 1 };
-        let m = generate(MinecraftVersion::Java1_14, a, 5010);
+        let y_offset = 0;
+        let m = generate(MinecraftVersion::Java1_14, a, 5010, y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::bambooJungle);
     }
 
@@ -6773,7 +7421,8 @@ mod tests {
         let s = SeedInfo::read("seedinfo_tests/voronoi_1_15.json").unwrap();
         let river_coords = &s.biomes[&BiomeId(7)];
         println!("{}", draw_map(&map_with_river_at(river_coords, Area::from_coords(river_coords.iter().copied()))));
-        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords.iter().copied()), s.world_seed.unwrap());
+        let y_offset = 0;
+        let m = generate(MinecraftVersion::Java1_15, Area::from_coords(river_coords.iter().copied()), s.world_seed.unwrap(), y_offset);
         println!("{}", draw_map(&m));
         for r in river_coords {
             let gr = m.get(r.x, r.z);
@@ -6962,18 +7611,21 @@ mod tests {
         // 1.7: got 6 (correct)
         // 1.8.9: got 6 (correct)
         let version = MinecraftVersion::Java1_7;
-        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers(), y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::swampland);
 
         // 1.9.4: got 6 (expected 27)
         // 1.10.2: got 6 (expected 27)
         let version = MinecraftVersion::Java1_9;
-        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers(), y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::birchForest);
 
         // 1.11.2: got 6 (correct)
         let version = MinecraftVersion::Java1_11;
-        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers());
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 2727174149152569210, version.num_layers(), y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::swampland);
     }
 
@@ -6983,7 +7635,8 @@ mod tests {
         // https://github.com/Cubitect/cubiomes/issues/51
         let a = Area { x: 180, z: 171, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16_1;
-        let m = generate_up_to_layer(version, a, 1437905338718953247, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 1437905338718953247, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::mesa);
     }
 
@@ -6993,7 +7646,8 @@ mod tests {
         // https://github.com/Cubitect/cubiomes/issues/51
         let a = Area { x: -158, z: 23, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16_1;
-        let m = generate_up_to_layer(version, a, 84, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 84, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::mesa);
     }
 
@@ -7003,7 +7657,8 @@ mod tests {
         // https://github.com/Cubitect/cubiomes/issues/51
         let a = Area { x: 180, z: 171, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16;
-        let m = generate_up_to_layer(version, a, 1437905338718953247, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 1437905338718953247, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::mesaPlateau_F);
     }
 
@@ -7013,7 +7668,8 @@ mod tests {
         // https://github.com/Cubitect/cubiomes/issues/51
         let a = Area { x: -158, z: 23, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16;
-        let m = generate_up_to_layer(version, a, 84, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 84, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], biome_id::mesaPlateau_F);
     }
 
@@ -7070,11 +7726,13 @@ mod tests {
     fn test_generation_bamboo_hills_fail1() {
         let a = Area { x: 188, z: -71, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16;
-        let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], 168);
         // This generation has not changed since 1.14
         let version = MinecraftVersion::Java1_14;
-        let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, 797383349100663716, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], 168);
     }
 
@@ -7082,11 +7740,187 @@ mod tests {
     fn test_generation_bamboo_hills_fail2() {
         let a = Area { x: -23, z: 163, w: 1, h: 1 };
         let version = MinecraftVersion::Java1_16;
-        let m = generate_up_to_layer(version, a, -5450423930667436192, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, -5450423930667436192, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], 169);
         // This generation has not changed since 1.14
         let version = MinecraftVersion::Java1_14;
-        let m = generate_up_to_layer(version, a, -5450423930667436192, version.num_layers() - 1);
+        let y_offset = 0;
+        let m = generate_up_to_layer(version, a, -5450423930667436192, version.num_layers() - 1, y_offset);
         assert_eq!(m.a[(0, 0)], 169);
+    }
+
+    // 1.18 test cases from
+    // https://github.com/Cubitect/cubiomes/issues/61
+
+    #[test]
+    #[ignore] // this test fails
+    fn test_generation_1_18_test1() {
+        let world_seed = 1234;
+        // Biome mismatch at (-95, -16, -56), expected 4 got 7
+        // Biome mismatch at (-79, -16, -53), expected 7 got 0
+        // Biome mismatch at (-136, -16, 13), expected 4 got 1
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 0;
+        let a = Area { x: -95, z: -56, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 4);
+
+        let a = Area { x: -79, z: -53, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 7);
+
+        let a = Area { x: -136, z: 13, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 4);
+    }
+
+    #[test]
+    fn test_generation_1_18_test2() {
+        let world_seed = -4100855569562546563;
+        // Biome mismatch at (640, -16, -16), expected 4 got 1
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 0;
+        let a = Area { x: 640, z: -16, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 4);
+    }
+
+    #[test]
+    fn test_generation_1_18_test3() {
+        let world_seed = -7088473816240932309;
+        // Biome mismatch at (-30, -7, -120), expected 175 got 45
+        // Biome mismatch at (38, -5, -104), expected 175 got 45
+        // Biome mismatch at (38, -5, -103), expected 175 got 45
+        // Biome mismatch at (38, -5, -102), expected 175 got 45
+        // 175 is lush_caves
+        let lush_caves_id = BiomeId(fastanvil::biome::Biome::LushCaves as i32).0;
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16-7;
+        let a = Area { x: -30, z: -120, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], lush_caves_id);
+
+        let y_offset = 16-5;
+        let a = Area { x: 38, z: -104, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], lush_caves_id);
+        let a = Area { x: 38, z: -103, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], lush_caves_id);
+        let a = Area { x: 38, z: -102, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], lush_caves_id);
+    }
+
+    // Additional tests from manually generated worlds
+    #[test]
+    #[ignore] // this test fails
+    fn test_generation_1_18_test4() {
+        let world_seed = 1234;
+        // thread 'main' panicked at 'Mismatch at (-98, 46, -49): expected 7 generated 4', src/main.rs:1115:29
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16+46;
+        let a = Area { x: -98, z: -49, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 7);
+    }
+
+    #[test]
+    fn test_generation_1_18_test5() {
+        let world_seed = 1234;
+        // thread 'main' panicked at 'Mismatch at (-154, 1, 2): expected 174 generated 4 (distance to 2nd biome: 156)', src/main.rs:1410:33
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16+1;
+        let a = Area { x: -154, z: 2, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 174);
+
+        // thread 'main' panicked at 'Mismatch at (-159, 0, -1): expected 4 generated 174 (distance to 2nd biome: 161)', src/main.rs:1410:33
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16+0;
+        let a = Area { x: -159, z: -1, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 4);
+
+        // thread 'main' panicked at 'Mismatch at (-158, 2, 1): expected 174 generated 4 (distance to 2nd biome: 145)', src/main.rs:1410:33
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16+2;
+        let a = Area { x: -158, z: 1, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 174);
+    }
+
+    #[test]
+    fn test_generation_1_18_test6() {
+        let world_seed = -4100855569562546563;
+        // thread 'main' panicked at 'Mismatch at (145, 18, -10): expected 179 generated 174 (distance to 2nd biome: 225)', src/main.rs:1410:33
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16+18;
+        let a = Area { x: 145, z: -10, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 179);
+    }
+
+    // thread 'main' panicked at 'Mismatch at (-22, -1, -107): expected 16 generated 178 (distance to 2nd biome: 133)', src/main.rs:1410:33
+    // thread 'main' panicked at 'Mismatch at (-22, -1, -106): expected 16 generated 178 (distance to 2nd biome: 133)', src/main.rs:1410:33
+    // thread 'main' panicked at 'Mismatch at (30, -3, -97): expected 45 generated 178 (distance to 2nd biome: 135)', src/main.rs:1410:33
+    #[test]
+    #[ignore] // this test fails
+    fn test_generation_1_18_test7() {
+        let world_seed = -7088473816240932309;
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16-1;
+        let a = Area { x: -22, z: -107, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 16);
+
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16-1;
+        let a = Area { x: -22, z: -106, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 16);
+
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 16-3;
+        let a = Area { x: 30, z: -97, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 45);
+    }
+
+    // These test cases were generated by making small changes to the generation code, and
+    // comparing biomes that would have been different.
+
+    #[test]
+    fn test_generation_1_18_test8() {
+        // TestCase { world_seed: 1234, y_offset: 23, x: -11215, z: 49355, b1: 30, b2: 4 }', examples/test_case_finder.rs:43:13
+        let world_seed = 1234;
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 23;
+        let a = Area { x: -11215, z: 49355, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 30);
+    }
+
+    #[test]
+    fn test_generation_1_18_test9() {
+        // TestCase { world_seed: 1234, y_offset: 11, x: 15002, z: -70700, b1: 27, b2: 178 }', examples/test_case_finder.rs:43:13
+        let world_seed = 1234;
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 11;
+        let a = Area { x: 15002, z: -70700, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 27);
+    }
+
+    #[test]
+    fn test_generation_1_18_test10() {
+        // TestCase { world_seed: 1234, y_offset: 13, x: 88062, z: -86044, b1: 4, b2: 174 }', examples/test_case_finder.rs:43:13
+        let world_seed = 1234;
+        let version = MinecraftVersion::Java1_18;
+        let y_offset = 13;
+        let a = Area { x: 88062, z: -86044, w: 1, h: 1 };
+        let m = generate_up_to_layer(version, a, world_seed, version.num_layers() - 1, y_offset);
+        assert_eq!(m.a[(0, 0)], 4);
     }
 }

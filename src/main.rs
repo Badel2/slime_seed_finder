@@ -5,9 +5,12 @@ use slime_seed_finder::anvil::ZipChunkProvider;
 use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area;
+use slime_seed_finder::biome_layers::Area3D;
 use slime_seed_finder::biome_layers::Map;
+use slime_seed_finder::biome_layers::Map3D;
 use slime_seed_finder::chunk::Chunk;
 use slime_seed_finder::chunk::Point;
+use slime_seed_finder::chunk::Point3D4;
 use slime_seed_finder::slime::generate_slime_chunks_and_not;
 use slime_seed_finder::slime::seed_from_slime_chunks;
 use slime_seed_finder::slime::seed_from_slime_chunks_and_candidates;
@@ -158,11 +161,15 @@ enum Opt {
         /// -s=-1234 or --seed=-1234
         #[structopt(short = "s", long)]
         seed: i64,
-        /// x position of the top-left coordinate of the map
+        /// x position of the top-left coordinate of the map.
         /// To avoid problems with negative coordinates, use the following
         /// syntax: -x=-2
         #[structopt(short = "x", default_value = "0")]
         x: i64,
+        /// y level to map.
+        /// Ignored in versions before 1.18, defaults to 64 (sea level).
+        #[structopt(short = "y", default_value = "64")]
+        y: i64,
         /// z position of the top-left coordinate of the map
         #[structopt(short = "z", default_value = "0")]
         z: i64,
@@ -428,7 +435,8 @@ fn main() {
 
             let (c, nc) = generate_slime_chunks_and_not(seed, num_slime_chunks, num_non_slime_chunks);
             let area = Area { x: biome_map_x, z: biome_map_z, w: biome_map_size, h: biome_map_size };
-            let biome_map = biome_layers::generate(mc_version.parse().unwrap(), area, seed);
+            let y_offset = 0;
+            let biome_map = biome_layers::generate(mc_version.parse().unwrap(), area, seed, y_offset);
 
             let mut seed_info = SeedInfo::default();
             seed_info.version = mc_version.to_string();
@@ -591,6 +599,7 @@ fn main() {
         Opt::RenderMap {
             seed,
             x,
+            y,
             z,
             width,
             height,
@@ -599,12 +608,13 @@ fn main() {
             last_layer,
         } => {
             let output_file = output_file.unwrap_or_else(|| {
-                format!("biome_map_{}_{}_{}_{}_{}x{}.png", mc_version, seed, x, z, width, height).into()
+                format!("biome_map_{}_{}_{}_{}_{}_{}x{}.png", mc_version, seed, x, y, z, width, height).into()
             });
             let version: MinecraftVersion = mc_version.parse().unwrap();
             let last_layer = last_layer.unwrap_or_else(|| version.num_layers());
             let area = Area { x, z, w: width as u64, h: height as u64 };
-            let vec_rgba = biome_layers::generate_image_up_to_layer(version, area, seed, last_layer);
+            let y_offset = u32::try_from((64 + y) >> 2).expect("invalid y level. Valid values are from -64 to 319");
+            let vec_rgba = biome_layers::generate_image_up_to_layer(version, area, seed, last_layer, y_offset);
             assert_eq!(vec_rgba.len(), (width * height * 4) as usize);
             image::save_buffer(output_file.clone(), &vec_rgba, width, height, image::ColorType::Rgba8).unwrap();
             println!("Saved image to {}", output_file.to_string_lossy());
@@ -1003,7 +1013,8 @@ fn main() {
                     }
 
                     // Generate area with 1:1 resolution
-                    let map = biome_layers::generate(version, area, world_seed);
+                    let y_offset = 0;
+                    let map = biome_layers::generate(version, area, world_seed, y_offset);
 
                     // Compare maps :D
                     for (expected_biome_id, p) in biomes {
@@ -1066,39 +1077,42 @@ fn main() {
                     let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
                     let biomes = anvil::get_all_biomes_1_18(&mut chunk_provider);
                     println!("Got {} biomes", biomes.len());
-                    // TODO: generate 3D area
-                    let points = biomes.iter().map(|(_biome_id, p)| Point { x: p.x, z: p.z });
-                    let area = Area::from_coords(points);
+                    let points = biomes.iter().map(|(_biome_id, p)| Point3D4 { x: p.x, y: p.y, z: p.z });
+                    let area = Area3D::from_coords4(points);
                     println!("Area: {:?}", area);
 
                     if draw_biome_map {
                         println!("Drawing biome map");
-                        let mut map = Map::from_area_fn(area, |(_, _)| biome_info::UNKNOWN_BIOME_ID);
-                        let desired_y = 20;
+                        let mut map = Map3D::from_area_fn(area, |(_, _, _)| biome_info::UNKNOWN_BIOME_ID);
                         for (expected_biome_id, p) in &biomes {
-                            if p.y != desired_y {
-                                continue;
-                            }
-                            map.set(p.x, p.z, expected_biome_id.0);
+                            map.set(p.x, p.y, p.z, expected_biome_id.0);
                         }
-                        let map_image = biome_layers::draw_map_image(&map);
+                        let map_image = biome_layers::draw_map_image(&map.flatten_into_2d());
                         let x = area.x;
                         let z = area.z;
-                        let width = area.w.try_into().unwrap();
-                        let height = area.h.try_into().unwrap();
+                        let width = area.sx.try_into().unwrap();
+                        let height = area.sz.try_into().unwrap();
                         let output_file = format!("biome_map_mc_{}_{}_{}_{}_{}x{}.png", mc_version, world_seed, x, z, width, height);
                         image::save_buffer(output_file.clone(), &map_image, width, height, image::ColorType::Rgba8).unwrap();
                         println!("Saved image to {}", output_file);
                     }
 
                     // Generate area with 1:4 resolution
-                    let map = biome_layers::generate_up_to_layer_1_18(area, world_seed, version.num_layers() - 1, version);
+                    let layer = version.num_layers() - 1;
+                    // Doesn't work because GetMap3D does not have partial_get_map_3d method
+                    //let generator = biome_layers::generator_up_to_layer_1_18(world_seed, layer, version);
+                    let generator = biome_layers::MapGenBiomeNoise3D118::new(world_seed);
 
                     // Compare maps :D
                     for (expected_biome_id, p) in biomes {
-                        let b = map.get(p.x, p.z);
+                        if expected_biome_id.0 == 1 {
+                            // Bug: chunks that are not fully generated have biome id set to plains
+                            continue;
+                        }
+                        let a3 = Area3D { x: p.x, y: p.y, z: p.z, sx: 1, sy: 1, sz: 1 };
+                        let b = generator.partial_get_map_3d(a3, layer).a[(0, 0, 0)];
                         if b != expected_biome_id.0 {
-                            panic!("Mismatch at ({}, {}): expected {} generated {}", p.x, p.z, expected_biome_id.0, b);
+                            panic!("Mismatch at ({}, {}, {}): expected {} generated {}", p.x, p.y, p.z, expected_biome_id.0, b);
                         }
                     }
 

@@ -49,7 +49,7 @@
                 +2^48
             </button>
             <input type="text" id="add2ToTheN" size="2" value="48" />
-            <input type="text" id="lastLayer" size="3" value="51" />
+            <input type="text" id="lastLayer" size="3" value="9" />
             <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
             <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
             &lt;- Layer controls
@@ -81,9 +81,8 @@
                     <option value="1.13">Java 1.13</option>
                     <option value="1.14">Java 1.14</option>
                     <option value="1.15">Java 1.15 - Java 1.16.1</option>
-                    <option value="1.16" selected
-                        >Java 1.16.2 - Java 1.17</option
-                    >
+                    <option value="1.16">Java 1.16.2 - Java 1.17</option>
+                    <option value="1.18" selected>Java 1.18</option>
                     <option value="TreasureMap13"
                         >Java 1.13-1.14 Treasure Map</option
                     >
@@ -91,6 +90,8 @@
                         >Java 1.15+ Treasure Map</option
                     >
                 </select>
+                <span>Select y-offset (from 0 to 95)</span>
+                <input type="text" id="y_offset" size="3" value="63" />
                 <a id="download" download="biome_map.png">
                     <button type="button" onClick="download()">
                         DOWNLOAD MAP
@@ -289,6 +290,7 @@
                 4,
                 1,
             ];
+            let scales118 = [4, 4, 4, 4, 4, 4, 4, 4, 4, 1];
             let layerScale = 1;
             let minecraft_version = document.getElementById("minecraftVersion")
                 .value;
@@ -307,13 +309,15 @@
                     minecraft_version == "TreasureMap15"
                 ) {
                     scales = scales113;
+                } else if (minecraft_version == "1.18") {
+                    scales = scales118;
                 } else {
                     console.error(
                         "Unknown Minecraft version: " + minecraft_version
                     );
                 }
                 //let i = document.getElementById("lastLayer").value|0;
-                let i = 51;
+                let i = 8;
                 document.getElementById("lastLayer").value = i;
                 if (i >= 0 && i <= 43) {
                     layerScale = scales[i];
@@ -335,6 +339,16 @@
                 }
 
                 map.currentScale = layerScale;
+                let ws = document.getElementById("worldSeed");
+                let y_offset = document.getElementById("y_offset").value;
+                Game.clear(
+                    "mc=" +
+                        minecraft_version +
+                        ";y=" +
+                        y_offset +
+                        ";seed=" +
+                        ws.value
+                );
                 Game.setActiveLayer(i);
             }
             function randomSeed() {
@@ -387,61 +401,32 @@
             document
                 .getElementById("minecraftVersion")
                 .addEventListener("input", function(event) {
-                    // Try to be clever about changing the layer
-                    let old_v = minecraft_version;
                     let new_v = document.getElementById("minecraftVersion")
                         .value;
+                    changeMinecraftVersion(new_v);
+                });
+            function changeMinecraftVersion(new_v) {
+                // Try to be clever about changing the layer
+                // Make 1.16 the "central" version, so if neither of old_v or new_v is 1.16, first change to 1.16
+                // This way we only need to implement conversions from/to 1.16.
+                // This will probably break on the next biome update after 1.18 because the transition from 1.18 to 1.16 loses some information
+                let old_v = minecraft_version;
+                if (old_v != "1.16" && new_v != "1.16") {
+                    // TODO: add optional argument to avoid the redundant Game.clear in the first call?
+                    changeMinecraftVersion("1.16");
+                    changeMinecraftVersion(new_v);
+                    return;
+                }
 
-                    minecraft_version = new_v;
-                    let lastLayer =
-                        document.getElementById("lastLayer").value | 0;
+                minecraft_version = new_v;
+                let lastLayer = document.getElementById("lastLayer").value | 0;
+
+                if (old_v == "1.16") {
                     if (new_v == "1.3") {
                         // Set layer to 33
                         updateWithLayerPlus(33 - lastLayer);
                     }
-                    if (old_v == "1.3") {
-                        if (new_v == "1.7") {
-                            // Set layer to 43
-                            updateWithLayerPlus(43 - lastLayer);
-                        }
-                        if (
-                            new_v == "1.13" ||
-                            new_v == "1.14" ||
-                            new_v == "1.15" ||
-                            new_v == "1.16" ||
-                            new_v == "TreasureMap13" ||
-                            new_v == "TreasureMap15"
-                        ) {
-                            // Set layer to 51
-                            updateWithLayerPlus(51 - lastLayer);
-                        }
-                    }
-
-                    if (
-                        old_v == "1.7" &&
-                        (new_v == "1.13" ||
-                            new_v == "1.14" ||
-                            new_v == "1.15" ||
-                            new_v == "1.16" ||
-                            new_v == "TreasureMap13" ||
-                            new_v == "TreasureMap15")
-                    ) {
-                        if (lastLayer == 42) {
-                            updateWithLayerPlus(50 - 42);
-                        }
-                        if (lastLayer == 43) {
-                            updateWithLayerPlus(51 - 43);
-                        }
-                    }
-                    if (
-                        (old_v == "1.13" ||
-                            old_v == "1.14" ||
-                            old_v == "1.15" ||
-                            old_v == "1.16" ||
-                            old_v == "TreasureMap13" ||
-                            old_v == "TreasureMap15") &&
-                        new_v == "1.7"
-                    ) {
+                    if (new_v == "1.7") {
                         if (lastLayer == 51) {
                             updateWithLayerPlus(43 - 51);
                         }
@@ -451,33 +436,67 @@
                         if (lastLayer >= 43 && lastLayer <= 49) {
                             updateWithLayerPlus(42 - lastLayer);
                         }
+                        // Keep other layers
                     }
                     if (
-                        (old_v == "1.13" ||
-                            old_v == "1.14" ||
-                            old_v == "1.15" ||
-                            old_v == "1.16") &&
-                        (new_v == "TreasureMap13" || new_v == "TreasureMap15")
+                        new_v == "1.13" ||
+                        new_v == "1.14" ||
+                        new_v == "1.15" ||
+                        new_v == "TreasureMap13" ||
+                        new_v == "TreasureMap15"
                     ) {
                         // Set layer to 51
                         updateWithLayerPlus(51 - lastLayer);
                     }
-                    if (
-                        (old_v == "TreasureMap13" ||
-                            old_v == "TreasureMap15") &&
-                        (new_v == "1.13" ||
-                            new_v == "1.14" ||
-                            new_v == "1.15" ||
-                            new_v == "1.16")
-                    ) {
-                        // Set layer to 51
-                        updateWithLayerPlus(51 - lastLayer);
+                    if (new_v == "1.18") {
+                        // Set layer to 8
+                        // TODO: set to 9 because that one is high resolution
+                        updateWithLayerPlus(8 - lastLayer);
                     }
+                }
 
-                    let ws = document.getElementById("worldSeed");
-                    Game.clear(minecraft_version + ";" + ws.value);
-                });
+                if (new_v == "1.16") {
+                    if (old_v == "1.3") {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                    if (old_v == "1.7") {
+                        if (lastLayer == 43) {
+                            updateWithLayerPlus(51 - 43);
+                        } else {
+                            //if (lastLayer == 42)
+                            updateWithLayerPlus(50 - lastLayer);
+                        }
+                    }
+                    if (old_v == "1.13" || old_v == "1.14" || old_v == "1.15") {
+                        // Keep same layer
+                    }
+                    if (old_v == "TreasureMap13" || old_v == "TreasureMap15") {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                    if (old_v == "1.18") {
+                        // TODO: if layer == 8, set to 50, if 9, set to 51
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                }
+
+                let ws = document.getElementById("worldSeed");
+                let y_offset = document.getElementById("y_offset").value;
+                Game.clear(
+                    "mc=" +
+                        minecraft_version +
+                        ";y=" +
+                        y_offset +
+                        ";seed=" +
+                        ws.value
+                );
+            }
             function updateWithLayerPlus(x) {
+                // Change layer and adjust scale accordingly
+                // This sometimes doesn't work: if the new scale is greater than the maximum scale allowed by the Game,
+                // it will be zoomed in a bit, so going back to the previous layer will not leave the camera with the same zoom
                 let i = document.getElementById("lastLayer").value | 0;
                 i += x;
                 let minecraft_version = document.getElementById(
@@ -501,6 +520,9 @@
                 ) {
                     scales = scales113;
                     num_layers = 51;
+                } else if (minecraft_version == "1.18") {
+                    scales = scales118;
+                    num_layers = 9;
                 } else {
                     console.error(
                         "Unknown Minecraft version: " + minecraft_version
@@ -518,6 +540,27 @@
                     //Game.clear();
                     Game.setActiveLayer(51);
                     document.getElementById("lastLayer").value = 51;
+                } else if (minecraft_version == "1.18") {
+                    if (i >= 0 && i <= num_layers) {
+                        let newScale = scales[i];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                    if (i >= 50 && i <= 51) {
+                        let newScale = 4;
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
                 } else {
                     if (i >= 0 && i <= num_layers) {
                         let newScale = scales[i];
@@ -721,6 +764,10 @@
                     let minecraft_version = document.getElementById(
                         "minecraftVersion"
                     ).value;
+                    let y_offset =
+                        document.getElementById("y_offset").value || 0;
+                    y_offset = y_offset | 0;
+
                     return work1
                         .sendMsg({
                             version: minecraft_version,
@@ -729,6 +776,7 @@
                             seed: seed,
                             FRAG_SIZE: FRAG_SIZE,
                             lastLayer: lastLayer,
+                            y_offset: y_offset,
                         })
                         .then(function(e) {
                             /*
@@ -837,8 +885,34 @@
             ws.oninput = debounced(500, function() {
                 if (ws.value != oldSeed) {
                     // Regenerate map when seed changes
-                    Game.clear(minecraft_version + ";" + ws.value);
+                    let y_offset = document.getElementById("y_offset").value;
+                    Game.clear(
+                        "mc=" +
+                            minecraft_version +
+                            ";y=" +
+                            y_offset +
+                            ";seed=" +
+                            ws.value
+                    );
                     oldSeed = ws.value;
+                }
+            });
+
+            let y_offset_elem = document.getElementById("y_offset");
+            let old_y_offset = y_offset_elem.value;
+            // Only regenerate map if the input has been static for 500ms
+            y_offset_elem.oninput = debounced(500, function() {
+                if (y_offset_elem.value != old_y_offset) {
+                    // Regenerate map when seed changes
+                    Game.clear(
+                        "mc=" +
+                            minecraft_version +
+                            ";y=" +
+                            y_offset_elem.value +
+                            ";seed=" +
+                            ws.value
+                    );
+                    old_y_offset = y_offset_elem.value;
                 }
             });
 
@@ -848,7 +922,15 @@
                     // Instantly change the seed
                     ws.value = seed;
                     // Regenerate map when seed changes
-                    Game.clear(minecraft_version + ";" + ws.value);
+                    let y_offset = document.getElementById("y_offset").value;
+                    Game.clear(
+                        "mc=" +
+                            minecraft_version +
+                            ";y=" +
+                            y_offset +
+                            ";seed=" +
+                            ws.value
+                    );
                     oldSeed = ws.value;
                 }
             }

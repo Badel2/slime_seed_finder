@@ -2239,6 +2239,7 @@ dependencies = [
  "fastanvil",
  "fastnbt",
  "image",
+ "lazy_static",
  "log",
  "named-binary-tag",
  "ndarray",
