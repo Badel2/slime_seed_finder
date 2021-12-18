@@ -241,6 +241,30 @@ Game._drawLayer = function(layer) {
                     this.camera.tsize, // target width
                     this.camera.tsize // target height
                 );
+            } else {
+                // This fragment has not been generated yet
+                // As a debug tool, check if it is present in the "generating" map
+                let k = Math.round(c) + "," + Math.round(r);
+                let generating = map.generating[layer].has(k);
+                if (!generating) {
+                    console.error(
+                        "Bug: fragment missing and not generating:",
+                        k
+                    );
+                }
+
+                // Draw gray color checker pattern
+                if ((Math.round(c) + Math.round(r)) % 2 != 0) {
+                    this.ctx.fillStyle = "#666";
+                } else {
+                    this.ctx.fillStyle = "#999";
+                }
+                this.ctx.fillRect(
+                    Math.round(x),
+                    Math.round(y),
+                    this.camera.tsize,
+                    this.camera.tsize
+                );
             }
         }
     }
