@@ -127,8 +127,7 @@
             // https://stackoverflow.com/a/42546234
             function download() {
                 var download = document.getElementById("download");
-                var image = document
-                    .getElementById("demo")
+                var image = Game.render_to_image()
                     .toDataURL("image/png")
                     .replace("image/png", "image/octet-stream");
                 download.setAttribute("href", image);

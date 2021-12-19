@@ -306,6 +306,67 @@ Game._drawLayer = function(layer) {
     }
 };
 
+Game.render_to_image = function() {
+    let layer = this.activeLayer;
+    // Get bounding box: minimum size canvas that can fit all the generated fragments
+    let [start_x, start_y, x_num_frag, y_num_frag] = this._get_bounding_box();
+    let canvas_w = x_num_frag * map.tsize;
+    let canvas_h = y_num_frag * map.tsize;
+
+    // Create off-screen canvas
+    let c = document.createElement("canvas");
+    c.width = canvas_w;
+    c.height = canvas_h;
+    let ctx = c.getContext("2d");
+
+    // Draw fragments to canvas
+    for (let c = 0; c <= x_num_frag; c++) {
+        for (let r = 0; r <= y_num_frag; r++) {
+            let frag_x = start_x + c;
+            let frag_y = start_y + r;
+            let target_x = c * map.tsize;
+            let target_y = r * map.tsize;
+
+            let fragmentImage = map.getFragment(layer, frag_x, frag_y);
+            if (fragmentImage != undefined) {
+                ctx.drawImage(
+                    fragmentImage, // image
+                    0, // source x
+                    0, // source y
+                    map.tsize, // source width
+                    map.tsize, // source height
+                    target_x, // target x
+                    target_y, // target y
+                    map.tsize, // target width
+                    map.tsize // target height
+                );
+            } else {
+                // Set missing fragments to "transparent"
+            }
+        }
+    }
+
+    return c;
+};
+
+Game._get_bounding_box = function() {
+    let layer = this.activeLayer;
+    let min_x = 1000000;
+    let min_y = 1000000;
+    let max_x = -1000000;
+    let max_y = -1000000;
+
+    map.layers[layer].forEach(function(value, key) {
+        let [x, y] = key.split(",");
+        min_x = Math.min(min_x, x);
+        min_y = Math.min(min_y, y);
+        max_x = Math.max(max_x, x);
+        max_y = Math.max(max_y, y);
+    });
+
+    return [min_x, min_y, max_x - min_x + 1, max_y - min_y + 1];
+};
+
 Game.render = function() {
     if (!this.dirty) {
         return;
