@@ -732,7 +732,27 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
         }
         processed_chunks_count += 1;
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
-        let spawners = get_all_dungeons_in_chunk(&c).expect("Error getting dungeons");
+        // Store all the errors
+        let mut errs = vec![];
+        let spawners = Result::<_, String>::Err(Default::default()).or_else(|_| {
+            get_all_dungeons_in_chunk_118(&c)
+        }).or_else(|e| {
+            errs.push(("1.18", e));
+            get_all_dungeons_in_chunk(&c)
+        }).map_err(|e| {
+            errs.push(("1.17", e));
+        }).map_err(|_| {
+            // Convert the list of errors into a String because sadly that's our error type
+            let mut s = String::new();
+            s.push_str(&"Failed to read dungeons from chunk: unsupported version or corrupted file. Detailed list of errors:\n");
+            for (version, err) in errs {
+                s.push_str(&format!("* {}: {}\n", version, err));
+            }
+
+            s
+        });
+
+        let spawners = spawners?;
         let mut more_dungeons = vec![];
 
         for (x, y, z, kind) in spawners {
@@ -919,32 +939,19 @@ impl std::fmt::Display for SpawnerKind {
 }
 
 pub fn get_all_dungeons_in_chunk(chunk: &CompoundTag) -> Result<Vec<(i32, i32, i32, SpawnerKind)>, String> {
-    let mut dungeons = vec![];
+    get_all_dungeons_in_chunk2(chunk).map(|v| {
+        v.into_iter().map(|(x, y, z, entity_id)| {
+            (x, y, z, entity_id.parse().expect("Unknown entity id"))
+        }).collect()
+    })
+}
 
-    let level_tag = chunk.get_compound_tag("Level").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Level", e))?;
-    let tile_entities = level_tag.get_compound_tag_vec("TileEntities").map_err(|e| format!("Failed to read {:?} tag: {:?}", "TileEntities", e))?;
-
-    for (i, tile_entity_tag) in tile_entities.into_iter().enumerate() {
-        let id = tile_entity_tag.get_str("id").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "id", i, e))?;
-        if id != "minecraft:mob_spawner" {
-            continue;
-        }
-
-        let x = tile_entity_tag.get_i32("x").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "x", i, e))?;
-        let y = tile_entity_tag.get_i32("y").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "y", i, e))?;
-        let z = tile_entity_tag.get_i32("z").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "z", i, e))?;
-
-        let spawn_potentials = tile_entity_tag.get_compound_tag_vec("SpawnPotentials").map_err(|e| format!("Failed to read {:?} tag at position {}: {:?}", "SpawnPotentials", i, e))?;
-        assert_eq!(spawn_potentials.len(), 1);
-
-        let entity_tag = spawn_potentials[0].get_compound_tag("Entity").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "Entity", i, e))?;
-        let entity_id = entity_tag.get_str("id").map_err(|e| format!("Failed to read SpawnPotentials/{:?} tag at position {}: {:?}", "id", i, e))?;
-
-        let dungeon_kind = entity_id.parse().expect("Unknown entity id");
-        dungeons.push((x, y, z, dungeon_kind));
-    }
-
-    Ok(dungeons)
+pub fn get_all_dungeons_in_chunk_118(chunk: &CompoundTag) -> Result<Vec<(i32, i32, i32, SpawnerKind)>, String> {
+    get_all_dungeons_in_chunk2_118(chunk).map(|v| {
+        v.into_iter().map(|(x, y, z, entity_id)| {
+            (x, y, z, entity_id.parse().expect("Unknown entity id"))
+        }).collect()
+    })
 }
 
 pub fn get_all_dungeons_in_chunk2(chunk: &CompoundTag) -> Result<Vec<(i32, i32, i32, String)>, String> {
