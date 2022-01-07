@@ -2,8 +2,6 @@ name: Pull request
 
 on:
   pull_request:
-    branches:
-      - master
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,18 +11,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose --features="main"
-    - name: Run tests
-      run: cargo test --verbose --features="main"
 
-  build-web-demo:
-    runs-on: ubuntu-latest
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install wasm_bindgen
-      run: ./ci/install_wasm_bindgen.sh
-    - name: Build web demo
-      run: ./ci/build_demo.sh
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Check formatter
+        run: cargo fmt --all -- --check
+
+      - name: Build
+        run: cargo build --verbose --features="main"
+
+      - name: Build C bindings
+        run: cargo build --verbose -p slime_seed_finder_c
+
+      - name: Run tests
+        run: cargo test --verbose --features="main"
+
+      - name: Install nj-cli
+        uses: actions-rs/install@v0.1
+        with:
+          crate: nj-cli
+          version: latest
+
+      - name: Build node bindings
+        run: ./ci/build_node_bindings.sh
+
+      - name: Install wasm_bindgen
+        run: ./ci/install_wasm_bindgen.sh
+
+      - name: Install wasm32-unknown-unknown toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: stable
+            target: wasm32-unknown-unknown
+            override: false
+
+      - name: Build web demo
