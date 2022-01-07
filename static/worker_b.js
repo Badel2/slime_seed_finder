@@ -13,13 +13,14 @@ function doCalculation(slime_seed_finder_web, data, cb) {
     let seed = data.seed;
     let FRAG_SIZE = data.FRAG_SIZE;
     let lastLayer = data.lastLayer;
-    let y_offset = data.lastLayer;
+    let y_offset = data.y_offset;
     let rvec = slime_seed_finder_web.generate_fragment_up_to_layer(
         version,
         fx,
         fy,
         seed,
         FRAG_SIZE,
+        lastLayer,
         y_offset
     );
     let result = { rvec: rvec };
