@@ -4,25 +4,32 @@
 #[macro_use]
 extern crate ndarray;
 
-pub mod java_rng;
-pub mod chunk;
-pub mod slime;
-#[allow(non_snake_case)]
-#[allow(non_upper_case_globals)]
-pub mod biome_layers;
-pub mod mc_rng;
-pub mod voronoi;
-pub mod seed_info;
-pub mod noise_generator;
+#[rustfmt::skip]
 pub mod anvil;
-pub mod structures;
 #[allow(non_snake_case)]
 #[allow(non_upper_case_globals)]
+#[rustfmt::skip]
 pub mod biome_info;
-pub mod population;
-pub mod fastanvil_ext;
-pub mod zip_ext;
-pub mod xoroshiro128plusplus;
-pub mod spline;
-pub mod climate;
 pub mod biome_info_118;
+#[allow(non_snake_case)]
+#[allow(non_upper_case_globals)]
+#[rustfmt::skip]
+pub mod biome_layers;
+pub mod chunk;
+pub mod climate;
+#[rustfmt::skip]
+pub mod fastanvil_ext;
+#[rustfmt::skip]
+pub mod java_rng;
+#[rustfmt::skip]
+pub mod mc_rng;
+pub mod noise_generator;
+pub mod population;
+#[rustfmt::skip]
+pub mod seed_info;
+pub mod slime;
+pub mod spline;
+pub mod structures;
+pub mod voronoi;
+pub mod xoroshiro128plusplus;
+pub mod zip_ext;

@@ -1,6 +1,6 @@
-use crate::java_rng::JavaRng;
-use crate::java_rng::mask;
 use crate::chunk::Chunk;
+use crate::java_rng::mask;
+use crate::java_rng::JavaRng;
 
 // ceil(2^24 / 100)
 const ONE_PERCENT_OF_2_24: i32 = 0x28f5d;
@@ -102,10 +102,17 @@ pub struct TreasureChunks {
 
 impl TreasureChunks {
     pub fn new(treasure_chunks: &[Chunk], max_errors: usize) -> Self {
-        let treasure_data = treasure_chunks.iter().map(|c| calculate_treasure_data(c)).collect();
+        let treasure_data = treasure_chunks
+            .iter()
+            .map(|c| calculate_treasure_data(c))
+            .collect();
         let treasure_chunks = treasure_chunks.iter().cloned().collect();
 
-        Self { treasure_chunks, treasure_data, max_errors }
+        Self {
+            treasure_chunks,
+            treasure_data,
+            max_errors,
+        }
     }
 
     pub fn find_seed(&self) -> Vec<i64> {
@@ -162,7 +169,11 @@ mod tests {
     #[test]
     fn treasure_checks() {
         let world = 1234;
-        let treasures = vec![Chunk::new(-47, -28), Chunk::new(-57, -21), Chunk::new(-58, -20)];
+        let treasures = vec![
+            Chunk::new(-47, -28),
+            Chunk::new(-57, -21),
+            Chunk::new(-58, -20),
+        ];
 
         for c in &treasures {
             assert!(is_treasure_chunk(world, c));
@@ -217,9 +228,13 @@ mod tests {
     #[test]
     fn treasure_consecutive_seeds() {
         let world = 1234;
-        let treasures = vec![Chunk::new(-47, -28), Chunk::new(-57, -21), Chunk::new(-58, -20)];
+        let treasures = vec![
+            Chunk::new(-47, -28),
+            Chunk::new(-57, -21),
+            Chunk::new(-58, -20),
+        ];
 
-        for world in world..world+20 {
+        for world in world..world + 20 {
             for c in &treasures {
                 let good = is_treasure_chunk(world, c);
                 if !good {
@@ -230,4 +245,3 @@ mod tests {
         }
     }
 }
-

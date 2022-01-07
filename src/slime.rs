@@ -1,9 +1,9 @@
-use log::info;
-use crate::java_rng::JavaRng;
-use crate::chunk::Chunk;
 use crate::biome_layers::{Area, Map};
-use std::num::Wrapping;
+use crate::chunk::Chunk;
+use crate::java_rng::JavaRng;
+use log::info;
 use std::cmp::min;
+use std::num::Wrapping;
 
 pub struct SlimeChunks {
     slime_chunks: Vec<Chunk>,
@@ -122,11 +122,12 @@ impl SlimeChunks {
     // Assumes the low 18 bits were already checked
     // Use this only if the input iterator has less than 2^30 candidates
     pub fn bruteforce_iter_u48<'a, I>(&'a self, iter_u48: I) -> impl Iterator<Item = u64> + 'a
-        where I: IntoIterator<Item = u64> + 'a,
+    where
+        I: IntoIterator<Item = u64> + 'a,
     {
-        iter_u48.into_iter().filter(move |&seed| {
-            self.try_seed_skip_18(seed)
-        })
+        iter_u48
+            .into_iter()
+            .filter(move |&seed| self.try_seed_skip_18(seed))
     }
 }
 
@@ -138,7 +139,6 @@ mod slime_const {
     pub const D: Wrapping<i32> = Wrapping(0x5f24f);
     pub const E: u64 = 0x3ad8025f;
 }
-
 
 // This is the slime chunk algorithm
 // See discussion about optimizations in the test section:
@@ -177,8 +177,13 @@ pub fn slime_candidates_18(slimedata: &[u64], max_errors: usize) -> Vec<u32> {
 
 /// Parallel version of slime_candidates_18. iter_u18 should be an iterator over all the possible
 /// 18-bit integers, or a subset of them.
-pub fn slime_candidates_18_iter<'a, I>(iter_u18: I, slimedata: &'a [u64], max_errors: usize) -> impl Iterator<Item = u32> + 'a
-    where I: IntoIterator<Item = u32> + 'a,
+pub fn slime_candidates_18_iter<'a, I>(
+    iter_u18: I,
+    slimedata: &'a [u64],
+    max_errors: usize,
+) -> impl Iterator<Item = u32> + 'a
+where
+    I: IntoIterator<Item = u32> + 'a,
 {
     iter_u18.into_iter().filter(move |&seed| {
         let mut errors = 0;
@@ -243,7 +248,10 @@ pub fn gen_map_from_seed(area: Area, seed: u64) -> Map {
     let mut m = Map::new(area);
     for i in 0..area.w as usize {
         for j in 0..area.h as usize {
-            m.a[(i, j)] = is_slime_chunk(seed, &Chunk::new(area.x as i32 + i as i32, area.z as i32 + j as i32)) as i32;
+            m.a[(i, j)] = is_slime_chunk(
+                seed,
+                &Chunk::new(area.x as i32 + i as i32, area.z as i32 + j as i32),
+            ) as i32;
         }
     }
 
@@ -251,10 +259,15 @@ pub fn gen_map_from_seed(area: Area, seed: u64) -> Map {
 }
 
 /// Generate a list of slime chunks and not slime chunks using the given seed
-pub fn generate_slime_chunks_and_not(seed: i64, limit_yes: usize, limit_no: usize) -> (Vec<Chunk>, Vec<Chunk>) {
+pub fn generate_slime_chunks_and_not(
+    seed: i64,
+    limit_yes: usize,
+    limit_no: usize,
+) -> (Vec<Chunk>, Vec<Chunk>) {
     let mut vy = Vec::with_capacity(limit_yes);
     let mut vn = Vec::with_capacity(limit_no);
-    for x in 0.. { // yeah just go on forever
+    for x in 0.. {
+        // yeah just go on forever
         for z in -99..100 {
             let c = Chunk::new(x, z);
             if is_slime_chunk(seed as u64, &c) {
@@ -288,22 +301,22 @@ mod tests {
 
         let c = Chunk::new(0, 0);
         let a = calculate_slime_data(&c);
-        assert_eq!(a^e, 987234911);
+        assert_eq!(a ^ e, 987234911);
         let c = Chunk::new(1, 1);
         let a = calculate_slime_data(&c);
-        assert_eq!(a^e, 976736648);
+        assert_eq!(a ^ e, 976736648);
         let c = Chunk::new(0, 1_000);
         let a = calculate_slime_data(&c);
-        assert_eq!(a^e, 4393087172103);
+        assert_eq!(a ^ e, 4393087172103);
         let c = Chunk::new(1_000, 0);
         let a = calculate_slime_data(&c);
-        assert_eq!(a^e, 2978817703);
+        assert_eq!(a ^ e, 2978817703);
         let c = Chunk::new(1_000, 1_000);
         let a = calculate_slime_data(&c);
-        assert_eq!(a^e, 4395174175503);
+        assert_eq!(a ^ e, 4395174175503);
         let c = Chunk::new(1_000_000, 1_000_000);
         let a = calculate_slime_data(&c);
-        assert_eq!((a^e) as i64, -3195288407282465);
+        assert_eq!((a ^ e) as i64, -3195288407282465);
     }
 
     #[test]
@@ -352,7 +365,7 @@ mod tests {
     // call to next() will set them to different values.
     #[test]
     fn constant_z() {
-        // Is there any possible optimization if the slime chunks are 
+        // Is there any possible optimization if the slime chunks are
         // on the z axis?
         let bits_47_33 = 0xFFFE00000000;
         let seed = 1;

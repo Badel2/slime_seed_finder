@@ -363,7 +363,8 @@ pub fn dungeon_rng_bruteforce_range(
                             // Use with_raw_seed using y as the top bits of the seed. This is because the value of the
                             // internal seed is the result of the previous call to next. So this way we assure that the
                             // y coordinate is correct, and we save 7 bits to bruteforce. We still need 41 extra bits
-                            let mut r = JavaRng::with_raw_seed(((y as u64) << (48 - 7)) | (t << 40) | seed);
+                            let mut r =
+                                JavaRng::with_raw_seed(((y as u64) << (48 - 7)) | (t << 40) | seed);
                             // r.next_int would return the z coordinate, so go back 2 times
                             r.previous_n_calls(2);
                             let r_clone = r;
@@ -757,7 +758,6 @@ pub fn reverse_round_to_odd_bits_any_version(m: i64, bits: u8) -> Vec<i64> {
         }
     }
 }
-
 
 /// Given a world seed, calculate the chunk population seed for the given chunk coordinates.
 /// Works for versions <= Minecraft Java 1.12.
@@ -1353,11 +1353,13 @@ mod tests {
         let candidates =
             chunk_population_seed_to_world_seed((p1, x1, z1), (p2, x2, z2), (p3, x3, z3));
         assert_eq!(candidates, vec![world_seed]);
-        let old_candidates =
-            chunk_population_seed_to_world_seed((old_p1, x1, z1), (old_p2, x2, z2), (old_p3, x3, z3));
+        let old_candidates = chunk_population_seed_to_world_seed(
+            (old_p1, x1, z1),
+            (old_p2, x2, z2),
+            (old_p3, x3, z3),
+        );
         assert_eq!(old_candidates, vec![world_seed]);
     }
-
 
     #[test]
     #[should_panic = "Input chunks must be different, otherwise this function explodes quadratically."]
@@ -1554,7 +1556,12 @@ mod tests {
         coords: (u8, u8, u8),
         floor: &MossyFloor,
     ) -> Option<JavaRng> {
-        let v = dungeon_rng_bruteforce_range(coords, floor, *seed & ((1 << 40) - 1), (*seed & ((1 << 40) - 1)) + 1);
+        let v = dungeon_rng_bruteforce_range(
+            coords,
+            floor,
+            *seed & ((1 << 40) - 1),
+            (*seed & ((1 << 40) - 1)) + 1,
+        );
         *seed = *seed + 1;
         if v.is_empty() {
             None
@@ -2140,7 +2147,10 @@ mod tests {
              MMMMMMC\n",
         )
         .unwrap();
-        panic!("Ignore unused variable warnings: {:?}", (world_seed, (wx, wy, wz), floor));
+        panic!(
+            "Ignore unused variable warnings: {:?}",
+            (world_seed, (wx, wy, wz), floor)
+        );
     }
 
     #[test]
@@ -2160,7 +2170,10 @@ mod tests {
              CCMMMMM\n",
         )
         .unwrap();
-        panic!("Ignore unused variable warnings: {:?}", (world_seed, (wx, wy, wz), floor));
+        panic!(
+            "Ignore unused variable warnings: {:?}",
+            (world_seed, (wx, wy, wz), floor)
+        );
     }
 
     #[test]
@@ -2183,7 +2196,10 @@ mod tests {
              CMMCMMCCC\n",
         )
         .unwrap();
-        panic!("Ignore unused variable warnings: {:?}", (world_seed, (wx, wy, wz), floor));
+        panic!(
+            "Ignore unused variable warnings: {:?}",
+            (world_seed, (wx, wy, wz), floor)
+        );
     }
 
     #[test]

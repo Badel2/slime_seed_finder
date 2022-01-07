@@ -27,29 +27,29 @@
 #![feature(test)]
 extern crate test;
 
-use slime_seed_finder::mc_rng::McRng;
 use self::test::Bencher;
+use slime_seed_finder::mc_rng::McRng;
 
 fn select_mode_or_random_original(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32) -> i32 {
-    if        a1 == b  && b  == b1 {
+    if a1 == b && b == b1 {
         a1
-    } else if a  == a1 && a  == b  {
+    } else if a == a1 && a == b {
         a
-    } else if a  == a1 && a  == b1 {
+    } else if a == a1 && a == b1 {
         a
-    } else if a  == b  && a  == b1 {
+    } else if a == b && a == b1 {
         a
-    } else if a  == a1 && b  != b1 {
+    } else if a == a1 && b != b1 {
         a
-    } else if a  == b  && a1 != b1 {
+    } else if a == b && a1 != b1 {
         a
-    } else if a  == b1 && a1 != b  {
+    } else if a == b1 && a1 != b {
         a
-    } else if a1 == b  && a  != b1 {
+    } else if a1 == b && a != b1 {
         a1
-    } else if a1 == b1 && a  != b  {
+    } else if a1 == b1 && a != b {
         a1
-    } else if b  == b1 && a  != a1 {
+    } else if b == b1 && a != a1 {
         b
     } else {
         r.choose4(a, a1, b, b1)
@@ -178,7 +178,9 @@ fn select_mode_or_random_arith3(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32)
     (3, 2, 1) => a, a1, b, r
     */
     let ca = u8::from(a == a1) + u8::from(a == b) + u8::from(a == b1);
-    if ca >= 2 { return a; }
+    if ca >= 2 {
+        return a;
+    }
     let ca1 = a1 == b || a1 == b1;
     let cb = b == b1;
 
@@ -190,7 +192,6 @@ fn select_mode_or_random_arith3(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32)
     }
 }
 
-
 fn select_mode_or_random_arith_lut(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32) -> i32 {
     let ca = u8::from(a == a1) + u8::from(a == b) + u8::from(a == b1);
     let ca1 = u8::from(a1 == b) + u8::from(a1 == b1);
@@ -200,9 +201,7 @@ fn select_mode_or_random_arith_lut(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i
 
     let lut: u64 = 0b01_00_00_00_00_00_00_11_10_00_00_00_00_00_00_00_00_00_00_11_01_00_00_00_11;
 
-    let lut_get = |i| {
-        ((lut >> (2*i)) & 0x3) as u8
-    };
+    let lut_get = |i| ((lut >> (2 * i)) & 0x3) as u8;
 
     match lut_get(idx) {
         0 => a,
@@ -227,7 +226,14 @@ fn select_mode_or_random_arith_lut2(r: &mut McRng, a: i32, a1: i32, b: i32, b1: 
     }
 }
 
-fn select_mode_or_random_branchless_cc(a0a1: bool, a0b0: bool, a0b1: bool, a1b0: bool, a1b1: bool, b0b1: bool) -> u8 {
+fn select_mode_or_random_branchless_cc(
+    a0a1: bool,
+    a0b0: bool,
+    a0b1: bool,
+    a1b0: bool,
+    a1b1: bool,
+    b0b1: bool,
+) -> u8 {
     let idx = u8::from(a0a1)
         | (u8::from(a0b0) << 1)
         | (u8::from(a0b1) << 2)
@@ -237,15 +243,14 @@ fn select_mode_or_random_branchless_cc(a0a1: bool, a0b0: bool, a0b1: bool, a1b0:
 
     let lut: u128 = 0x100000000000E0000003103010003;
 
-    let lut_get = |i| {
-        ((lut >> (2*i)) & 0x3) as u8
-    };
+    let lut_get = |i| ((lut >> (2 * i)) & 0x3) as u8;
 
     lut_get(idx)
 }
 
 fn select_mode_or_random_branchless(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32) -> i32 {
-    let i = select_mode_or_random_branchless_cc(a == a1, a == b, a == b1, a1 == b, a1 == b1, b == b1);
+    let i =
+        select_mode_or_random_branchless_cc(a == a1, a == b, a == b1, a1 == b, a1 == b1, b == b1);
     // TODO: replace match to avoid branch?
     // No, we don't want to always call choose4
     // And this is slightly slower because of bounds checking:
@@ -315,11 +320,9 @@ fn select_mode_or_random_btreemap(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i3
 
 fn select_mode_or_random_vecmap(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32) -> i32 {
     let mut h: Vec<(i32, u8)> = Vec::with_capacity(4);
-    let mut incr = |k| {
-        match h.iter().position(|x| x.0 == k) {
-            Some(i) => h[i].1 += 1,
-            None => h.push((k, 1)),
-        }
+    let mut incr = |k| match h.iter().position(|x| x.0 == k) {
+        Some(i) => h[i].1 += 1,
+        None => h.push((k, 1)),
     };
 
     incr(a);
@@ -345,10 +348,11 @@ fn select_mode_or_random_vecmap(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32)
 fn select_mode_or_random_arraymap(r: &mut McRng, a: i32, a1: i32, b: i32, b1: i32) -> i32 {
     let mut h: [(i32, u8); 4] = Default::default();
     let mut h_len = 0;
-    let mut incr = |k| {
-        match h[..h_len].iter().position(|x| x.0 == k) {
-            Some(i) => h[i].1 += 1,
-            None => { h[h_len] = (k, 1); h_len += 1; }
+    let mut incr = |k| match h[..h_len].iter().position(|x| x.0 == k) {
+        Some(i) => h[i].1 += 1,
+        None => {
+            h[h_len] = (k, 1);
+            h_len += 1;
         }
     };
 
@@ -418,17 +422,23 @@ fn test_select_mode_or_random_equivalent(b: &mut Bencher) {
     let base_seed = 1000;
     let world_seed = 1234;
     b.iter(|| {
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-        let mut mc0 = McRng::new(base_seed, world_seed);
-        let mut mc1 = McRng::new(base_seed, world_seed);
-            assert_eq!(
-                mc0.select_mode_or_random(a, b, c, d),
-                select_mode_or_random_original(&mut mc1, a, b, c, d),
-                "{:?}",
-                (a, b, c, d)
-            );
-        assert_eq!(mc0.chunk_seed(), mc1.chunk_seed());
-        }}}}
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        let mut mc0 = McRng::new(base_seed, world_seed);
+                        let mut mc1 = McRng::new(base_seed, world_seed);
+                        assert_eq!(
+                            mc0.select_mode_or_random(a, b, c, d),
+                            select_mode_or_random_original(&mut mc1, a, b, c, d),
+                            "{:?}",
+                            (a, b, c, d)
+                        );
+                        assert_eq!(mc0.chunk_seed(), mc1.chunk_seed());
+                    }
+                }
+            }
+        }
     });
 }
 
@@ -438,10 +448,16 @@ fn select_mode_or_random_all_the_one_used(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(mc.select_mode_or_random(a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(mc.select_mode_or_random(a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -452,10 +468,16 @@ fn select_mode_or_random_all_original(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_original(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_original(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -466,10 +488,16 @@ fn select_mode_or_random_all_nested(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_nested(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_nested(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -480,10 +508,16 @@ fn select_mode_or_random_all_nested2(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_nested2(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_nested2(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -494,10 +528,16 @@ fn select_mode_or_random_all_arith(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arith(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arith(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -508,10 +548,16 @@ fn select_mode_or_random_all_arith2(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arith2(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arith2(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -522,10 +568,16 @@ fn select_mode_or_random_all_arith3(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arith3(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arith3(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -536,10 +588,16 @@ fn select_mode_or_random_all_arith_lut(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arith_lut(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arith_lut(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -550,10 +608,16 @@ fn select_mode_or_random_all_arith_lut2(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arith_lut2(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arith_lut2(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -564,10 +628,16 @@ fn select_mode_or_random_all_branchless(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_branchless(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_branchless(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -578,10 +648,16 @@ fn select_mode_or_random_all_hashmap(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_hashmap(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_hashmap(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -592,10 +668,16 @@ fn select_mode_or_random_all_btreemap(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_btreemap(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_btreemap(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -606,10 +688,16 @@ fn select_mode_or_random_all_vecmap(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_vecmap(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_vecmap(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -620,10 +708,16 @@ fn select_mode_or_random_all_arraymap(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arraymap(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arraymap(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }
@@ -634,10 +728,16 @@ fn select_mode_or_random_all_arraymap_unrolled(b: &mut Bencher) {
     let world_seed = 1234;
     b.iter(|| {
         let mut mc = McRng::new(base_seed, world_seed);
-        let mut r = Vec::with_capacity(4*4*4*4);
-        for a in 0..4 { for b in 0..4 { for c in 0..4 { for d in 0..4 {
-            r.push(select_mode_or_random_arraymap_unrolled(&mut mc, a, b, c, d));
-        }}}}
+        let mut r = Vec::with_capacity(4 * 4 * 4 * 4);
+        for a in 0..4 {
+            for b in 0..4 {
+                for c in 0..4 {
+                    for d in 0..4 {
+                        r.push(select_mode_or_random_arraymap_unrolled(&mut mc, a, b, c, d));
+                    }
+                }
+            }
+        }
         r
     });
 }

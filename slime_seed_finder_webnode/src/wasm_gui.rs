@@ -341,7 +341,7 @@ pub fn generate_fragment_up_to_layer(
     seed: String,
     frag_size: usize,
     layer: u32,
-    y_offset: u32
+    y_offset: u32,
 ) -> Vec<u8> {
     let empty_map_as_error = || vec![0; frag_size * frag_size * 4];
     let frag_size = frag_size as usize;

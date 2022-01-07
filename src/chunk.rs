@@ -47,7 +47,10 @@ impl Point {
         }
 
         if self.x as u8 % 4 == 2 && self.z as u8 % 4 == 2 {
-            Some(Point4 { x: divide_by_4(self.x), z: divide_by_4(self.z)})
+            Some(Point4 {
+                x: divide_by_4(self.x),
+                z: divide_by_4(self.z),
+            })
         } else {
             None
         }
@@ -60,7 +63,10 @@ impl Point4 {
             (x * 4) + 2
         }
 
-        Point { x: multiply_by_4(self.x), z: multiply_by_4(self.z) }
+        Point {
+            x: multiply_by_4(self.x),
+            z: multiply_by_4(self.z),
+        }
     }
 }
 
@@ -84,20 +90,35 @@ mod tests {
 
     #[test]
     fn chunk_from_coordinates_x() {
-        for i in 0-32..=15-32 {
-            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: -2, z: 0 });
+        for i in 0 - 32..=15 - 32 {
+            assert_eq!(
+                Chunk::from_point(Point { x: i, z: 0 }),
+                Chunk { x: -2, z: 0 }
+            );
         }
-        for i in 0-16..=15-16 {
-            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: -1, z: 0 });
+        for i in 0 - 16..=15 - 16 {
+            assert_eq!(
+                Chunk::from_point(Point { x: i, z: 0 }),
+                Chunk { x: -1, z: 0 }
+            );
         }
         for i in 0..=15 {
-            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: 0, z: 0 });
+            assert_eq!(
+                Chunk::from_point(Point { x: i, z: 0 }),
+                Chunk { x: 0, z: 0 }
+            );
         }
-        for i in 0+16..=15+16 {
-            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: 1, z: 0 });
+        for i in 0 + 16..=15 + 16 {
+            assert_eq!(
+                Chunk::from_point(Point { x: i, z: 0 }),
+                Chunk { x: 1, z: 0 }
+            );
         }
-        for i in 0+32..=15+32 {
-            assert_eq!(Chunk::from_point(Point { x: i, z: 0 }), Chunk { x: 2, z: 0 });
+        for i in 0 + 32..=15 + 32 {
+            assert_eq!(
+                Chunk::from_point(Point { x: i, z: 0 }),
+                Chunk { x: 2, z: 0 }
+            );
         }
     }
 }

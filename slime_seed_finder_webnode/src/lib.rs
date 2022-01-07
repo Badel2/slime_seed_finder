@@ -1,5 +1,11 @@
 //#[macro_use]
 //extern crate stdweb;
+use log::LevelFilter;
+use log4rs::append::file::FileAppender;
+use log4rs::config::Appender;
+use log4rs::config::Root;
+use log4rs::encode::json::JsonEncoder;
+use log4rs::Config;
 use node_bindgen::core::val::JsCallbackFunction;
 use node_bindgen::core::val::JsEnv;
 use node_bindgen::core::val::JsObject;
@@ -8,12 +14,6 @@ use node_bindgen::derive::node_bindgen;
 use node_bindgen::sys::napi_value;
 use serde_json::Value;
 use std::panic;
-use log::LevelFilter;
-use log4rs::append::file::FileAppender;
-use log4rs::encode::json::JsonEncoder;
-use log4rs::Config;
-use log4rs::config::Appender;
-use log4rs::config::Root;
 
 mod node_bindgen_logger;
 pub mod wasm_gui;

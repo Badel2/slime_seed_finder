@@ -24,9 +24,10 @@ pub fn find_file_in_zip_exactly_once<'a, R, T>(
     zip_archive: &'a mut ZipArchive<R>,
     target_file: T,
 ) -> Result<&'a str, FindFileInZipError>
-where &'a OsStr: PartialEq<T>,
-      R: Read + Seek,
-      T: std::fmt::Display,
+where
+    &'a OsStr: PartialEq<T>,
+    R: Read + Seek,
+    T: std::fmt::Display,
 {
     let mut iter = find_file_in_zip(zip_archive, target_file);
     let found_file = iter.next().ok_or_else(|| FindFileInZipError::NotFound)?;
@@ -44,20 +45,23 @@ pub fn find_file_in_zip<'a, R, T>(
     zip_archive: &'a mut ZipArchive<R>,
     target_file: T,
 ) -> impl Iterator<Item = &'a str>
-where &'a OsStr: PartialEq<T>,
-      R: Read + Seek,
+where
+    &'a OsStr: PartialEq<T>,
+    R: Read + Seek,
 {
-    zip_archive.file_names().filter_map(move |unsanitized_full_path| {
-        // full_path may contain invalid directory names such as "../../../etc/passwd", but we will
-        // not decompress this file so we don't care
-        let full_path = Path::new(unsanitized_full_path);
-        // file_name() returns None when the path ends with "/.."
-        // we handle that case by returning a ".." filename
-        let file_name = full_path.file_name().unwrap_or(OsStr::new(".."));
-        if file_name == target_file {
-            Some(unsanitized_full_path)
-        } else {
-            None
-        }
-    })
+    zip_archive
+        .file_names()
+        .filter_map(move |unsanitized_full_path| {
+            // full_path may contain invalid directory names such as "../../../etc/passwd", but we will
+            // not decompress this file so we don't care
+            let full_path = Path::new(unsanitized_full_path);
+            // file_name() returns None when the path ends with "/.."
+            // we handle that case by returning a ".." filename
+            let file_name = full_path.file_name().unwrap_or(OsStr::new(".."));
+            if file_name == target_file {
+                Some(unsanitized_full_path)
+            } else {
+                None
+            }
+        })
 }

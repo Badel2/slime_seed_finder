@@ -20,8 +20,8 @@ use node_bindgen::sys::napi_value;
 use serde_json::Value;
 use std::fmt;
 use std::fmt::Write;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 // This struct is from the pretty_env_logger crate
 // https://github.com/seanmonstar/pretty-env-logger
@@ -71,7 +71,9 @@ impl Logger {
         self.filter
     }
 
-    pub fn try_init_with_level<F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static>(
+    pub fn try_init_with_level<
+        F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static,
+    >(
         console: F,
         level: LevelFilter,
     ) -> Result<(), SetLoggerError> {
@@ -103,7 +105,9 @@ impl Logger {
         log::set_boxed_logger(Box::new(logger))
     }
 
-    pub fn init_with_level<F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static>(
+    pub fn init_with_level<
+        F: Fn(i32, String, &'static str, &'static str, &'static str) + Sync + Send + 'static,
+    >(
         console: F,
         level: LevelFilter,
     ) {

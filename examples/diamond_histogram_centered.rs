@@ -1,5 +1,5 @@
 use fastanvil::Chunk;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use slime_seed_finder::anvil;
 use slime_seed_finder::anvil::ZipChunkProvider;
 use std::collections::BTreeMap;
@@ -20,7 +20,10 @@ fn main() {
     let mut c = Counts::default();
     let dimension = None;
     let skip_odd_chunks = true;
-    let filename = format!("subchunk_freq_centered_at_diamond{}.json", if skip_odd_chunks { "_odd_chunks" } else { "" });
+    let filename = format!(
+        "subchunk_freq_centered_at_diamond{}.json",
+        if skip_odd_chunks { "_odd_chunks" } else { "" }
+    );
     //let dimension = Some("DIM-1");
     //let filename = format!("subchunk_freq_all_nether.json");
     //let dimension = Some("DIM1");
@@ -30,10 +33,16 @@ fn main() {
         let center_position_and_chunk_radius = None;
         println!("Opening {}", zip_path);
 
-        let seed = anvil::read_seed_from_level_dat_zip(Path::new(zip_path), None).expect("failed to read seed from level.dat");
+        let seed = anvil::read_seed_from_level_dat_zip(Path::new(zip_path), None)
+            .expect("failed to read seed from level.dat");
         println!("Seed: {}", seed);
 
-        let zip_file = OpenOptions::new().write(false).read(true).create(false).open(zip_path).expect("failed to open zip file");
+        let zip_file = OpenOptions::new()
+            .write(false)
+            .read(true)
+            .create(false)
+            .open(zip_path)
+            .expect("failed to open zip file");
 
         let mut chunk_provider = ZipChunkProvider::new_with_dimension(zip_file, dimension).unwrap();
 
@@ -69,7 +78,9 @@ fn main() {
                                 let sub_x = (x - diamonds_position.0 + 8) & 0xF;
                                 let sub_z = (z - diamonds_position.2 + 8) & 0xF;
                                 let idx = sub_z as usize * 16 + sub_x as usize;
-                                counts.entry(block.name().to_string()).or_insert_with(|| vec![0; 256])[idx] += 1;
+                                counts
+                                    .entry(block.name().to_string())
+                                    .or_insert_with(|| vec![0; 256])[idx] += 1;
                             } else {
                                 // TODO: check max y to avoid iterating from 0 to 255
                                 //println!("No block?");
@@ -77,7 +88,7 @@ fn main() {
                         }
                     }
                 }
-            }
+            },
         )
         .unwrap();
 
@@ -90,7 +101,9 @@ fn main() {
     let mut total: BTreeMap<String, Vec<u64>> = Default::default();
     for (_seed, m) in &c.per_seed {
         for (block_name, counts) in m.iter() {
-            let t = total.entry(block_name.to_string()).or_insert_with(|| vec![0; 256]);
+            let t = total
+                .entry(block_name.to_string())
+                .or_insert_with(|| vec![0; 256]);
             for i in 0..256 {
                 t[i] += counts[i];
             }
@@ -98,7 +111,11 @@ fn main() {
     }
     c.total = total;
 
-    serde_json::to_writer(&std::fs::File::create(&filename).expect("failed to create file"), &c).expect("error writing file");
+    serde_json::to_writer(
+        &std::fs::File::create(&filename).expect("failed to create file"),
+        &c,
+    )
+    .expect("error writing file");
 }
 
 fn find_diamonds_in_chunk(chunk: &fastanvil::JavaChunk) -> Option<(i64, i64, i64)> {
@@ -108,7 +125,9 @@ fn find_diamonds_in_chunk(chunk: &fastanvil::JavaChunk) -> Option<(i64, i64, i64
         for y in 0..256 {
             for z in 0..16 {
                 if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
-                    if block.name() == "minecraft:diamond_ore" || block.name() == "minecraft:deepslate_diamond_ore" {
+                    if block.name() == "minecraft:diamond_ore"
+                        || block.name() == "minecraft:deepslate_diamond_ore"
+                    {
                         all_diamonds.push((x, y, z));
                     }
                 } else {
@@ -123,5 +142,7 @@ fn find_diamonds_in_chunk(chunk: &fastanvil::JavaChunk) -> Option<(i64, i64, i64
     //println!("All diamonds: {:?}", all_diamonds);
 
     // Return the diamond with lowest x and z coordinates
-    all_diamonds.into_iter().min_by_key(|(x, y, z)| (*x, *z, *y))
+    all_diamonds
+        .into_iter()
+        .min_by_key(|(x, y, z)| (*x, *z, *y))
 }

@@ -1,5 +1,5 @@
-use ndarray::Array2;
 use crate::biome_layers::Map;
+use ndarray::Array2;
 
 struct VoronoiSeedFinder {
     map_voronoi: Map,
@@ -22,7 +22,7 @@ enum VorPoint {
     Shape {
         area: u32,
         inside: Box<dyn Fn(u16, u16) -> bool>,
-    }
+    },
 }
 
 #[cfg(test)]
@@ -45,19 +45,19 @@ mod tests {
             let p_x = 3;
             let p_z = 4;
 
-            r.set_chunk_seed((x+p_x) << 2, (z+p_z) << 2);
+            r.set_chunk_seed((x + p_x) << 2, (z + p_z) << 2);
             let da1 = r.next_int_n(1024);
             let da2 = r.next_int_n(1024);
 
-            r.set_chunk_seed((x+p_x+1) << 2, (z+p_z) << 2);
+            r.set_chunk_seed((x + p_x + 1) << 2, (z + p_z) << 2);
             let db1 = r.next_int_n(1024);
             let db2 = r.next_int_n(1024);
 
-            r.set_chunk_seed((x+p_x) << 2, (z+p_z+1) << 2);
+            r.set_chunk_seed((x + p_x) << 2, (z + p_z + 1) << 2);
             let dc1 = r.next_int_n(1024);
             let dc2 = r.next_int_n(1024);
 
-            r.set_chunk_seed((x+p_x+1) << 2, (z+p_z+1) << 2);
+            r.set_chunk_seed((x + p_x + 1) << 2, (z + p_z + 1) << 2);
             let dd1 = r.next_int_n(1024);
             let dd2 = r.next_int_n(1024);
 
