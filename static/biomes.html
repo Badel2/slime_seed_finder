@@ -90,7 +90,7 @@
                         >Java 1.15+ Treasure Map</option
                     >
                 </select>
-                <span>Select y-offset (from 0 to 95)</span>
+                <span>Select y-level (0 for caves, 63 for surface)</span>
                 <input type="text" id="y_offset" size="3" value="63" />
                 <a id="download" download="biome_map.png">
                     <button type="button" onClick="download()">
@@ -340,7 +340,7 @@
 
                 map.currentScale = layerScale;
                 let ws = document.getElementById("worldSeed");
-                let y_offset = document.getElementById("y_offset").value;
+                let y_offset = get_y_offset();
                 Game.clear(
                     "mc=" +
                         minecraft_version +
@@ -483,7 +483,7 @@
                 }
 
                 let ws = document.getElementById("worldSeed");
-                let y_offset = document.getElementById("y_offset").value;
+                let y_offset = get_y_offset();
                 Game.clear(
                     "mc=" +
                         minecraft_version +
@@ -654,6 +654,34 @@
                     );
                 }
             }
+            function get_y_offset() {
+                // TODO: make this depend on the version and on the layer
+                // Before 1.18, always return 0
+                // In 1.18, return [0, 95] if layer scale 4, return [0, 383] if layer scale 1
+                // y-offset; y_level
+                // 0; -64
+                // 16; 0
+                // 32; 64
+                // 95; 316
+                let y_level = document.getElementById("y_offset").value || 64;
+                y_level = y_level | 0;
+                let y_offset = Math.floor((y_level + 64) / 4);
+                let out_of_bounds = false;
+                if (y_offset < 0) {
+                    y_offset = 0;
+                    out_of_bounds = true;
+                }
+                if (y_offset > 95) {
+                    y_offset = 95;
+                    out_of_bounds = true;
+                }
+                if (out_of_bounds) {
+                    let actual_y_level = y_offset * 4 - 64;
+                    document.getElementById("y_offset").value = actual_y_level;
+                }
+
+                return y_offset;
+            }
             function pregenerateLayers() {
                 let i = document.getElementById("lastLayer").value | 0;
                 if (i != 43) {
@@ -764,9 +792,7 @@
                     let minecraft_version = document.getElementById(
                         "minecraftVersion"
                     ).value;
-                    let y_offset =
-                        document.getElementById("y_offset").value || 0;
-                    y_offset = y_offset | 0;
+                    let y_offset = get_y_offset();
 
                     return work1
                         .sendMsg({
@@ -885,7 +911,7 @@
             ws.oninput = debounced(500, function() {
                 if (ws.value != oldSeed) {
                     // Regenerate map when seed changes
-                    let y_offset = document.getElementById("y_offset").value;
+                    let y_offset = get_y_offset();
                     Game.clear(
                         "mc=" +
                             minecraft_version +
@@ -899,20 +925,21 @@
             });
 
             let y_offset_elem = document.getElementById("y_offset");
-            let old_y_offset = y_offset_elem.value;
+            let old_y_offset = get_y_offset();
             // Only regenerate map if the input has been static for 500ms
             y_offset_elem.oninput = debounced(500, function() {
-                if (y_offset_elem.value != old_y_offset) {
+                let y_offset = get_y_offset();
+                if (y_offset != old_y_offset) {
                     // Regenerate map when seed changes
                     Game.clear(
                         "mc=" +
                             minecraft_version +
                             ";y=" +
-                            y_offset_elem.value +
+                            y_offset +
                             ";seed=" +
                             ws.value
                     );
-                    old_y_offset = y_offset_elem.value;
+                    old_y_offset = y_offset;
                 }
             });
 
@@ -922,7 +949,7 @@
                     // Instantly change the seed
                     ws.value = seed;
                     // Regenerate map when seed changes
-                    let y_offset = document.getElementById("y_offset").value;
+                    let y_offset = get_y_offset();
                     Game.clear(
                         "mc=" +
                             minecraft_version +
