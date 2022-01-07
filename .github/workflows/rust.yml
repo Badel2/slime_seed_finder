@@ -25,6 +25,9 @@ jobs:
           toolchain: stable
           override: true
 
+      - name: Check formatter
+        run: cargo fmt --all -- --check
+
       - name: Build
         run: cargo build --verbose --features="main"
 
