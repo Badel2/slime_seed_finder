@@ -52,14 +52,19 @@ impl NoiseGeneratorPerlin {
         let b2 = self.d[b1 as usize & 0xFF] + i3;
         let b3 = self.d[(b1 + 1) as usize & 0xFF] + i3;
 
-        let mut l1 = indexed_lerp(self.d[(a2    ) as usize & 0xFF], d1      , d2      , d3);
-        let     l2 = indexed_lerp(self.d[(b2    ) as usize & 0xFF], d1 - 1.0, d2      , d3);
-        let mut l3 = indexed_lerp(self.d[(a3    ) as usize & 0xFF], d1      , d2 - 1.0, d3);
-        let     l4 = indexed_lerp(self.d[(b3    ) as usize & 0xFF], d1 - 1.0, d2 - 1.0, d3);
-        let mut l5 = indexed_lerp(self.d[(a2 + 1) as usize & 0xFF], d1      , d2      , d3 - 1.0);
-        let     l6 = indexed_lerp(self.d[(b2 + 1) as usize & 0xFF], d1 - 1.0, d2      , d3 - 1.0);
-        let mut l7 = indexed_lerp(self.d[(a3 + 1) as usize & 0xFF], d1      , d2 - 1.0, d3 - 1.0);
-        let     l8 = indexed_lerp(self.d[(b3 + 1) as usize & 0xFF], d1 - 1.0, d2 - 1.0, d3 - 1.0);
+        let mut l1 = indexed_lerp(self.d[(a2) as usize & 0xFF], d1, d2, d3);
+        let l2 = indexed_lerp(self.d[(b2) as usize & 0xFF], d1 - 1.0, d2, d3);
+        let mut l3 = indexed_lerp(self.d[(a3) as usize & 0xFF], d1, d2 - 1.0, d3);
+        let l4 = indexed_lerp(self.d[(b3) as usize & 0xFF], d1 - 1.0, d2 - 1.0, d3);
+        let mut l5 = indexed_lerp(self.d[(a2 + 1) as usize & 0xFF], d1, d2, d3 - 1.0);
+        let l6 = indexed_lerp(self.d[(b2 + 1) as usize & 0xFF], d1 - 1.0, d2, d3 - 1.0);
+        let mut l7 = indexed_lerp(self.d[(a3 + 1) as usize & 0xFF], d1, d2 - 1.0, d3 - 1.0);
+        let l8 = indexed_lerp(
+            self.d[(b3 + 1) as usize & 0xFF],
+            d1 - 1.0,
+            d2 - 1.0,
+            d3 - 1.0,
+        );
 
         l1 = lerp(t1, l1, l2);
         l3 = lerp(t1, l3, l4);
@@ -87,7 +92,7 @@ fn split_int(d1: &mut f64) -> i32 {
 // values closer to 1 go even closer to 1, and values close to 0.5 stay the
 // same.
 fn smootherstep(d1: f64) -> f64 {
-    d1*d1*d1 * (d1 * (d1*6.0-15.0) + 10.0)
+    d1 * d1 * d1 * (d1 * (d1 * 6.0 - 15.0) + 10.0)
 }
 
 // Linear interpolation between from and to.
@@ -98,9 +103,15 @@ fn lerp(part: f64, from: f64, to: f64) -> f64 {
 
 fn indexed_lerp(idx: i32, d1: f64, d2: f64, d3: f64) -> f64 {
     /* Table of vectors to cube edge centres (12 + 4 extra), used for ocean PRNG */
-    let c_edge_x = [1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 1.0,-1.0, 0.0, 0.0, 0.0, 0.0,  1.0, 0.0,-1.0, 0.0];
-    let c_edge_y = [1.0, 1.0,-1.0,-1.0, 0.0, 0.0, 0.0, 0.0, 1.0,-1.0, 1.0,-1.0,  1.0,-1.0, 1.0,-1.0];
-    let c_edge_z = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0,-1.0,  0.0, 1.0, 0.0,-1.0];
+    let c_edge_x = [
+        1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, -1.0, 0.0,
+    ];
+    let c_edge_y = [
+        1.0, 1.0, -1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0,
+    ];
+    let c_edge_z = [
+        0.0, 0.0, 0.0, 0.0, 1.0, 1.0, -1.0, -1.0, 1.0, 1.0, -1.0, -1.0, 0.0, 1.0, 0.0, -1.0,
+    ];
 
     let idx = (idx & 0xF) as usize;
 
@@ -138,7 +149,14 @@ impl NoiseGeneratorPerlin128 {
             d.swap(i, j);
         }
 
-        Self { a, b, c, d, amplitude, lacunarity }
+        Self {
+            a,
+            b,
+            c,
+            d,
+            amplitude,
+            lacunarity,
+        }
     }
 
     pub fn sample(&self, mut d1: f64, mut d2: f64, mut d3: f64, yamp: f64, ymin: f64) -> f64 {
@@ -164,14 +182,19 @@ impl NoiseGeneratorPerlin128 {
         let b2 = self.d[b1 as usize & 0xFF] + i3;
         let b3 = self.d[(b1 + 1) as usize & 0xFF] + i3;
 
-        let mut l1 = indexed_lerp(self.d[(a2    ) as usize & 0xFF], d1      , d2      , d3);
-        let     l2 = indexed_lerp(self.d[(b2    ) as usize & 0xFF], d1 - 1.0, d2      , d3);
-        let mut l3 = indexed_lerp(self.d[(a3    ) as usize & 0xFF], d1      , d2 - 1.0, d3);
-        let     l4 = indexed_lerp(self.d[(b3    ) as usize & 0xFF], d1 - 1.0, d2 - 1.0, d3);
-        let mut l5 = indexed_lerp(self.d[(a2 + 1) as usize & 0xFF], d1      , d2      , d3 - 1.0);
-        let     l6 = indexed_lerp(self.d[(b2 + 1) as usize & 0xFF], d1 - 1.0, d2      , d3 - 1.0);
-        let mut l7 = indexed_lerp(self.d[(a3 + 1) as usize & 0xFF], d1      , d2 - 1.0, d3 - 1.0);
-        let     l8 = indexed_lerp(self.d[(b3 + 1) as usize & 0xFF], d1 - 1.0, d2 - 1.0, d3 - 1.0);
+        let mut l1 = indexed_lerp(self.d[(a2) as usize & 0xFF], d1, d2, d3);
+        let l2 = indexed_lerp(self.d[(b2) as usize & 0xFF], d1 - 1.0, d2, d3);
+        let mut l3 = indexed_lerp(self.d[(a3) as usize & 0xFF], d1, d2 - 1.0, d3);
+        let l4 = indexed_lerp(self.d[(b3) as usize & 0xFF], d1 - 1.0, d2 - 1.0, d3);
+        let mut l5 = indexed_lerp(self.d[(a2 + 1) as usize & 0xFF], d1, d2, d3 - 1.0);
+        let l6 = indexed_lerp(self.d[(b2 + 1) as usize & 0xFF], d1 - 1.0, d2, d3 - 1.0);
+        let mut l7 = indexed_lerp(self.d[(a3 + 1) as usize & 0xFF], d1, d2 - 1.0, d3 - 1.0);
+        let l8 = indexed_lerp(
+            self.d[(b3 + 1) as usize & 0xFF],
+            d1 - 1.0,
+            d2 - 1.0,
+            d3 - 1.0,
+        );
 
         l1 = lerp(t1, l1, l2);
         l3 = lerp(t1, l3, l4);
@@ -182,7 +205,6 @@ impl NoiseGeneratorPerlin128 {
         l5 = lerp(t2, l5, l7);
 
         lerp(t3, l1, l5)
-
     }
 }
 
@@ -222,7 +244,11 @@ impl NoiseGeneratorOctave128 {
             if amplitudes[i] != 0.0 {
                 let (pxrlo, pxrhi) = md5_octave_n[(12 + omin) as usize + i];
                 let mut pxr = Xoroshiro128PlusPlus::new(xlo ^ pxrlo, xhi ^ pxrhi);
-                octaves.push(NoiseGeneratorPerlin128::new(&mut pxr, amplitudes[i] * persist, lacuna));
+                octaves.push(NoiseGeneratorPerlin128::new(
+                    &mut pxr,
+                    amplitudes[i] * persist,
+                    lacuna,
+                ));
             }
 
             i += 1;
@@ -265,7 +291,11 @@ impl NoiseGeneratorDoublePerlin128 {
         let len = len_without_start_zeros_and_end_zeros(amplitudes);
         let amplitude = (10.0 / 6.0) * (len as f64) / ((len + 1) as f64);
 
-        Self { amplitude, octave_a, octave_b }
+        Self {
+            amplitude,
+            octave_a,
+            octave_b,
+        }
     }
 
     pub fn sample(&self, x: f64, y: f64, z: f64) -> f64 {
@@ -273,7 +303,7 @@ impl NoiseGeneratorDoublePerlin128 {
         let mut v = 0.0;
 
         v += self.octave_a.sample(x, y, z);
-        v += self.octave_b.sample(x*f, y*f, z*f);
+        v += self.octave_b.sample(x * f, y * f, z * f);
 
         v * self.amplitude
     }
