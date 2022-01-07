@@ -405,9 +405,9 @@ enum PointSerialization {
     Tuple((i64, i64)),
 }
 
-impl Into<Chunk> for PointSerialization {
-    fn into(self) -> Chunk {
-        match self {
+impl From<PointSerialization> for Chunk {
+    fn from(x: PointSerialization) -> Chunk {
+        match x {
             PointSerialization::Normal { x, z } => Chunk { x: x as i32, z: z as i32 },
             PointSerialization::Tuple((x, z)) => Chunk { x: x as i32, z: z as i32 },
         }
@@ -433,9 +433,9 @@ impl Serialize for Chunk {
     }
 }
 
-impl Into<Point> for PointSerialization {
-    fn into(self) -> Point {
-        match self {
+impl From<PointSerialization> for Point {
+    fn from(x: PointSerialization) -> Point {
+        match x {
             PointSerialization::Normal { x, z } => Point { x, z },
             PointSerialization::Tuple((x, z)) => Point { x, z },
         }
@@ -461,9 +461,9 @@ impl Serialize for Point {
     }
 }
 
-impl Into<Point4> for PointSerialization {
-    fn into(self) -> Point4 {
-        match self {
+impl From<PointSerialization> for Point4 {
+    fn from(x: PointSerialization) -> Point4 {
+        match x {
             PointSerialization::Normal { x, z } => Point4 { x, z },
             PointSerialization::Tuple((x, z)) => Point4 { x, z },
         }

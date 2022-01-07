@@ -164,9 +164,7 @@ impl Spline {
 
     pub fn get_spline(&self, vals: &[f32]) -> f32 {
         match self {
-            Self::Fix { val } => {
-                return *val;
-            }
+            Self::Fix { val } => *val,
             Self::Sp { typ, ch } => {
                 let f = vals[*typ as usize];
                 let mut i = 0;
@@ -225,11 +223,9 @@ fn get_offset_value(weirdness: f32, continentalness: f32) -> f32 {
         } else {
             -0.2222
         }
+    } else if off > 0.0 {
+        off
     } else {
-        if off > 0.0 {
-            off
-        } else {
-            0.0
-        }
+        0.0
     }
 }

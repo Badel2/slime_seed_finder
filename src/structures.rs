@@ -95,7 +95,6 @@ pub fn treasure_seed_finder(treasure_chunks: &[Chunk], max_errors: usize) -> Vec
 }
 
 pub struct TreasureChunks {
-    treasure_chunks: Vec<Chunk>,
     treasure_data: Vec<i64>,
     max_errors: usize,
 }
@@ -106,10 +105,8 @@ impl TreasureChunks {
             .iter()
             .map(|c| calculate_treasure_data(c))
             .collect();
-        let treasure_chunks = treasure_chunks.iter().cloned().collect();
 
         Self {
-            treasure_chunks,
             treasure_data,
             max_errors,
         }

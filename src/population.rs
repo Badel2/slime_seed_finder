@@ -286,7 +286,7 @@ impl MossyFloor {
             DungeonSize::X7Z9 | DungeonSize::X9Z9 => 9,
         };
         for row in self.tiles.chunks(elems_per_row) {
-            for t in row.into_iter().rev() {
+            for t in row.iter().rev() {
                 let c = match t {
                     DungeonFloorTile::Air => 'A',
                     DungeonFloorTile::Cobble => 'C',
@@ -454,7 +454,7 @@ pub fn dungeon_rng_bruteforce_range(
                 }
             }
 
-            return v;
+            v
         };
 
         // r_clone.get_seed() is what we refer to as "dungeon seed": it will generate the correct
@@ -552,8 +552,8 @@ where
         // TODO: if s == 0 we can reuse old_z and old_y as new_y and new_x
         n_calls = n_calls.wrapping_add(s + 1);
         r.next_n_calls(s + 1);
-        let r_clone = r.clone();
-        let mut r2 = r.clone();
+        let r_clone = r;
+        let mut r2 = r;
         let x = x_offset + r2.next_int_n(16) + 8;
         let y = r2.next_int_n(128);
         let z = z_offset + r2.next_int_n(16) + 8;
@@ -582,7 +582,7 @@ pub fn populate_alpha_1_0_4_check_dungeon(
 
     // 8 dungeon tries
     for _ in 0..8 {
-        let r_clone = r.clone();
+        let r_clone = r;
         let x = x_offset + r.next_int_n(16) + 8;
         let y = r.next_int_n(128);
         let z = z_offset + r.next_int_n(16) + 8;
@@ -1071,7 +1071,7 @@ pub fn chunk_population_seed_to_world_seed_64(
                 let mut v = Vec::with_capacity(a.len() * b.len());
                 for x in a {
                     for y in &b {
-                        v.push((x.clone(), y.clone()));
+                        v.push((x, *y));
                     }
                 }
                 v
@@ -1198,7 +1198,7 @@ pub fn dungeon_seed_to_world_seed_alpha_1_2_6(
                     (p3.get_seed(), x3, z3),
                 );
 
-                if seeds.len() > 0 {
+                if !seeds.is_empty() {
                     return seeds;
                 }
             }
@@ -1251,7 +1251,7 @@ pub fn dungeon_seed_to_world_seed_any_version(
                     (p3.get_seed(), x3, z3),
                 );
 
-                if seeds.len() > 0 {
+                if !seeds.is_empty() {
                     return seeds;
                 }
             }

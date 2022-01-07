@@ -30,7 +30,7 @@ where
     T: std::fmt::Display,
 {
     let mut iter = find_file_in_zip(zip_archive, target_file);
-    let found_file = iter.next().ok_or_else(|| FindFileInZipError::NotFound)?;
+    let found_file = iter.next().ok_or(FindFileInZipError::NotFound)?;
 
     // Keep searching after finding the first file, to make sure there is only one
     // level.dat file
@@ -57,7 +57,7 @@ where
             let full_path = Path::new(unsanitized_full_path);
             // file_name() returns None when the path ends with "/.."
             // we handle that case by returning a ".." filename
-            let file_name = full_path.file_name().unwrap_or(OsStr::new(".."));
+            let file_name = full_path.file_name().unwrap_or_else(|| OsStr::new(".."));
             if file_name == target_file {
                 Some(unsanitized_full_path)
             } else {

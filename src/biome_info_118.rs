@@ -1492,7 +1492,7 @@ mod biome_data {
         continentalness: RangeInclusive<i64>,
         erosion: RangeInclusive<i64>,
         weirdness: RangeInclusive<i64>,
-        f: f32,
+        _f: f32,
         biome_id: BiomeId,
     ) {
         for depth in [0, 10000] {
@@ -1518,19 +1518,19 @@ mod biome_data {
         continentalness: RangeInclusive<i64>,
         erosion: RangeInclusive<i64>,
         weirdness: RangeInclusive<i64>,
-        f: f32,
+        _f: f32,
         biome_id: BiomeId,
     ) {
         let depth = 2000..=9000;
         v.add(
             biome_id,
             ClimateRange {
-                temperature: temperature.clone(),
-                humidity: humidity.clone(),
-                continentalness: continentalness.clone(),
-                erosion: erosion.clone(),
+                temperature,
+                humidity,
+                continentalness,
+                erosion,
                 depth,
-                weirdness: weirdness.clone(),
+                weirdness,
             },
         );
     }
@@ -1629,9 +1629,11 @@ mod biome_tree {
                     } else {
                         ds_inner
                     };
-                    if leaf2.is_some() && ds_leaf2 < ds {
-                        ds = ds_leaf2;
-                        leaf = Some(leaf2.unwrap());
+                    if let Some(leaf2) = leaf2 {
+                        if ds_leaf2 < ds {
+                            ds = ds_leaf2;
+                            leaf = Some(leaf2);
+                        }
                     }
                 }
             }
@@ -1654,9 +1656,10 @@ mod biome_tree {
         fn build(mut list: Vec<(ClimateRange, BiomeId)>) -> Node {
             if list.len() == 1 {
                 let (range, value) = list.into_iter().next().unwrap();
-                return Node::leaf(range, value);
+
+                Node::leaf(range, value)
             } else if list.len() <= 10 {
-                list.sort_by_key(|(range, value)| {
+                list.sort_by_key(|(range, _value)| {
                     let distance_to_origin =
                         |r: &RangeInclusive<i64>| ((r.start() + r.end()) / 2).abs();
                     let r = distance_to_origin;
@@ -1669,7 +1672,7 @@ mod biome_tree {
                         + r(&range.weirdness)
                 });
 
-                return Node::new(list);
+                Node::new(list)
             } else {
                 let mut j = i64::MAX;
                 let mut k = 0;
@@ -1694,7 +1697,7 @@ mod biome_tree {
                 sort_nodes(&mut list1, k, true);
                 let range = merge_range_list_node(&list1);
 
-                return Node {
+                Node {
                     range,
                     value: None,
                     children: list1
@@ -1711,7 +1714,7 @@ mod biome_tree {
                             )
                         })
                         .collect(),
-                };
+                }
             }
         }
 
@@ -1745,12 +1748,12 @@ mod biome_tree {
 
     fn sort(list: &mut [(ClimateRange, BiomeId)], j: usize, absolute_value: bool) {
         list.sort_by(|(ka, _), (kb, _)| {
-            comparator((j + 0) % 6, absolute_value)(&ka, &kb)
-                .then_with(|| comparator((j + 1) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 2) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 3) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 4) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 5) % 6, absolute_value)(&ka, &kb))
+            comparator(j % 6, absolute_value)(ka, kb)
+                .then_with(|| comparator((j + 1) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 2) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 3) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 4) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 5) % 6, absolute_value)(ka, kb))
         });
     }
 
@@ -1758,12 +1761,12 @@ mod biome_tree {
         list.sort_by(|a, b| {
             let ka = &a.range;
             let kb = &b.range;
-            comparator((j + 0) % 6, absolute_value)(&ka, &kb)
-                .then_with(|| comparator((j + 1) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 2) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 3) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 4) % 6, absolute_value)(&ka, &kb))
-                .then_with(|| comparator((j + 5) % 6, absolute_value)(&ka, &kb))
+            comparator(j % 6, absolute_value)(ka, kb)
+                .then_with(|| comparator((j + 1) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 2) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 3) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 4) % 6, absolute_value)(ka, kb))
+                .then_with(|| comparator((j + 5) % 6, absolute_value)(ka, kb))
         });
     }
 

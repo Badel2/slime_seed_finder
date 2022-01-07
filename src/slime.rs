@@ -6,9 +6,7 @@ use std::cmp::min;
 use std::num::Wrapping;
 
 pub struct SlimeChunks {
-    slime_chunks: Vec<Chunk>,
     slime_data: Vec<u64>,
-    no_slime_chunks: Vec<Chunk>,
     no_slime_data: Vec<u64>,
     max_errors: usize,
     max_no_errors: usize,
@@ -23,11 +21,11 @@ impl SlimeChunks {
         max_no_errors: usize,
     ) -> SlimeChunks {
         let slime_data: Vec<u64> = slime_chunks
-            .into_iter()
+            .iter()
             .map(|c| calculate_slime_data(c))
             .collect();
         let no_slime_data: Vec<u64> = no_slime_chunks
-            .into_iter()
+            .iter()
             .map(|c| calculate_slime_data(c))
             .collect();
 
@@ -38,9 +36,7 @@ impl SlimeChunks {
         let no_slime_chunks = no_slime_chunks.to_vec();
 
         SlimeChunks {
-            slime_chunks,
             slime_data,
-            no_slime_chunks,
             no_slime_data,
             max_errors,
             max_no_errors,
@@ -274,10 +270,8 @@ pub fn generate_slime_chunks_and_not(
                 if vy.len() < limit_yes {
                     vy.push(c);
                 }
-            } else {
-                if vn.len() < limit_no {
-                    vn.push(c);
-                }
+            } else if vn.len() < limit_no {
+                vn.push(c);
             }
             if vy.len() == limit_yes && vn.len() == limit_no {
                 return (vy, vn);

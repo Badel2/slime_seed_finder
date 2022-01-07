@@ -19,8 +19,8 @@ impl NoiseGeneratorPerlin {
         let c = r.next_double() * 256.0;
         let mut d = [0; 256];
 
-        for i in 0..256 {
-            d[i] = i as i32;
+        for (i, di) in d.iter_mut().enumerate() {
+            *di = i as i32;
         }
 
         // Shuffle array
@@ -137,8 +137,8 @@ impl NoiseGeneratorPerlin128 {
         let c = r.next_double() * 256.0;
         let mut d = [0; 256];
 
-        for i in 0..256 {
-            d[i] = i as i32;
+        for (i, di) in d.iter_mut().enumerate() {
+            *di = i as i32;
         }
 
         // Shuffle array
