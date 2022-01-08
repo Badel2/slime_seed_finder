@@ -11,6 +11,7 @@ use serde::{Serialize, Deserialize};
 use lazy_static::lazy_static;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::RwLock;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -1490,15 +1491,28 @@ impl MapGenBiomeNoise3D118 {
     fn partial_sample_biome_noise(&self, np: Option<&mut Climate>, pos: Point3D, dat: &mut u64, part: u32) -> i32 {
         let clamp_float_to_u8_range = |f, fmin, fmax| {
             let mut updated_limits = false;
-            static mut LIMITS: [(f64, f64); 100] = [(f64::MAX, f64::MIN); 100];
-            if let Some((lmin, lmax)) = unsafe { LIMITS.get_mut(part as usize) } {
+            lazy_static! {
+                static ref LIMITS: RwLock<[(f64, f64); 100]> = RwLock::new([(f64::MAX, f64::MIN); 100]);
+            }
+            if let Some((lmin, lmax)) = LIMITS.read().expect("rwlock error").get(part as usize) {
                 if f > *lmax {
-                    *lmax = f;
                     updated_limits = true;
                 }
                 if f < *lmin {
-                    *lmin = f;
                     updated_limits = true;
+                }
+            }
+            if updated_limits {
+                if let Some((lmin, lmax)) = LIMITS.write().expect("rwlock error").get_mut(part as usize) {
+                    updated_limits = false;
+                    if f > *lmax {
+                        *lmax = f;
+                        updated_limits = true;
+                    }
+                    if f < *lmin {
+                        *lmin = f;
+                        updated_limits = true;
+                    }
                 }
             }
             let r = (f - fmin) * 256.0 / (fmax - fmin);
@@ -1515,7 +1529,7 @@ impl MapGenBiomeNoise3D118 {
                     }
                 };
                 if updated_limits {
-                    let limits_filter_max: Vec<_> = unsafe { LIMITS.iter().enumerate().filter_map(|(i, k)| if *k == (f64::MAX, f64::MIN) { None } else { Some((i, k)) }).collect() };
+                    let limits_filter_max: Vec<_> = LIMITS.read().expect("rwlock error").iter().enumerate().filter_map(|(i, k)| if *k == (f64::MAX, f64::MIN) { None } else { Some((i, *k)) }).collect();
                     log::error!("{}={} set to {}. LIMITS: {:?}", arg_name, f, r, limits_filter_max);
                 }
 
