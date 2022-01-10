@@ -1398,10 +1398,22 @@ fn main() {
                         };
                         let b = generator.partial_get_map_3d(a3, layer).a[(0, 0, 0)];
                         if b != expected_biome_id.0 {
-                            panic!(
-                                "Mismatch at ({}, {}, {}): expected {} generated {}",
-                                p.x, p.y, p.z, expected_biome_id.0, b
-                            );
+                            let distance_to_second_biome_layer = 50;
+                            let distance_to_second_biome = generator
+                                .partial_get_map_3d(a3, distance_to_second_biome_layer)
+                                .a[(0, 0, 0)];
+
+                            if distance_to_second_biome < 1 {
+                                println!(
+                                    "Mismatch at ({}, {}, {}): expected {} generated {} (distance to 2nd biome: {})",
+                                    p.x, p.y, p.z, expected_biome_id.0, b, distance_to_second_biome
+                                );
+                            } else {
+                                panic!(
+                                    "Mismatch at ({}, {}, {}): expected {} generated {} (distance to 2nd biome: {})",
+                                    p.x, p.y, p.z, expected_biome_id.0, b, distance_to_second_biome
+                                );
+                            }
                         }
                     }
 
