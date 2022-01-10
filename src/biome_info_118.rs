@@ -98,7 +98,14 @@ impl BiomeList {
             }
         }
 
-        Some(d1 - d0)
+        //Some(d1 - d0)
+        // Distances are squared, so return the difference after applying square root
+        let rd0 = (d0 as f64).sqrt();
+        let rd1 = (d1 as f64).sqrt();
+
+        let diff = rd1 - rd0;
+
+        Some(diff as i64)
     }
 }
 

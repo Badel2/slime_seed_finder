@@ -1610,10 +1610,10 @@ impl MapGenBiomeNoise3D118 {
         }
 
         if part == 50 {
-            let dist_sq = debug_distance_to_second_biome(p_np, dat);
+            let dist = debug_distance_to_second_biome(p_np, dat);
             // +1 because in case of 0 distance log2(0) = -inf we want log2(1) = 0
-            let dist = ((dist_sq + 1) as f64).log2();
-            return clamp_float_to_u8_range(dist as f64, 0.0, 25.0);
+            let dist_log2 = (1.0 + dist as f64).log2();
+            return clamp_float_to_u8_range(dist_log2, 0.0, 12.5);
         }
         if part == 51 {
             let diff = debug_search_bruteforce_xor_search_tree(p_np, dat);
