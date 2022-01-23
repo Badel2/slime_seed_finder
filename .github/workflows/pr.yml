@@ -53,3 +53,4 @@ jobs:
             override: false
 
       - name: Build web demo
+        run: ./ci/build_demo.sh
