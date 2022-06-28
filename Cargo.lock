@@ -592,31 +592,42 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
 name = "fastanvil"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3d92948faab2d5a0ed5afd4cb8b721d44106b56a6dc9b74a62c27e263915067"
+version = "0.26.0"
+source = "git+https://github.com/Badel2/fastnbt?rev=2d8951f0b96338deda6fd62fab07d800be65aa85#2d8951f0b96338deda6fd62fab07d800be65aa85"
 dependencies = [
  "bit_field",
  "byteorder",
- "fastnbt",
+ "fastnbt 2.2.0 (git+https://github.com/Badel2/fastnbt?rev=2d8951f0b96338deda6fd62fab07d800be65aa85)",
  "flate2",
  "hematite-nbt",
  "image",
- "lazy_static",
  "log",
  "num_enum",
+ "once_cell",
  "serde",
 ]
 
 [[package]]
 name = "fastnbt"
-version = "1.2.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15889a01b850d0a0942a8c1ee314bbd246fd4bcd7d07e6f20cbf5e1dd717f690"
+checksum = "0c3a8867b7631703517a96c166564c5c08b523776dbe5d012bcdee35bef418aa"
 dependencies = [
  "byteorder",
  "cesu8",
  "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "fastnbt"
+version = "2.2.0"
+source = "git+https://github.com/Badel2/fastnbt?rev=2d8951f0b96338deda6fd62fab07d800be65aa85#2d8951f0b96338deda6fd62fab07d800be65aa85"
+dependencies = [
+ "byteorder",
+ "cesu8",
+ "serde",
+ "serde_bytes",
 ]
 
 [[package]]
@@ -1465,9 +1476,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.8.0"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
+checksum = "7709cef83f0c1f58f666e746a08b21e0085f7440fa6a29cc194d68aac97a4225"
 
 [[package]]
 name = "opaque-debug"
@@ -2139,6 +2150,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "212e73464ebcde48d723aa02eb270ba62eff38a9b732df31f33f1b4e145f3a54"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.126"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2237,7 +2257,7 @@ version = "0.1.0"
 dependencies = [
  "anvil-region",
  "fastanvil",
- "fastnbt",
+ "fastnbt 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image",
  "lazy_static",
  "log",

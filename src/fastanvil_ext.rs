@@ -13,7 +13,7 @@ use std::path::PathBuf;
 /// A single dimesion of a minecraft world
 pub struct Dimension<S: Read + Seek> {
     // (region_x, region_z) => region
-    regions: HashMap<(i32, i32), Option<fastanvil::RegionBuffer<S>>>,
+    regions: HashMap<(i32, i32), Option<fastanvil::Region<S>>>,
     // (chunk_x, chunk_z) => chunk
     chunks: HashMap<(i32, i32), fastanvil::JavaChunk>,
 }
@@ -33,7 +33,7 @@ impl Dimension<std::fs::File> {
                 .open(region_path)
                 .unwrap();
 
-            let region = fastanvil::RegionBuffer::new(file);
+            let region = fastanvil::Region::from_stream(file).unwrap();
             regions.insert((region_x, region_z), Some(region));
         }
 
@@ -69,7 +69,7 @@ impl<S: Read + Seek> Dimension<S> {
     where R: Read {
         let mut chunk_bytes = vec![];
         reader.read_to_end(&mut chunk_bytes).expect("Failed to read");
-        let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(&chunk_bytes).expect("Failed to deserialize chunk");
+        let chunk = fastanvil::JavaChunk::from_bytes(&chunk_bytes).expect("Failed to deserialize chunk");
         // Overwrite chunks that did already exist
         self.chunks.insert((chunk_x, chunk_z), chunk);
         // If the region did not exist, insert None to indicate that some chunks from this region
@@ -98,7 +98,9 @@ impl<S: Read + Seek> Dimension<S> {
             let (region_chunk_x, region_chunk_z) = anvil_region::chunk_coords_inside_region(chunk_x, chunk_z);
 
             let region = self.regions.get_mut(&(region_x, region_z))?.as_mut()?;
-            let chunk_bytes = region.load_chunk(usize::from(region_chunk_x), usize::from(region_chunk_z)).expect("Failed to load chunk");
+            // TODO: second expect may not be an error? If chunk does not exist we can just write
+            // an empty array?
+            let chunk_bytes = region.read_chunk(usize::from(region_chunk_x), usize::from(region_chunk_z)).expect("Failed to read chunk").expect("Chunk does not exist");
             self.add_chunk(chunk_x, chunk_z, &mut Cursor::new(chunk_bytes)).expect("Failed to add chunk");
         }
 
@@ -155,45 +157,19 @@ fn find_all_region_mca(path: PathBuf) -> Result<Vec<(i32, i32)>, std::io::Error>
 }
 
 // Copy of fastanvil::Region::for_each_chunk that ignores errors
-pub fn region_for_each_chunk<S>(region: &mut fastanvil::RegionBuffer<S>, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> fastanvil::Result<()>
+pub fn region_for_each_chunk<S>(region: &mut fastanvil::Region<S>, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> fastanvil::Result<()>
 where S: Seek + Read
 {
-        let mut offsets = Vec::<fastanvil::ChunkLocation>::new();
-
-        // Build list of existing chunks
-        for x in 0..32 {
-            for z in 0..32 {
-                match region.chunk_location(x, z) {
-                    Ok(loc) => {
-                        // 0,0 chunk location means the chunk isn't present.
-                        // cannot decide if this means we should return an error from chunk_location() or not.
-                        if loc.begin_sector != 0 && loc.sector_count != 0 {
-                            offsets.push(loc);
-                        }
-                    }
-                    Err(e) => {
-                        // Ignore errors
-                        log::error!("Error getting chunk location of chunk {:?}: {:?}", (x, z), e);
-                    }
-                }
+    for chunk_data in region.iter() {
+        match chunk_data {
+            Ok(chunk_data) => f(chunk_data.x, chunk_data.z, &chunk_data.data),
+            Err(e) => {
+                // Ignore errors
+                // TODO: it would be nice to get the x, z coordinated of the chunk that failed
+                log::error!("Error loading chunk: {:?}", e);
             }
         }
+    }
 
-        // sort so we linearly seek through the file.
-        // might make things easier on a HDD [citation needed]
-        offsets.sort_by(|o1, o2| o2.begin_sector.cmp(&o1.begin_sector));
-
-        for offset in offsets {
-            let chunk = match region.load_chunk(offset.x, offset.z) {
-                Ok(x) => x,
-                Err(e) => {
-                    // Ignore errors
-                    log::error!("Error loading chunk {:?}: {:?}", offset, e);
-                    continue;
-                }
-            };
-            f(offset.x, offset.z, &chunk);
-        }
-
-        Ok(())
+    Ok(())
 }

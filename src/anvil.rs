@@ -411,10 +411,10 @@ pub fn get_all_biomes_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
     let all_regions = chunk_provider.list_regions().expect("Error listing regions");
     for (region_x, region_z) in all_regions {
         let r = chunk_provider.get_region(region_x, region_z).expect("Error loading region");
-        let mut rb = fastanvil::RegionBuffer::new(r);
+        let mut rb = fastanvil::Region::from_stream(r).expect("Failed to initialize region");
 
         region_for_each_chunk(&mut rb, |rel_chunk_x, rel_chunk_z, data| {
-            let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
+            let chunk = fastanvil::JavaChunk::from_bytes(data.as_slice()).unwrap();
             //log::debug!("chunk {:?}: {:?}", (region_x, region_z, rel_chunk_x, rel_chunk_z), chunk);
             // TODO: biomes are stored in 1:4 scale, so we don't need to iterate over all y values,
             // we could iterate in steps of 4. Test this.
@@ -532,7 +532,7 @@ pub fn get_biomes_from_area_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A, 
             continue;
         }
         let r = chunk_provider.get_region(region_x, region_z).expect("Error loading region");
-        let mut rb = fastanvil::RegionBuffer::new(r);
+        let mut rb = fastanvil::Region::from_stream(r).expect("Failed to initialize region");
 
         region_for_each_chunk(&mut rb, |rel_chunk_x, rel_chunk_z, data| {
             // TODO: area uses coordinates in 1:4 scale
@@ -545,7 +545,7 @@ pub fn get_biomes_from_area_1_18<A: AnvilChunkProvider>(chunk_provider: &mut A, 
                 return;
             }
 
-            let chunk: fastanvil::JavaChunk = fastnbt::de::from_bytes(data.as_slice()).unwrap();
+            let chunk = fastanvil::JavaChunk::from_bytes(data.as_slice()).unwrap();
             //log::debug!("chunk {:?}: {:?}", (region_x, region_z, rel_chunk_x, rel_chunk_z), chunk);
             // TODO: biomes are stored in 1:4 scale, so we don't need to iterate over all y values,
             // we could iterate in steps of 4. Test this.
@@ -1107,8 +1107,8 @@ pub fn iterate_chunks_in_world<A: AnvilChunkProvider, F: FnMut((i32, i32), &fast
 
 
 pub fn iterate_chunks_in_region<R: Read + Seek, F: FnMut((i32, i32), &fastanvil::JavaChunk)>(region: R, (region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>, mut f: F) -> Result<(), String> {
-    let mut region = fastanvil::RegionBuffer::new(region);
-    region_for_each_chunk(&mut region, |chunk_x, chunk_z, data| {
+    let mut rb = fastanvil::Region::from_stream(region).expect("Failed to initialize region");
+    region_for_each_chunk(&mut rb, |chunk_x, chunk_z, data| {
         let chunk_x = region_x * 32 + chunk_x as i32;
         let chunk_z = region_z * 32 + chunk_z as i32;
         if let Some(only_check_chunks) = only_check_chunks {
@@ -1118,7 +1118,7 @@ pub fn iterate_chunks_in_region<R: Read + Seek, F: FnMut((i32, i32), &fastanvil:
             }
         }
 
-        let chunk: fastanvil::JavaChunk = match fastnbt::de::from_bytes(data.as_slice()) {
+        let chunk = match fastanvil::JavaChunk::from_bytes(data.as_slice()) {
             Ok(x) => x,
             Err(e) => {
                 log::warn!("Error when deserializing chunk {:?}: {:?}", (chunk_x, chunk_z), e);

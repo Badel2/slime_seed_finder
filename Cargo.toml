@@ -34,8 +34,9 @@ rand = { version = "0.8.4", optional = true }
 pretty_env_logger = "0.4.0"
 sha2 = "0.9.5"
 zip = { version = "0.5.13", default-features = false, features = ["deflate"] }
-fastanvil = "0.22.0"
-fastnbt = "1.2.0"
+fastanvil = { git = "https://github.com/Badel2/fastnbt", rev = "2d8951f0b96338deda6fd62fab07d800be65aa85" }
+#fastanvil = "0.26"
+fastnbt = "2"
 lazy_static = "1.4.0"
 
 [[bin]]
