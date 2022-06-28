@@ -2,13 +2,23 @@
 //! Ideally this would be merged upstream
 
 use fastanvil::Chunk;
+use fastanvil::RegionFileLoader;
+use fastanvil::RegionLoader;
+use fastanvil::RCoord;
+use nbt::CompoundTag;
+use nbt::decode::read_compound_tag;
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::fs::OpenOptions;
+use std::io;
 use std::io::Cursor;
 use std::io::Read;
 use std::io::Seek;
 use std::path::PathBuf;
+use crate::strict_parse_int::strict_parse_i32;
+
+pub use crate::zip_chunk_provider::ZipChunkProvider;
 
 /// A single dimesion of a minecraft world
 pub struct Dimension<S: Read + Seek> {
@@ -74,7 +84,7 @@ impl<S: Read + Seek> Dimension<S> {
         self.chunks.insert((chunk_x, chunk_z), chunk);
         // If the region did not exist, insert None to indicate that some chunks from this region
         // exist
-        let (region_x, region_z) = anvil_region::chunk_coords_to_region_coords(chunk_x, chunk_z);
+        let (region_x, region_z) = chunk_coords_to_region_coords(chunk_x, chunk_z);
         self.regions.entry((region_x, region_z)).or_default();
 
         Ok(())
@@ -94,8 +104,8 @@ impl<S: Read + Seek> Dimension<S> {
         let chunk_z = i32::try_from(z >> 4).unwrap();
 
         if !self.chunks.contains_key(&(chunk_x, chunk_z)) {
-            let (region_x, region_z) = anvil_region::chunk_coords_to_region_coords(chunk_x, chunk_z);
-            let (region_chunk_x, region_chunk_z) = anvil_region::chunk_coords_inside_region(chunk_x, chunk_z);
+            let (region_x, region_z) = chunk_coords_to_region_coords(chunk_x, chunk_z);
+            let (region_chunk_x, region_chunk_z) = chunk_coords_inside_region(chunk_x, chunk_z);
 
             let region = self.regions.get_mut(&(region_x, region_z))?.as_mut()?;
             // TODO: second expect may not be an error? If chunk does not exist we can just write
@@ -148,7 +158,7 @@ fn find_all_region_mca(path: PathBuf) -> Result<Vec<(i32, i32)>, std::io::Error>
             continue;
         }
 
-        if let Some(coords) = anvil_region::parse_region_file_name(&filename.unwrap()) {
+        if let Some(coords) = parse_region_file_name(&filename.unwrap()) {
             r.push(coords);
         }
     }
@@ -172,4 +182,179 @@ where S: Seek + Read
     }
 
     Ok(())
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct RegionAndOffset {
+    pub region_x: i32,
+    pub region_z: i32,
+    pub region_chunk_x: u8,
+    pub region_chunk_z: u8,
+}
+
+pub fn chunk_coords_to_region_coords(chunk_x: i32, chunk_z: i32) -> (i32, i32) {
+    (chunk_x >> 5, chunk_z >> 5)
+}
+
+pub fn chunk_coords_inside_region(chunk_x: i32, chunk_z: i32) -> (u8, u8) {
+    ((chunk_x & 0x1F) as u8, (chunk_z & 0x1F) as u8)
+}
+
+impl RegionAndOffset {
+    pub fn from_chunk(chunk_x: i32, chunk_z: i32) -> Self {
+        let (region_x, region_z) = chunk_coords_to_region_coords(chunk_x, chunk_z);
+        let (region_chunk_x, region_chunk_z) = chunk_coords_inside_region(chunk_x, chunk_z);
+
+        Self {
+            region_x,
+            region_z,
+            region_chunk_x,
+            region_chunk_z,
+        }
+    }
+
+    pub fn to_chunk_coords(&self) -> (i32, i32) {
+        ((self.region_x << 5) + i32::from(self.region_chunk_x), (self.region_z << 5) + i32::from(self.region_chunk_z))
+    }
+}
+
+/// Parse "r.1.2.mca" into (1, 2)
+pub fn parse_region_file_name(s: &str) -> Option<(i32, i32)> {
+    let mut iter = s.as_bytes().split(|x| *x == b'.');
+    if iter.next() != Some(b"r") {
+        return None;
+    }
+    let x = strict_parse_i32(iter.next()?)?;
+    let z = strict_parse_i32(iter.next()?)?;
+    if iter.next() != Some(b"mca") {
+        return None;
+    }
+
+    if iter.next() != None {
+        // Trailing dots
+        return None;
+    }
+
+    Some((x, z))
+}
+
+/// Possible errors while loading the chunk.
+#[derive(Debug)]
+pub enum ChunkLoadError {
+    /// Region at specified coordinates not found.
+    RegionNotFound { region_x: i32, region_z: i32 },
+    /// Chunk at specified coordinates inside region not found.
+    ChunkNotFound { chunk_x: u8, chunk_z: u8 },
+    /*
+    /// Chunk length overlaps declared maximum.
+    ///
+    /// This should not occur under normal conditions.
+    ///
+    /// Region file are corrupted.
+    LengthExceedsMaximum {
+        /// Chunk length.
+        length: u32,
+        /// Chunk maximum expected length.
+        maximum_length: u32,
+    },
+    /// Currently are only 2 types of compression: Gzip and Zlib.
+    ///
+    /// This should not occur under normal conditions.
+    ///
+    /// Region file are corrupted or was introduced new compression type.
+    UnsupportedCompressionScheme {
+        /// Compression scheme type id.
+        compression_scheme: u8,
+    },
+    */
+    /// I/O Error which happened while were reading chunk data from region file.
+    ReadError { io_error: io::Error },
+    /*
+    /// Error while decoding binary data to NBT tag.
+    ///
+    /// This should not occur under normal conditions.
+    ///
+    /// Region file are corrupted or a developer error in the NBT library.
+    TagDecodeError { tag_decode_error: TagDecodeError },
+    */
+}
+
+impl From<io::Error> for ChunkLoadError {
+    fn from(io_error: io::Error) -> Self {
+        ChunkLoadError::ReadError { io_error }
+    }
+}
+
+pub trait ReadAndSeek: Read + Seek {}
+impl<T: Read + Seek> ReadAndSeek for T {}
+
+pub trait AnvilChunkProvider {
+    fn get_region(&mut self, region_x: i32, region_z: i32) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError>;
+    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<CompoundTag, ChunkLoadError>;
+    fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError>;
+    fn list_regions(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError>;
+}
+
+pub struct FolderChunkProvider {
+    inner: RegionFileLoader,
+}
+
+impl FolderChunkProvider {
+    pub fn new(region_dir: PathBuf) -> Self {
+        Self {
+            inner: RegionFileLoader::new(region_dir),
+        }
+    }
+}
+
+impl AnvilChunkProvider for FolderChunkProvider {
+    fn get_region(&mut self, region_x: i32, region_z: i32) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError> {
+        let region = self.inner.region(RCoord(region_x.try_into().unwrap()), RCoord(region_z.try_into().unwrap())).ok_or(ChunkLoadError::RegionNotFound { region_x, region_z })?;
+
+        Ok(Box::new(region.into_inner().unwrap()))
+    }
+
+    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<CompoundTag, ChunkLoadError> {
+        let RegionAndOffset {
+            region_x,
+            region_z,
+            region_chunk_x,
+            region_chunk_z,
+        } = RegionAndOffset::from_chunk(chunk_x, chunk_z);
+
+        let region_bytes = self.get_region(region_x, region_z)?;
+        let mut region = fastanvil::Region::from_stream(region_bytes).unwrap();
+        let chunk_bytes = region.read_chunk(region_chunk_x.into(), region_chunk_z.into()).unwrap().ok_or(ChunkLoadError::ChunkNotFound { chunk_x: region_chunk_x, chunk_z: region_chunk_z })?;
+        let chunk = read_compound_tag(&mut Cursor::new(chunk_bytes)).unwrap();
+
+        Ok(chunk)
+    }
+
+    fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError> {
+        let regions = self.list_regions()?;
+        let mut chunks = vec![];
+
+        for (region_x, region_z) in regions {
+            let region_bytes = self.get_region(region_x, region_z)?;
+            let mut region = fastanvil::Region::from_stream(region_bytes).unwrap();
+
+            for chunk_data in region.iter() {
+                let chunk_data = chunk_data.unwrap();
+                let coords = RegionAndOffset {
+                    region_x,
+                    region_z,
+                    region_chunk_x: u8::try_from(chunk_data.x).unwrap(),
+                    region_chunk_z: u8::try_from(chunk_data.z).unwrap(),
+                };
+                let (chunk_x, chunk_z) = coords.to_chunk_coords();
+                chunks.push((chunk_x, chunk_z));
+            }
+        }
+
+        Ok(chunks)
+    }
+
+    fn list_regions(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError> {
+        Ok(self.inner.list().unwrap().into_iter().map(|rcoords| (i32::try_from(rcoords.0.0).unwrap(), i32::try_from(rcoords.1.0).unwrap())).collect())
+    }
 }

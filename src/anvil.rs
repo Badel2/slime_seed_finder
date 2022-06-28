@@ -3,10 +3,6 @@
 //! Anvil is the name of the format used by Minecraft to store world files.
 //! It contains all the block data, entities, and biome info of each chunk.
 
-pub use anvil_region::AnvilChunkProvider;
-pub use anvil_region::FolderChunkProvider;
-pub use anvil_region::ZipChunkProvider;
-use anvil_region::ChunkLoadError;
 use fastanvil::Chunk;
 use nbt::CompoundTag;
 use zip::ZipArchive;
@@ -27,6 +23,10 @@ use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use crate::fastanvil_ext::Dimension;
 use crate::fastanvil_ext::region_for_each_chunk;
+use crate::fastanvil_ext::FolderChunkProvider;
+pub use crate::fastanvil_ext::ZipChunkProvider;
+use crate::fastanvil_ext::AnvilChunkProvider;
+use crate::fastanvil_ext::ChunkLoadError;
 use crate::zip_ext::find_file_in_zip_exactly_once;
 use std::io::Cursor;
 use std::io::Read;
@@ -112,7 +112,7 @@ pub fn best_river_chunk(river_chunks: &HashMap<(i32, i32), u8>) -> Option<(i32, 
 ///
 /// This is meant to be used together with river_seed_finder.
 pub fn get_rivers_and_some_extra_biomes_folder(input_dir: &Path, center_block_arg: Point) -> (Vec<Point>, Vec<(BiomeId, Point)>) {
-    let mut chunk_provider = FolderChunkProvider::new(input_dir.to_str().unwrap());
+    let mut chunk_provider = FolderChunkProvider::new(input_dir.to_owned());
 
     get_rivers_and_some_extra_biomes(&mut chunk_provider, center_block_arg)
 }
