@@ -336,7 +336,14 @@ impl AnvilChunkProvider for FolderChunkProvider {
 
         for (region_x, region_z) in regions {
             let region_bytes = self.get_region(region_x, region_z)?;
-            let mut region = fastanvil::Region::from_stream(region_bytes).unwrap();
+            let region = fastanvil::Region::from_stream(region_bytes);
+            let mut region = match region {
+                Ok(x) => x,
+                Err(e) => {
+                    log::warn!("Failed to read region {:?}: {:?}", (region_x, region_z), e);
+                    continue;
+                }
+            };
 
             for chunk_data in region.iter() {
                 let chunk_data = chunk_data.unwrap();
