@@ -18,7 +18,9 @@ use std::io::Seek;
 use std::path::PathBuf;
 use crate::strict_parse_int::strict_parse_i32;
 
-pub use crate::zip_chunk_provider::ZipChunkProvider;
+pub use zip_chunk_provider::ZipChunkProvider;
+
+mod zip_chunk_provider;
 
 /// A single dimesion of a minecraft world
 pub struct Dimension<S: Read + Seek> {
