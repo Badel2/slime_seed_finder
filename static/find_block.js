@@ -35,10 +35,17 @@ function findBlock() {
             centerZ = z | 0;
         }
         let chunkRadius = document.getElementById("search_radius").value | 0;
+        let searchAround = [
+            { x: centerX, y: centerY, z: centerZ },
+            chunkRadius,
+        ];
+        if (chunkRadius === 0) {
+            searchAround = null;
+        }
         let local_found_blocks = slime_seed_finder_web.find_blocks_in_world(
             region,
             blockName,
-            [{ x: centerX, y: centerY, z: centerZ }, chunkRadius]
+            searchAround
         );
         console.log("Found following blocks:");
         console.log(local_found_blocks);
