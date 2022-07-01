@@ -4,7 +4,9 @@
 //! It contains all the block data, entities, and biome info of each chunk.
 
 use fastanvil::Chunk;
-use nbt::CompoundTag;
+use crate::fastanvil_ext::CompoundTag;
+use crate::fastanvil_ext::CompoundTagError;
+use crate::fastanvil_ext::read_gzip_compound_tag;
 use zip::ZipArchive;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -36,7 +38,7 @@ use std::convert::TryInto;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
-pub fn read_area_around<A: AnvilChunkProvider>(chunk_provider: &mut A, area_size: u64, Point { x: block_x, z: block_z }: Point) -> Result<Vec<CompoundTag>, ChunkLoadError> {
+pub fn read_area_around<A: AnvilChunkProvider>(chunk_provider: &mut A, area_size: u64, Point { x: block_x, z: block_z }: Point) -> Result<Vec<Vec<u8>>, ChunkLoadError> {
     let mut r = vec![];
     let start_x = (block_x >> 4) as i32;
     let start_z = (block_z >> 4) as i32;
@@ -154,6 +156,7 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
         }
 
         for c in chunks {
+            let c = CompoundTag::from_bytes(&c).unwrap();
             let level_compound_tag = c.get_compound_tag("Level").unwrap();
             let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
             let chunk_z = level_compound_tag.get_i32("zPos").unwrap();
@@ -248,8 +251,9 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
         }
 
         for c in chunks {
-            let level_compound_tag = c.get_compound_tag("Level").unwrap();
+            let c = CompoundTag::from_bytes(&c).unwrap();
             let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();
+            let level_compound_tag = c.get_compound_tag("Level").unwrap();
 
             info!("biomes_array: {:?}", biomes_array);
             let chunk_x = level_compound_tag.get_i32("xPos").unwrap();
@@ -321,16 +325,15 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
 }
 
 /// Get all the biomes present in the chunk. For version >= 1.15 but < 1.18
-pub fn get_biomes_from_chunk_1_15(chunk: &CompoundTag) -> Result<&Vec<i32>, String> {
+pub fn get_biomes_from_chunk_1_15(chunk: &CompoundTag) -> Result<Vec<i32>, String> {
     let level_compound_tag = chunk.get_compound_tag("Level").unwrap();
     let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
-        Ok(x) => x,
-        Err(nbt::CompoundTagError::TagNotFound { .. }) => {
+        Ok(x) => x.to_vec(),
+        Err(CompoundTagError::TagNotFound) => {
             // Starting from 1.16, it is possible that the "Biomes" tag is missing from
             // chunks that are not fully generated yet. We simply ignore these chunks as if
             // they did not exist, by returning an empty list of biomes
-            const EMPTY_VEC: &'static Vec<i32> = &Vec::new();
-            return Ok(&EMPTY_VEC);
+            return Ok(vec![]);
         }
         Err(e) => panic!("Unknown format for biomes array: {:?}", e),
     };
@@ -349,13 +352,13 @@ pub fn get_biomes_from_chunk_1_15(chunk: &CompoundTag) -> Result<&Vec<i32>, Stri
 pub fn get_biomes_from_chunk_1_14(chunk: &CompoundTag) -> Result<Vec<i32>, String> {
     let level_compound_tag = chunk.get_compound_tag("Level").unwrap();
     let biomes_array = match level_compound_tag.get_i32_vec("Biomes") {
-        Ok(x) => x.clone(),
+        Ok(x) => x.to_vec(),
         Err(_e) => {
             match level_compound_tag.get_i8_vec("Biomes") {
                 Ok(x) => {
                     // Important: before 1.13 biomes was a byte array,
                     // i8 is wrong, u8 is correct
-                    x.into_iter().map(|byte| i32::from(*byte as u8)).collect()
+                    x.iter().map(|byte| i32::from(*byte as u8)).collect()
                 }
                 Err(e) => panic!("Unknown format for biomes array: {:?}", e),
             }
@@ -376,6 +379,7 @@ pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     for (chunk_x, chunk_z) in all_chunks {
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c).unwrap();
 
         let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();
 
@@ -488,6 +492,7 @@ pub fn get_biomes_from_area_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, 
             continue;
         }
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c).unwrap();
 
         let biomes_array = get_biomes_from_chunk_1_15(&c).unwrap();
 
@@ -598,6 +603,7 @@ pub fn get_all_biomes_1_14<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     for (chunk_x, chunk_z) in all_chunks {
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c).unwrap();
 
         let biomes_array = get_biomes_from_chunk_1_14(&c).unwrap();
 
@@ -690,7 +696,7 @@ pub fn read_seed_from_level_dat_zip(input_zip: &Path, minecraft_version: Option<
 ///
 /// root["Data"]["RandomSeed"]
 pub fn read_seed_from_level_dat_1_15<R: Read>(r: &mut R) -> Result<i64, String> {
-    let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
+    let root_tag = read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
     let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;
     let seed = data_tag.get_i64("RandomSeed").map_err(|e| format!("Failed to read {:?} tag: {:?}", "RandomSeed", e))?;
 
@@ -701,7 +707,7 @@ pub fn read_seed_from_level_dat_1_15<R: Read>(r: &mut R) -> Result<i64, String> 
 ///
 /// root["Data"]["WorldGenSettings"]["seed"]
 pub fn read_seed_from_level_dat_1_16<R: Read>(r: &mut R) -> Result<i64, String> {
-    let root_tag = nbt::decode::read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
+    let root_tag = read_gzip_compound_tag(r).map_err(|e| format!("Failed to read gzip compount tag: {:?}", e))?;
     let data_tag = root_tag.get_compound_tag("Data").map_err(|e| format!("Failed to read {:?} tag: {:?}", "Data", e))?;
     let world_gen_settings_tag = data_tag.get_compound_tag("WorldGenSettings").map_err(|e| format!("Failed to read {:?} tag: {:?}", "WorldGenSettings", e))?;
     let seed = world_gen_settings_tag.get_i64("seed").map_err(|e| format!("Failed to read {:?} tag: {:?}", "seed", e))?;
@@ -731,7 +737,8 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             log::debug!("{}/{} chunks processed, {} dungeons found", processed_chunks_count, total_chunks, dungeons.len());
         }
         processed_chunks_count += 1;
-        let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c_bytes = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c_bytes).unwrap();
         // Store all the errors
         let mut errs = vec![];
         let spawners = Result::<_, String>::Err(Default::default()).or_else(|_| {
@@ -768,16 +775,8 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             continue;
         }
 
-        // TODO: remove this hack:
         // Load this chunk and the 8 surrounding ones into dimension
-        // Because we use a different NBT library to read blocks, we serialize the chunk NBT tag
-        // using the named-binary-tag crate and deserialize it using the fastanvil crate
-        let mut buf = Cursor::new(vec![]);
-        nbt::encode::write_compound_tag(&mut buf, &c).expect("Serialization failed");
-
-        // To allow the reader to read...
-        buf.set_position(0);
-        overworld.add_chunk(chunk_x, chunk_z, &mut buf).expect("Failed to add chunk");
+        overworld.add_chunk(chunk_x, chunk_z, &mut Cursor::new(&c_bytes)).expect("Failed to add chunk");
 
         // Load 8 neighbors
         for (chunk_x, chunk_z) in eight_connected((chunk_x, chunk_z)) {
@@ -790,17 +789,8 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             if c.is_err() {
                 continue;
             }
-            let c = c.unwrap();
-
-            // TODO: remove this hack:
-            // Because we use a different NBT library to read blocks, we serialize the chunk NBT tag
-            // using the named-binary-tag crate and deserialize it using the fastanvil crate
-            let mut buf = Cursor::new(vec![]);
-            nbt::encode::write_compound_tag(&mut buf, &c).expect("Serialization failed");
-
-            // Set cursor position to 0 to allow the reader to read from the beginning
-            buf.set_position(0);
-            overworld.add_chunk(chunk_x, chunk_z, &mut buf).expect("Failed to add chunk neighbor");
+            let c_bytes = c.unwrap();
+            overworld.add_chunk(chunk_x, chunk_z, &mut Cursor::new(&c_bytes)).expect("Failed to add chunk neighbor");
         }
 
         for (x, y, z, kind) in more_dungeons {
@@ -867,6 +857,7 @@ pub fn find_spawners<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
         }
         processed_chunks_count += 1;
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c).unwrap();
 
         // Store all the errors
         let mut errs = vec![];

@@ -5,8 +5,6 @@ use fastanvil::Chunk;
 use fastanvil::RegionFileLoader;
 use fastanvil::RegionLoader;
 use fastanvil::RCoord;
-use nbt::CompoundTag;
-use nbt::decode::read_compound_tag;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -19,7 +17,11 @@ use std::path::PathBuf;
 use crate::strict_parse_int::strict_parse_i32;
 
 pub use zip_chunk_provider::ZipChunkProvider;
+pub use compound_tag::CompoundTagError;
+pub use compound_tag::CompoundTag;
+pub use compound_tag::read_gzip_compound_tag;
 
+mod compound_tag;
 mod zip_chunk_provider;
 
 /// A single dimesion of a minecraft world
@@ -292,7 +294,7 @@ impl<T: Read + Seek> ReadAndSeek for T {}
 
 pub trait AnvilChunkProvider {
     fn get_region(&mut self, region_x: i32, region_z: i32) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError>;
-    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<CompoundTag, ChunkLoadError>;
+    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError>;
     fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError>;
     fn list_regions(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError>;
 }
@@ -316,7 +318,7 @@ impl AnvilChunkProvider for FolderChunkProvider {
         Ok(Box::new(region.into_inner().unwrap()))
     }
 
-    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<CompoundTag, ChunkLoadError> {
+    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError> {
         let RegionAndOffset {
             region_x,
             region_z,
@@ -327,9 +329,8 @@ impl AnvilChunkProvider for FolderChunkProvider {
         let region_bytes = self.get_region(region_x, region_z)?;
         let mut region = fastanvil::Region::from_stream(region_bytes).unwrap();
         let chunk_bytes = region.read_chunk(region_chunk_x.into(), region_chunk_z.into()).unwrap().ok_or(ChunkLoadError::ChunkNotFound { chunk_x: region_chunk_x, chunk_z: region_chunk_z })?;
-        let chunk = read_compound_tag(&mut Cursor::new(chunk_bytes)).unwrap();
 
-        Ok(chunk)
+        Ok(chunk_bytes)
     }
 
     fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError> {

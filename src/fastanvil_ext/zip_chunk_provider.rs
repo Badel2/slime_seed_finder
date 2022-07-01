@@ -1,7 +1,5 @@
 use crate::fastanvil_ext::parse_region_file_name;
 use crate::fastanvil_ext::{AnvilChunkProvider, ChunkLoadError, ReadAndSeek, RegionAndOffset};
-use nbt::decode::read_compound_tag;
-use nbt::CompoundTag;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ffi::OsStr;
@@ -184,7 +182,7 @@ impl<R: Read + Seek> ZipChunkProvider<R> {
         &mut self,
         chunk_x: i32,
         chunk_z: i32,
-    ) -> Result<CompoundTag, ChunkLoadError> {
+    ) -> Result<Vec<u8>, ChunkLoadError> {
         let RegionAndOffset {
             region_x,
             region_z,
@@ -203,9 +201,8 @@ impl<R: Read + Seek> ZipChunkProvider<R> {
                 chunk_x: region_chunk_x,
                 chunk_z: region_chunk_z,
             })?;
-        let chunk = read_compound_tag(&mut Cursor::new(chunk_bytes)).unwrap();
 
-        Ok(chunk)
+        Ok(chunk_bytes)
     }
 
     pub fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError> {
@@ -266,7 +263,7 @@ impl<R: Read + Seek> AnvilChunkProvider for ZipChunkProvider<R> {
             Err(ChunkLoadError::RegionNotFound { region_x, region_z })
         }
     }
-    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<CompoundTag, ChunkLoadError> {
+    fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError> {
         self.load_chunk(chunk_x, chunk_z)
     }
     fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError> {

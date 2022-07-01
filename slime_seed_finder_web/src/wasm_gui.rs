@@ -53,14 +53,6 @@ pub struct GenerateRiversCandidate {
 }
 
 #[wasm_bindgen]
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AnvilOptions {
-    range: Option<(u32, u32)>,
-    version: String,
-}
-
-#[wasm_bindgen]
 pub fn slime_seed_finder(o: JsValue) -> String {
     let o: Options = match o.into_serde() {
         Ok(o) => o,

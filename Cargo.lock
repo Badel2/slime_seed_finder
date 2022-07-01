@@ -627,14 +627,12 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.0.20"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd3aec53de10fe96d7d8c565eb17f2c687bb5518a2ec453b5b1252964526abe0"
+checksum = "f82b0f4c27ad9f8bfd1f3208d882da2b09c301bc1c828fd3a00d0216d2fbbff6"
 dependencies = [
- "cfg-if",
  "crc32fast",
- "libc",
- "miniz_oxide 0.4.4",
+ "miniz_oxide 0.5.3",
 ]
 
 [[package]]
@@ -1211,14 +1209,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "named-binary-tag"
-version = "0.6.0"
+name = "miniz_oxide"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "523298fac63bd954f9a2e03b962b8a4a0e95110ad1b2fa3e0d7048660ffecec3"
+checksum = "6f5c75688da582b8ffc1f1799e9db273f32133c49e048f614d22ec3256773ccc"
 dependencies = [
- "byteorder",
- "flate2",
- "linked-hash-map",
+ "adler",
 ]
 
 [[package]]
@@ -2222,10 +2218,10 @@ version = "0.1.0"
 dependencies = [
  "fastanvil",
  "fastnbt 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "flate2",
  "image",
  "lazy_static",
  "log",
- "named-binary-tag",
  "ndarray",
  "num_cpus",
  "pretty_env_logger",
@@ -2254,7 +2250,6 @@ dependencies = [
  "image",
  "log",
  "minecraft_screenshot_parser",
- "named-binary-tag",
  "palette",
  "serde",
  "serde_json",
@@ -2272,7 +2267,6 @@ dependencies = [
  "log",
  "log4rs",
  "minecraft_screenshot_parser",
- "named-binary-tag",
  "node-bindgen",
  "palette",
  "serde",
