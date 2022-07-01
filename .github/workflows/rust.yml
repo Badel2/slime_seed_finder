@@ -41,7 +41,7 @@ jobs:
         uses: actions-rs/install@v0.1
         with:
           crate: nj-cli
-          version: latest
+          version: 0.4.1
 
       - name: Build node bindings
         run: ./ci/build_node_bindings.sh
@@ -90,7 +90,7 @@ jobs:
         uses: actions-rs/install@v0.1
         with:
           crate: nj-cli
-          version: latest
+          version: 0.4.1
 
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v1
