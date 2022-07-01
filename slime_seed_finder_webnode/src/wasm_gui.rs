@@ -1,12 +1,9 @@
-use palette::{Gradient, LinSrgb};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-//use stdweb::console;
-//use stdweb::serde::Serde;
-//use stdweb::web::TypedArray;
 use node_bindgen::core::buffer::{ArrayBuffer, JSArrayBuffer};
 use node_bindgen::core::NjError;
 use node_bindgen::derive::node_bindgen;
+use palette::{Gradient, LinSrgb};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_info::biome_name;
