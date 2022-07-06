@@ -38,6 +38,11 @@ fastnbt = "2"
 lazy_static = "1.4.0"
 flate2 = "1.0.24"
 
+# TODO: for some reason this patch section does not work when placed in
+# slime_seed_finder_web/Cargo.toml
+[patch.crates-io]
+wasm-bindgen = { git = "https://github.com/Badel2/wasm-bindgen" }
+
 [[bin]]
 name = "slime_seed_finder"
 path = "src/main.rs"
