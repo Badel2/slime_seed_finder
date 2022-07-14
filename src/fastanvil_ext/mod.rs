@@ -1,10 +1,11 @@
 //! Extra functionality for fastanvil crate
 //! Ideally this would be merged upstream
 
+use crate::strict_parse_int::strict_parse_i32;
 use fastanvil::Chunk;
+use fastanvil::RCoord;
 use fastanvil::RegionFileLoader;
 use fastanvil::RegionLoader;
-use fastanvil::RCoord;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::convert::TryInto;
@@ -14,12 +15,11 @@ use std::io::Cursor;
 use std::io::Read;
 use std::io::Seek;
 use std::path::PathBuf;
-use crate::strict_parse_int::strict_parse_i32;
 
-pub use zip_chunk_provider::ZipChunkProvider;
-pub use compound_tag::CompoundTagError;
-pub use compound_tag::CompoundTag;
 pub use compound_tag::read_gzip_compound_tag;
+pub use compound_tag::CompoundTag;
+pub use compound_tag::CompoundTagError;
+pub use zip_chunk_provider::ZipChunkProvider;
 
 mod compound_tag;
 mod zip_chunk_provider;
@@ -67,9 +67,14 @@ impl<S: Read + Seek> Dimension<S> {
     }
 
     pub fn from_chunks<I, R>(r: I) -> Result<Self, String>
-    where I: IntoIterator<Item = ((i32, i32), R)>, R: Read
+    where
+        I: IntoIterator<Item = ((i32, i32), R)>,
+        R: Read,
     {
-        let mut s = Self { regions: HashMap::new(), chunks: HashMap::new() };
+        let mut s = Self {
+            regions: HashMap::new(),
+            chunks: HashMap::new(),
+        };
 
         for ((chunk_x, chunk_z), mut reader) in r.into_iter() {
             s.add_chunk(chunk_x, chunk_z, &mut reader)?;
@@ -80,10 +85,15 @@ impl<S: Read + Seek> Dimension<S> {
 
     /// Deserialize this chunk and add it to this dimension
     pub fn add_chunk<R>(&mut self, chunk_x: i32, chunk_z: i32, reader: &mut R) -> Result<(), String>
-    where R: Read {
+    where
+        R: Read,
+    {
         let mut chunk_bytes = vec![];
-        reader.read_to_end(&mut chunk_bytes).expect("Failed to read");
-        let chunk = fastanvil::JavaChunk::from_bytes(&chunk_bytes).expect("Failed to deserialize chunk");
+        reader
+            .read_to_end(&mut chunk_bytes)
+            .expect("Failed to read");
+        let chunk =
+            fastanvil::JavaChunk::from_bytes(&chunk_bytes).expect("Failed to deserialize chunk");
         // Overwrite chunks that did already exist
         self.chunks.insert((chunk_x, chunk_z), chunk);
         // If the region did not exist, insert None to indicate that some chunks from this region
@@ -114,13 +124,21 @@ impl<S: Read + Seek> Dimension<S> {
             let region = self.regions.get_mut(&(region_x, region_z))?.as_mut()?;
             // TODO: second expect may not be an error? If chunk does not exist we can just write
             // an empty array?
-            let chunk_bytes = region.read_chunk(usize::from(region_chunk_x), usize::from(region_chunk_z)).expect("Failed to read chunk").expect("Chunk does not exist");
-            self.add_chunk(chunk_x, chunk_z, &mut Cursor::new(chunk_bytes)).expect("Failed to add chunk");
+            let chunk_bytes = region
+                .read_chunk(usize::from(region_chunk_x), usize::from(region_chunk_z))
+                .expect("Failed to read chunk")
+                .expect("Chunk does not exist");
+            self.add_chunk(chunk_x, chunk_z, &mut Cursor::new(chunk_bytes))
+                .expect("Failed to add chunk");
         }
 
         let chunk = self.chunks.get_mut(&(chunk_x, chunk_z)).unwrap();
 
-        chunk.block(usize::from(block_x), isize::try_from(y).unwrap(), usize::from(block_z))
+        chunk.block(
+            usize::from(block_x),
+            isize::try_from(y).unwrap(),
+            usize::from(block_z),
+        )
     }
 
     /// Iterate over all the chunks in this dimension. Iteration order is undefined.
@@ -171,8 +189,12 @@ fn find_all_region_mca(path: PathBuf) -> Result<Vec<(i32, i32)>, std::io::Error>
 }
 
 // Copy of fastanvil::Region::for_each_chunk that ignores errors
-pub fn region_for_each_chunk<S>(region: &mut fastanvil::Region<S>, mut f: impl FnMut(usize, usize, &Vec<u8>)) -> fastanvil::Result<()>
-where S: Seek + Read
+pub fn region_for_each_chunk<S>(
+    region: &mut fastanvil::Region<S>,
+    mut f: impl FnMut(usize, usize, &Vec<u8>),
+) -> fastanvil::Result<()>
+where
+    S: Seek + Read,
 {
     for chunk_data in region.iter() {
         match chunk_data {
@@ -218,7 +240,10 @@ impl RegionAndOffset {
     }
 
     pub fn to_chunk_coords(&self) -> (i32, i32) {
-        ((self.region_x << 5) + i32::from(self.region_chunk_x), (self.region_z << 5) + i32::from(self.region_chunk_z))
+        (
+            (self.region_x << 5) + i32::from(self.region_chunk_x),
+            (self.region_z << 5) + i32::from(self.region_chunk_z),
+        )
     }
 }
 
@@ -293,7 +318,11 @@ pub trait ReadAndSeek: Read + Seek {}
 impl<T: Read + Seek> ReadAndSeek for T {}
 
 pub trait AnvilChunkProvider {
-    fn get_region(&mut self, region_x: i32, region_z: i32) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError>;
+    fn get_region(
+        &mut self,
+        region_x: i32,
+        region_z: i32,
+    ) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError>;
     fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError>;
     fn list_chunks(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError>;
     fn list_regions(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError>;
@@ -312,8 +341,18 @@ impl FolderChunkProvider {
 }
 
 impl AnvilChunkProvider for FolderChunkProvider {
-    fn get_region(&mut self, region_x: i32, region_z: i32) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError> {
-        let region = self.inner.region(RCoord(region_x.try_into().unwrap()), RCoord(region_z.try_into().unwrap())).ok_or(ChunkLoadError::RegionNotFound { region_x, region_z })?;
+    fn get_region(
+        &mut self,
+        region_x: i32,
+        region_z: i32,
+    ) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError> {
+        let region = self
+            .inner
+            .region(
+                RCoord(region_x.try_into().unwrap()),
+                RCoord(region_z.try_into().unwrap()),
+            )
+            .ok_or(ChunkLoadError::RegionNotFound { region_x, region_z })?;
 
         Ok(Box::new(region.into_inner().unwrap()))
     }
@@ -328,7 +367,13 @@ impl AnvilChunkProvider for FolderChunkProvider {
 
         let region_bytes = self.get_region(region_x, region_z)?;
         let mut region = fastanvil::Region::from_stream(region_bytes).unwrap();
-        let chunk_bytes = region.read_chunk(region_chunk_x.into(), region_chunk_z.into()).unwrap().ok_or(ChunkLoadError::ChunkNotFound { chunk_x: region_chunk_x, chunk_z: region_chunk_z })?;
+        let chunk_bytes = region
+            .read_chunk(region_chunk_x.into(), region_chunk_z.into())
+            .unwrap()
+            .ok_or(ChunkLoadError::ChunkNotFound {
+                chunk_x: region_chunk_x,
+                chunk_z: region_chunk_z,
+            })?;
 
         Ok(chunk_bytes)
     }
@@ -365,6 +410,17 @@ impl AnvilChunkProvider for FolderChunkProvider {
     }
 
     fn list_regions(&mut self) -> Result<Vec<(i32, i32)>, ChunkLoadError> {
-        Ok(self.inner.list().unwrap().into_iter().map(|rcoords| (i32::try_from(rcoords.0.0).unwrap(), i32::try_from(rcoords.1.0).unwrap())).collect())
+        Ok(self
+            .inner
+            .list()
+            .unwrap()
+            .into_iter()
+            .map(|rcoords| {
+                (
+                    i32::try_from(rcoords.0 .0).unwrap(),
+                    i32::try_from(rcoords.1 .0).unwrap(),
+                )
+            })
+            .collect())
     }
 }

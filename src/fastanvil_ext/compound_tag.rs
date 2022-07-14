@@ -1,8 +1,8 @@
 //! `CompoundTag` type to ease transition from `named-binary-tag` to `fastnbt` crate.
-use flate2::read::GzDecoder;
-use std::io::Read;
-use std::collections::HashMap;
 use fastnbt::Value;
+use flate2::read::GzDecoder;
+use std::collections::HashMap;
+use std::io::Read;
 
 pub struct CompoundTag {
     m: HashMap<String, Value>,
@@ -119,4 +119,3 @@ pub fn read_gzip_compound_tag<R: Read>(reader: &mut R) -> Result<CompoundTag, Ta
 
     Ok(tag)
 }
-

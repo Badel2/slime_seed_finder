@@ -178,11 +178,7 @@ impl<R: Read + Seek> ZipChunkProvider<R> {
         Ok(())
     }
 
-    pub fn load_chunk(
-        &mut self,
-        chunk_x: i32,
-        chunk_z: i32,
-    ) -> Result<Vec<u8>, ChunkLoadError> {
+    pub fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError> {
         let RegionAndOffset {
             region_x,
             region_z,
