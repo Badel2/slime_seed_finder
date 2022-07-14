@@ -1,5 +1,7 @@
 use crate::fastanvil_ext::parse_region_file_name;
 use crate::fastanvil_ext::{AnvilChunkProvider, ChunkLoadError, ReadAndSeek, RegionAndOffset};
+use crate::weak_alloc::ArcRef;
+use crate::weak_alloc::WeakRef;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::ffi::OsStr;
@@ -20,7 +22,17 @@ pub struct ZipChunkProvider<R: Read + Seek> {
     region_prefix: String,
     // Cache (region_x, region_z) to uncompressed file, so each region file is
     // only uncompressed once
-    cache: HashMap<(i32, i32), Vec<u8>>,
+    cache: HashMap<(i32, i32), WeakRef<Vec<u8>>>,
+}
+
+// Workaround wrapper type because ArcRef<Vec<u8>> does not implement AsRef<[u8]>, which is needed
+// for Cursor::new
+struct CachedFile(ArcRef<Vec<u8>>);
+
+impl AsRef<[u8]> for CachedFile {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 #[derive(Debug)]
@@ -154,8 +166,15 @@ impl<R: Read + Seek> ZipChunkProvider<R> {
         &mut self,
         region_x: i32,
         region_z: i32,
-    ) -> Result<(), ChunkLoadError> {
-        if !self.cache.contains_key(&(region_x, region_z)) {
+    ) -> Result<ArcRef<Vec<u8>>, ChunkLoadError> {
+        let arc_ref = self
+            .cache
+            .get(&(region_x, region_z))
+            .and_then(|w| w.upgrade());
+
+        if let Some(arc_ref) = arc_ref {
+            Ok(arc_ref)
+        } else {
             let region_path = self.region_path(region_x, region_z);
 
             let mut region_file = match self.zip_archive.by_name(&region_path) {
@@ -172,10 +191,12 @@ impl<R: Read + Seek> ZipChunkProvider<R> {
             region_file.read_to_end(&mut buf)?;
 
             // Insert into cache
-            self.cache.insert((region_x, region_z), buf.clone());
-        };
+            let arc_ref = crate::weak_alloc::give_and_upgrade(buf);
+            self.cache
+                .insert((region_x, region_z), ArcRef::downgrade(&arc_ref));
 
-        Ok(())
+            Ok(arc_ref)
+        }
     }
 
     pub fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError> {
@@ -186,9 +207,9 @@ impl<R: Read + Seek> ZipChunkProvider<R> {
             region_chunk_z,
         } = RegionAndOffset::from_chunk(chunk_x, chunk_z);
 
-        self.load_region_into_cache(region_x, region_z)?;
+        let arc_ref = self.load_region_into_cache(region_x, region_z)?;
 
-        let buf = self.cache.get_mut(&(region_x, region_z)).unwrap();
+        let buf = &*arc_ref;
         let mut region = fastanvil::Region::from_stream(Cursor::new(buf)).unwrap();
         let chunk_bytes = region
             .read_chunk(region_chunk_x.into(), region_chunk_z.into())
@@ -251,13 +272,9 @@ impl<R: Read + Seek> AnvilChunkProvider for ZipChunkProvider<R> {
         region_x: i32,
         region_z: i32,
     ) -> Result<Box<dyn ReadAndSeek + '_>, ChunkLoadError> {
-        self.load_region_into_cache(region_x, region_z)?;
+        let arc_ref = self.load_region_into_cache(region_x, region_z)?;
 
-        if let Some(bytes) = self.cache.get(&(region_x, region_z)) {
-            Ok(Box::new(Cursor::new(bytes)))
-        } else {
-            Err(ChunkLoadError::RegionNotFound { region_x, region_z })
-        }
+        Ok(Box::new(Cursor::new(CachedFile(arc_ref))))
     }
     fn load_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Result<Vec<u8>, ChunkLoadError> {
         self.load_chunk(chunk_x, chunk_z)

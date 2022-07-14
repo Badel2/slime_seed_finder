@@ -37,6 +37,8 @@ fastanvil = { git = "https://github.com/Badel2/fastnbt", rev = "2d8951f0b96338de
 fastnbt = "2"
 lazy_static = "1.4.0"
 flate2 = "1.0.24"
+weak-alloc = "0.1"
+cfg-if = "1"
 
 # TODO: for some reason this patch section does not work when placed in
 # slime_seed_finder_web/Cargo.toml

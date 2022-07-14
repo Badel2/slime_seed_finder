@@ -1431,9 +1431,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7709cef83f0c1f58f666e746a08b21e0085f7440fa6a29cc194d68aac97a4225"
+checksum = "18a6dbe30758c9f83eb00cbea4ac95966305f5a7772f3f42ebfc7fc7eddbd8e1"
 
 [[package]]
 name = "opaque-debug"
@@ -2174,6 +2174,7 @@ checksum = "f173ac3d1a7e3b28003f40de0b5ce7fe2710f9b9dc3fc38664cebee46b3b6527"
 name = "slime_seed_finder"
 version = "0.1.0"
 dependencies = [
+ "cfg-if",
  "fastanvil",
  "fastnbt 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2",
@@ -2189,6 +2190,7 @@ dependencies = [
  "sha2",
  "spiral",
  "structopt",
+ "weak-alloc",
  "zip",
 ]
 
@@ -2660,6 +2662,25 @@ dependencies = [
  "log",
  "wasm-bindgen",
  "web-sys",
+]
+
+[[package]]
+name = "weak-alloc"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bb8893fa664e64f90d632d2913c8573a524c32f4a2e036c2b7164dc3628164d"
+dependencies = [
+ "once_cell",
+ "weak-list2",
+]
+
+[[package]]
+name = "weak-list2"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c016f8668b5f5994f9f68650201b08e5b9c3f95cd1e871f28f97a707ff89e34"
+dependencies = [
+ "once_cell",
 ]
 
 [[package]]

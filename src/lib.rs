@@ -30,5 +30,6 @@ pub mod spline;
 pub mod strict_parse_int;
 pub mod structures;
 pub mod voronoi;
+pub mod weak_alloc;
 pub mod xoroshiro128plusplus;
 pub mod zip_ext;
