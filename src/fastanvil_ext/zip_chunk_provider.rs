@@ -57,14 +57,15 @@ impl From<ZipError> for ZipProviderError {
 
 // Find the path of the region folder inside the zip archive.
 // For example: "region/", "world/region/" or "saves/world/region/"
-// Panics if no region folder is found
-// Panics if more than one folder is found
+// Returns error if no region folder is found
+// Returns error if more than one folder is found
 fn find_region_folder_path<R: Read + Seek>(
     zip_archive: &mut ZipArchive<R>,
     dimension: Option<&str>,
 ) -> Result<String, ZipProviderError> {
     let mut region_prefix = String::from("/");
     let mut found_region_count = 0;
+    let mut found_region_folder_depth = usize::MAX;
     for unsanitized_full_path in zip_archive.file_names() {
         // full_path may contain invalid directory names such as "../../../etc/passwd", but we will
         // not decompress this file so we don't care
@@ -73,23 +74,34 @@ fn find_region_folder_path<R: Read + Seek>(
         // we handle that case by returning a ".." filename
         let folder_name = full_path.file_name().unwrap_or(OsStr::new(".."));
         if folder_name == "region" {
-            if let Some(parent) = full_path.parent() {
-                let parent_file_name = parent.file_name().unwrap_or_default();
-                match dimension {
-                    Some(dimension) => {
+            match dimension {
+                Some(dimension) => {
+                    if let Some(parent) = full_path.parent() {
+                        let parent_file_name = parent.file_name().unwrap_or_default();
                         if parent_file_name != dimension {
                             continue;
                         }
+                    } else {
+                        // No parent folder means that the parent folder cannot be "DIM1"
+                        continue;
                     }
-                    None => {
-                        if parent_file_name
-                            .to_str()
-                            .unwrap_or_default()
-                            .starts_with("DIM")
-                        {
-                            // Skip nether and end regions
-                            continue;
-                        }
+                }
+                None => {
+                    // If no dimension is provided we will try to find the overworld.
+                    // This dimension is special because it is not inside a "DIM1" or "DIM-1"
+                    // folder, instead it is at the same level as these other folders.
+                    // So the algorithm to find the overworld is: the "region" folder with
+                    // minimum folder depth. If there is more than one match at the end of the
+                    // process, this function will return an error.
+                    let depth = full_path.iter().count();
+                    if depth < found_region_folder_depth {
+                        // Found region folder at a lower depth that the best match, reset
+                        // number of matches
+                        found_region_count = 0;
+                        found_region_folder_depth = depth;
+                    } else if depth > found_region_folder_depth {
+                        // Skip region folders that are "deeper" than the current match
+                        continue;
                     }
                 }
             }
