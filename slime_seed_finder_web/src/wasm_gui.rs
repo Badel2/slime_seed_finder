@@ -2,6 +2,7 @@ use log::*;
 use palette::{Gradient, LinSrgb};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_file_reader::WebSysFile;
 
 use slime_seed_finder::biome_info::biome_id;
 use slime_seed_finder::biome_info::biome_name;
@@ -618,11 +619,14 @@ pub fn treasure_map_seed_finder(o: String) -> Vec<JsValue> {
 }
 
 #[wasm_bindgen]
-pub fn anvil_region_to_river_seed_finder(zipped_world: &[u8], is_minecraft_1_15: bool) -> String {
+pub fn anvil_region_to_river_seed_finder(
+    zip_file: web_sys::File,
+    is_minecraft_1_15: bool,
+) -> String {
     use slime_seed_finder::anvil::ZipChunkProvider;
-    use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut zip_chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
+    let wf = WebSysFile::new(zip_file);
+    let mut zip_chunk_provider = ZipChunkProvider::new(wf).unwrap();
     let center_block = Point { x: 0, z: 0 };
     let s = if is_minecraft_1_15 {
         let (rivers, _extra_biomes) =
@@ -738,11 +742,11 @@ pub struct FoundDungeon {
 
 #[wasm_bindgen]
 /// Returns `Vec<FoundDungeon>`
-pub fn read_dungeons(zipped_world: &[u8]) -> Vec<JsValue> {
+pub fn read_dungeons(zip_file: web_sys::File) -> Vec<JsValue> {
     use slime_seed_finder::anvil::ZipChunkProvider;
-    use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
+    let wf = WebSysFile::new(zip_file);
+    let mut chunk_provider = ZipChunkProvider::new(wf).unwrap();
     let dungeons = anvil::find_dungeons(&mut chunk_provider).unwrap();
     // Convert DungeonKind to string in order to serialize it
     let dungeons: Vec<_> = dungeons
@@ -764,7 +768,7 @@ pub fn read_dungeons(zipped_world: &[u8]) -> Vec<JsValue> {
 #[wasm_bindgen]
 /// Returns `Vec<Position>`
 pub fn find_blocks_in_world(
-    zipped_world: &[u8],
+    zip_file: web_sys::File,
     block_name: &str,
     center_position_and_chunk_radius: JsValue,
 ) -> Vec<JsValue> {
@@ -777,9 +781,9 @@ pub fn find_blocks_in_world(
             }
         };
     use slime_seed_finder::anvil::ZipChunkProvider;
-    use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
+    let wf = WebSysFile::new(zip_file);
+    let mut chunk_provider = ZipChunkProvider::new(wf).unwrap();
     let blocks = anvil::find_blocks_in_world(
         &mut chunk_provider,
         block_name,
@@ -836,7 +840,7 @@ pub struct FindMultiDungeonsOutput {
 
 #[wasm_bindgen]
 /// Returns `Vec<FindMultiDungeonsOutput>`
-pub fn find_spawners_in_world(zipped_world: &[u8], params: JsValue) -> Vec<JsValue> {
+pub fn find_spawners_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsValue> {
     let params: FindMultiDungeonsParams = match params.into_serde() {
         Ok(x) => x,
         Err(e) => {
@@ -846,13 +850,10 @@ pub fn find_spawners_in_world(zipped_world: &[u8], params: JsValue) -> Vec<JsVal
         }
     };
     use slime_seed_finder::anvil::ZipChunkProvider;
-    use std::io::Cursor;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut chunk_provider = ZipChunkProvider::new_with_dimension(
-        Cursor::new(zipped_world),
-        params.dimension.as_deref(),
-    )
-    .unwrap();
+    let wf = WebSysFile::new(zip_file);
+    let mut chunk_provider =
+        ZipChunkProvider::new_with_dimension(wf, params.dimension.as_deref()).unwrap();
     let blocks = anvil::find_spawners_in_world(
         &mut chunk_provider,
         params
@@ -903,7 +904,7 @@ pub struct NbtSearchResult {
 
 #[wasm_bindgen]
 /// Returns `Vec<NbtSearchResult>`
-pub fn nbt_search(_zipped_world: &[u8], _block_name: &str) -> Vec<JsValue> {
+pub fn nbt_search(_zip_file: web_sys::File, _block_name: &str) -> Vec<JsValue> {
     unimplemented!("nbt search not supported yet")
 }
 
@@ -945,7 +946,7 @@ pub fn get_biome_id_to_biome_name_map() -> JsValue {
 
 #[wasm_bindgen]
 pub fn read_fragment_biome_map(
-    zipped_world: &[u8],
+    zip_file: web_sys::File,
     version_str: String,
     fx: i32,
     fy: i32,
@@ -953,7 +954,6 @@ pub fn read_fragment_biome_map(
     y_offset: u32,
 ) -> Vec<u8> {
     use slime_seed_finder::anvil::ZipChunkProvider;
-    use std::io::Cursor;
     let version: MinecraftVersion = match version_str.parse() {
         Ok(s) => s,
         Err(e) => {
@@ -963,7 +963,8 @@ pub fn read_fragment_biome_map(
         }
     };
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
-    let mut zip_chunk_provider = ZipChunkProvider::new(Cursor::new(zipped_world)).unwrap();
+    let wf = WebSysFile::new(zip_file);
+    let mut zip_chunk_provider = ZipChunkProvider::new(wf).unwrap();
 
     let frag_size = frag_size as u64;
     let area = Area {

@@ -1,14 +1,9 @@
+let region = null;
 document.getElementById("filepicker").addEventListener(
     "change",
     function() {
-        let reader = new FileReader();
-        reader.onload = function() {
-            let arrayBuffer = this.result;
-            let array = new Uint8Array(arrayBuffer);
-            region = array;
-            console.log("Loaded region file. Size:", array.length);
-        };
-        reader.readAsArrayBuffer(this.files[0]);
+        region = this.files[0];
+        console.log("Loaded region file. Size:", region.size);
     },
     false
 );
@@ -36,8 +31,8 @@ function fitToContainer(canvas) {
 let l42AreaC = null;
 let foundSeeds = [];
 let workers = [];
+let mainWorker = null;
 let selection_history = [];
-let region = [];
 
 function runWorkers(numWorkers, seedInfo) {
     foundSeeds = [];
@@ -96,14 +91,18 @@ function runGui() {
     let seltextarea = document.getElementById("selection_output");
     if (window.Worker) {
         let maxWorkers = navigator.hardwareConcurrency || 4;
-        Rust.slime_seed_finder_web.then(function(slime_seed_finder_web) {
-            let isThis115 =
-                document.getElementById("minecraftPlayVersion").value == "1.15";
-            let seedInfo_str = slime_seed_finder_web.anvil_region_to_river_seed_finder(
-                region,
-                isThis115
-            );
-            console.log("Got seedInfo from wasm:");
+        if (mainWorker === null) {
+            mainWorker = new Worker("rivers_worker.js");
+        }
+        let isThis115 =
+            document.getElementById("minecraftPlayVersion").value == "1.15";
+        mainWorker.postMessage({
+            command: "anvil_region_to_river_seed_finder",
+            args: [region, isThis115],
+        });
+        mainWorker.onmessage = function(e) {
+            let seedInfo_str = e.data;
+            console.log("Got seedInfo from main worker:");
             console.log(seedInfo_str);
             let seedInfo = JSON.parse(seedInfo_str);
             seedInfo.version = document.getElementById(
@@ -115,7 +114,7 @@ function runGui() {
                 ).value;
             }
             runWorkers(maxWorkers, seedInfo);
-        });
+        };
     } else {
         alert("Version without webworkers not implemented");
     }

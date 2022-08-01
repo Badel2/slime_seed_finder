@@ -103,18 +103,10 @@
             document.getElementById("filepicker").addEventListener(
                 "change",
                 function() {
-                    let reader = new FileReader();
-                    reader.onload = function() {
-                        let arrayBuffer = this.result;
-                        let array = new Uint8Array(arrayBuffer);
-                        region = array;
-                        console.log("Loaded region file. Size:", array.length);
-                        let y_offset_input = document.getElementById(
-                            "y_offset"
-                        );
-                        Game.clear("y=" + (y_offset_input.value | 0));
-                    };
-                    reader.readAsArrayBuffer(this.files[0]);
+                    region = this.files[0];
+                    console.log("Loaded region file. Size:", region.size);
+                    let y_offset_input = document.getElementById("y_offset");
+                    Game.clear("y=" + (y_offset_input.value | 0));
                 },
                 false
             );
@@ -532,11 +524,7 @@
 
             // Wrapper class
             function Wrapper() {
-                //this.maxWorkers = navigator.hardwareConcurrency || 4;
-                // TODO: currently, the zipped world is copied into each worker
-                // This (or something related) results in very high RAM usage
-                // As a workaround, we set the max num of workers to 1 until it is fixed
-                this.maxWorkers = 1;
+                this.maxWorkers = navigator.hardwareConcurrency || 4;
                 console.log("Creating " + this.maxWorkers + " workers");
                 this.workers = Array(this.maxWorkers);
                 for (let i = 0; i < this.maxWorkers; i++) {

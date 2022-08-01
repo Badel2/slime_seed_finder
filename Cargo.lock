@@ -1037,9 +1037,9 @@ dependencies = [
 
 [[package]]
 name = "js-sys"
-version = "0.3.51"
+version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83bdfbace3a0e81a4253f73b49e960b053e396a11012cbd49b9b74d6a2b67062"
+checksum = "c3fac17f7123a73ca62df411b1bf727ccc805daa070338fda671c86dac1bdc27"
 dependencies = [
  "wasm-bindgen",
 ]
@@ -2215,7 +2215,9 @@ dependencies = [
  "serde_json",
  "slime_seed_finder",
  "wasm-bindgen",
+ "wasm-bindgen-file-reader",
  "wasm-logger",
+ "web-sys",
  "zip",
 ]
 
@@ -2616,6 +2618,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-bindgen-file-reader"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4607ab74f2efda80aa1b2944b9ad6225ca2ab57c39ae0b8bef5c00ef65bc0f54"
+dependencies = [
+ "js-sys",
+ "web-sys",
+]
+
+[[package]]
 name = "wasm-bindgen-futures"
 version = "0.4.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2685,9 +2697,9 @@ dependencies = [
 
 [[package]]
 name = "web-sys"
-version = "0.3.51"
+version = "0.3.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e828417b379f3df7111d3a2a9e5753706cae29c41f7c4029ee9fd77f3e09e582"
+checksum = "2fed94beee57daf8dd7d51f2b15dc2bcde92d7a72304cdf662a4371008b71b90"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
