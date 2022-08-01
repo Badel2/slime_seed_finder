@@ -36,6 +36,8 @@ function findBlock() {
     if (dimension == "DIM0") {
         dimension = null;
     }
+    let ignoreCaveSpiders = document.getElementById("ignore_cave_spiders")
+        .checked;
     mainWorker.postMessage({
         command: "find_spawners_in_world",
         args: [
@@ -53,34 +55,66 @@ function findBlock() {
         let local_found_blocks = e.data;
         console.log("Found following blocks:");
         console.log(local_found_blocks);
-        let outputTextarea = document.getElementById("output_textarea");
-        outputTextarea.value = stringify(local_found_blocks, { maxLength: 20 });
-        document.getElementById(
-            "how_many_found"
-        ).innerHTML = `Found ${local_found_blocks.length} multi-spawners in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
-
-        let dungeon_list = document.getElementById("dungeon_list");
-        dungeon_list.innerHTML = "";
-        for (let i = 0; i < local_found_blocks.length; i++) {
-            let dungeon = local_found_blocks[i];
-            let newDiv = document.createElement("div");
-            newDiv.id = `dungeonCard${i}`;
-            newDiv.className = "smallCard";
-            newDiv.innerHTML += `${dungeon.spawners.length} spawners active at ${dungeon.optimalPosition.x}, ${dungeon.optimalPosition.y}, ${dungeon.optimalPosition.z}<br>`;
-            for (let j = 0; j < dungeon.spawners.length; j++) {
-                let spawner = dungeon.spawners[j];
-                let newNestedDiv = document.createElement("div");
-                newNestedDiv.id = `dungeonCard${i}-${j}`;
-                newNestedDiv.className = "smallerCard";
-                newNestedDiv.innerHTML += `${spawner.position.x}, ${spawner.position.y}, ${spawner.position.z}: ${spawner.kind}`;
-                newDiv.appendChild(newNestedDiv);
-            }
-            dungeon_list.appendChild(newDiv);
-            //dungeon_list.innerHTML += `<div id='dungeonCard${i}' class='smallCard' onClick='selectDungeon(${i})'>${JSON.stringify(
-            //    dungeon.position
-            //)}<br>${dungeon.kind}</div>`;
-        }
+        updateList(local_found_blocks, {
+            chunkRadius,
+            dimension,
+            centerX,
+            centerY,
+            centerZ,
+            ignoreCaveSpiders,
+        });
     };
+}
+
+function updateList(
+    local_found_blocks,
+    { chunkRadius, dimension, centerX, centerY, centerZ, ignoreCaveSpiders }
+) {
+    let outputTextarea = document.getElementById("output_textarea");
+    outputTextarea.value = stringify(local_found_blocks, { maxLength: 20 });
+    if (ignoreCaveSpiders) {
+        local_found_blocks = local_found_blocks.flatMap(function(dungeon) {
+            dungeon.spawners = dungeon.spawners.flatMap(function(spawner) {
+                if (spawner.kind === "minecraft:cave_spider") {
+                    return [];
+                } else {
+                    return [spawner];
+                }
+            });
+
+            if (dungeon.spawners.length < 2) {
+                // 1 spawner is not a multi-spawner
+                return [];
+            } else {
+                return [dungeon];
+            }
+        });
+    }
+    document.getElementById(
+        "how_many_found"
+    ).innerHTML = `Found ${local_found_blocks.length} multi-spawners in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+
+    let dungeon_list = document.getElementById("dungeon_list");
+    dungeon_list.innerHTML = "";
+    for (let i = 0; i < local_found_blocks.length; i++) {
+        let dungeon = local_found_blocks[i];
+        let newDiv = document.createElement("div");
+        newDiv.id = `dungeonCard${i}`;
+        newDiv.className = "smallCard";
+        newDiv.innerHTML += `${dungeon.spawners.length} spawners active at ${dungeon.optimalPosition.x}, ${dungeon.optimalPosition.y}, ${dungeon.optimalPosition.z}<br>`;
+        for (let j = 0; j < dungeon.spawners.length; j++) {
+            let spawner = dungeon.spawners[j];
+            let newNestedDiv = document.createElement("div");
+            newNestedDiv.id = `dungeonCard${i}-${j}`;
+            newNestedDiv.className = "smallerCard";
+            newNestedDiv.innerHTML += `${spawner.position.x}, ${spawner.position.y}, ${spawner.position.z}: ${spawner.kind}`;
+            newDiv.appendChild(newNestedDiv);
+        }
+        dungeon_list.appendChild(newDiv);
+        //dungeon_list.innerHTML += `<div id='dungeonCard${i}' class='smallCard' onClick='selectDungeon(${i})'>${JSON.stringify(
+        //    dungeon.position
+        //)}<br>${dungeon.kind}</div>`;
+    }
 }
 
 // https://stackoverflow.com/a/16779396
