@@ -1,4 +1,11 @@
 let region = null;
+// TODO: there is a strange bug in the filepicker in Firefox 103.0 (64-bit) but
+// not in Firefox 91.6.0esr (64-bit). To reproduce, drag a file to the file
+// input and try to read it. Reading the file works fine from the main thread,
+// but it fails with exception NS_ERROR_FILE_NOT_FOUND when that file is read
+// from a worker thread. There doesn't seem to be any difference in the file
+// object, but dropping files uses a different browser API so it may be a
+// security feature?
 document.getElementById("filepicker").addEventListener(
     "change",
     function() {
