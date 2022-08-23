@@ -51,6 +51,7 @@ path = "src/main.rs"
 required-features = ["base_main"]
 
 [workspace]
+resolver = "2"
 members = [
     "slime_seed_finder_c",
     "slime_seed_finder_web",
