@@ -2,7 +2,9 @@
 name = "slime_seed_finder"
 version = "0.1.0"
 authors = ["Badel2 <2badel2@gmail.com>"]
+license = "GPL-3.0"
 edition = "2021"
+
 [package.metadata]
 # Disable wasm-opt because it not works with cargo wasi
 # https://github.com/bytecodealliance/cargo-wasi/issues/49
@@ -30,7 +32,7 @@ serde_json = { version = "1.0.64", optional = false }
 ndarray = "0.15.3"
 rand = { version = "0.8.4", optional = true }
 pretty_env_logger = "0.4.0"
-sha2 = "0.9.5"
+sha2 = "0.10.2"
 zip = { version = "0.6.2", default-features = false, features = ["deflate"] }
 fastanvil = { git = "https://github.com/Badel2/fastnbt", rev = "2d8951f0b96338deda6fd62fab07d800be65aa85" }
 #fastanvil = "0.26"
