@@ -1,3 +1,4 @@
+#![warn(unsafe_op_in_unsafe_fn)]
 use slime_seed_finder::anvil;
 use slime_seed_finder::biome_layers;
 use slime_seed_finder::biome_layers::Area3D;
@@ -40,14 +41,17 @@ where
 /// modified in any way.
 #[no_mangle]
 pub unsafe extern "C" fn free_error_msg(err: *mut c_char) {
-    if err != ptr::null_mut() {
-        let c_string = CString::from_raw(err);
+    if !err.is_null() {
+        let c_string = unsafe { CString::from_raw(err) };
         mem::drop(c_string);
     }
 }
 
+/// # Safety
+///
+/// The input pointers must be valid.
 #[no_mangle]
-pub extern "C" fn read_seed_from_mc_world(
+pub unsafe extern "C" fn read_seed_from_mc_world(
     input_zip_path: *const c_char,
     mc_version: *const c_char,
     seed: *mut i64,
@@ -103,16 +107,19 @@ pub struct Map3D {
 /// same as when this `Map3D` was initialized.
 #[no_mangle]
 pub unsafe extern "C" fn free_map(map: Map3D) {
-    if map.a != ptr::null_mut() {
+    if !map.a.is_null() {
         let ptr = map.a;
         let len = (map.sx * map.sy * map.sz) as usize;
-        let boxed_slice = Box::from_raw(slice::from_raw_parts_mut(ptr, len));
+        let boxed_slice = unsafe { Box::from_raw(slice::from_raw_parts_mut(ptr, len)) };
         mem::drop(boxed_slice);
     }
 }
 
+/// # Safety
+///
+/// The input pointers must be valid.
 #[no_mangle]
-pub extern "C" fn read_biome_map_from_mc_world(
+pub unsafe extern "C" fn read_biome_map_from_mc_world(
     input_zip_path: *const c_char,
     mc_version: *const c_char,
     biome_map: *mut Map3D,
@@ -228,9 +235,12 @@ pub extern "C" fn read_biome_map_from_mc_world(
     ptr::null_mut()
 }
 
+/// # Safety
+///
+/// The input pointers must be valid.
 #[cfg(feature = "image")]
 #[no_mangle]
-pub extern "C" fn draw_map3d_image_to_file(
+pub unsafe extern "C" fn draw_map3d_image_to_file(
     biome_map: *const Map3D,
     output_file_path: *const c_char,
 ) -> *mut c_char {

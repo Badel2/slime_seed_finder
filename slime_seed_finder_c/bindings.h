@@ -21,6 +21,11 @@ typedef struct Map3D {
  */
 void free_error_msg(char *err);
 
+/**
+ * # Safety
+ *
+ * The input pointers must be valid.
+ */
 char *read_seed_from_mc_world(const char *input_zip_path, const char *mc_version, int64_t *seed);
 
 /**
@@ -32,8 +37,18 @@ char *read_seed_from_mc_world(const char *input_zip_path, const char *mc_version
  */
 void free_map(struct Map3D map);
 
+/**
+ * # Safety
+ *
+ * The input pointers must be valid.
+ */
 char *read_biome_map_from_mc_world(const char *input_zip_path,
                                    const char *mc_version,
                                    struct Map3D *biome_map);
 
+/**
+ * # Safety
+ *
+ * The input pointers must be valid.
+ */
 char *draw_map3d_image_to_file(const struct Map3D *biome_map, const char *output_file_path);
