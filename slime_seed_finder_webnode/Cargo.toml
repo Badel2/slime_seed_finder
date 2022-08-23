@@ -22,4 +22,4 @@ node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382d
 log4rs = "1"
 
 [build-dependencies]
-node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382ddfa4bf0d82a8103aaa4659aec79c825010", features = ["build"] }
+node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382ddfa4bf0d82a8103aaa4659aec79c825010", default-features = false, features = ["build"] }
