@@ -18,8 +18,8 @@ palette = "0.6.0"
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = "1.0.64"
 zip = { version = "0.6.2", default-features = false }
-node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c", features = ["serde-json"] }
+node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382ddfa4bf0d82a8103aaa4659aec79c825010", features = ["serde-json"] }
 log4rs = "1"
 
 [build-dependencies]
-node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "3e7a2c9d5819b641cdbe0bdc66d3b7598e5ad71c", features = ["build"] }
+node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382ddfa4bf0d82a8103aaa4659aec79c825010", features = ["build"] }

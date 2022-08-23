@@ -4,8 +4,8 @@ const { Builder, By, until } = require("selenium-webdriver");
 const { suite } = require("selenium-webdriver/testing");
 const firefox = require("selenium-webdriver/firefox");
 
-const APP_URL = "http://127.0.0.1:8000/slime.html";
-//const APP_URL = 'https://badel2.github.io/slime_seed_finder/index.html'
+//const APP_URL = "http://127.0.0.1:8000/slime.html";
+const APP_URL = 'https://badel2.github.io/slime_seed_finder/slime.html'
 
 suite(function(env) {
     describe("Slime Seed Finder slime.html", function() {
