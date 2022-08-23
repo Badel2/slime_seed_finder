@@ -1,3 +1,4 @@
+use clap::StructOpt;
 use log::*;
 #[cfg(feature = "rand")]
 use rand::{thread_rng, Rng as _};
@@ -31,7 +32,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
-use structopt::StructOpt;
 
 // This is needed because the getrandom crate uses a different version of wasi
 // https://github.com/bytecodealliance/wasi/issues/37
@@ -53,153 +53,153 @@ mod wasm_rand {
 }
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "slime_seed_finder", rename_all = "kebab-case")]
+#[clap(name = "slime_seed_finder", rename_all = "kebab-case")]
 enum Opt {
     /// Generate a SeedInfo.
     /// Used for testing.
-    #[structopt(name = "generate")]
+    #[clap(name = "generate")]
     Generate {
         /// The seed for which to generate the SeedInfo.
         /// To avoid problems with negative seeds, use the following syntax:
         /// -s=-1234 or --seed=-1234
         /// If left blank, will generate a random seed and print it on stderr.
-        #[structopt(short = "s", long)]
+        #[clap(short = 's', long)]
         seed: Option<i64>,
         /// When creating a Minecraft world, if the seed field is left blank,
         /// the seed will be generated randomly using (new Random()).nextLong(),
         /// which uses only 48 bits of entropy. With this flag, 64 bits of
         /// entropy will be used, allowing to explore the complete seed space.
-        #[structopt(long, conflicts_with = "seed")]
+        #[clap(long, conflicts_with = "seed")]
         seed_not_from_java_next_long: bool,
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         num_slime_chunks: usize,
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         num_non_slime_chunks: usize,
         /// Output file. If unspecified, defaults to stdout so the output of
         /// this program can be saved into a file.
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Add biome information to generated SeedInfo.
         /// This option controls the size of the map. The top-left corner of
         /// the map will be 0,0 unless changed by using the biome_map_x and
         /// biome_map_z options.
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         biome_map_size: u64,
         /// Lowest x coordinate in the biome map.
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         biome_map_x: i64,
         /// Lowest z coordinate in the biome map.
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         biome_map_z: i64,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
     },
 
-    #[structopt(name = "interactive")]
+    #[clap(name = "interactive")]
     Interactive {
         /// File containing the SeedInfo
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_file: Option<PathBuf>,
     },
 
     /// Use slime chunks to find the seed. In the future this will use a
     /// combination of all the methods, but not yet.
-    #[structopt(name = "find")]
+    #[clap(name = "find")]
     Find {
         /// File containing the SeedInfo
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_file: PathBuf,
         /// File containing a JSON array of all the candidate seeds: so instead
         /// of bruteforcing all the possible seeds we only try the ones from
         /// this file.
-        #[structopt(long, parse(from_os_str))]
+        #[clap(long, parse(from_os_str))]
         candidate_seeds: Option<PathBuf>,
         /// Where to write the found seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
 
     /// Use rivers and biomes to find the seed
-    #[structopt(name = "rivers")]
+    #[clap(name = "rivers")]
     Rivers {
         /// File containing the SeedInfo
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_file: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
 
     /// Use rivers from an unexplored treasure map to find the seed
-    #[structopt(name = "treasure-rivers")]
+    #[clap(name = "treasure-rivers")]
     TreasureRivers {
         /// File containing the SeedInfo
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_file: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
 
-    #[structopt(name = "extend48")]
+    #[clap(name = "extend48")]
     Extend48 {
         /// File containing the list of 48-bit seeds as a JSON array
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_file: PathBuf,
         /// Where to write the extended seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
 
     /// Generate a biome map
-    #[structopt(name = "rendermap")]
+    #[clap(name = "rendermap")]
     RenderMap {
         /// The seed for which to generate the biome map.
         /// To avoid problems with negative seeds, use the following syntax:
         /// -s=-1234 or --seed=-1234
-        #[structopt(short = "s", long)]
+        #[clap(short = 's', long)]
         seed: i64,
         /// x position of the top-left coordinate of the map.
         /// To avoid problems with negative coordinates, use the following
         /// syntax: -x=-2
-        #[structopt(short = "x", default_value = "0")]
+        #[clap(short = 'x', default_value = "0")]
         x: i64,
         /// y level to map.
         /// Ignored in versions before 1.18, defaults to 64 (sea level).
-        #[structopt(short = "y", default_value = "64")]
+        #[clap(short = 'y', default_value = "64")]
         y: i64,
         /// z position of the top-left coordinate of the map
-        #[structopt(short = "z", default_value = "0")]
+        #[clap(short = 'z', default_value = "0")]
         z: i64,
         /// width
-        #[structopt(short = "w", long, default_value = "1024")]
+        #[clap(short = 'w', long, default_value = "1024")]
         width: u32,
         /// height
-        #[structopt(short = "h", long, default_value = "640")]
+        #[clap(short = 'h', long, default_value = "640")]
         height: u32,
         /// Output filename. Defaults to biome_map_<seed>_x_z_wxh.png.
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
         /// The last layer to generate. Defaults to the latest one (full
         /// resolution biome map).
-        #[structopt(long)]
+        #[clap(long)]
         last_layer: Option<u32>,
     },
 
     /// Generate an unexplored treasure map, but without the treasure marker.
-    #[structopt(name = "treasure")]
+    #[clap(name = "treasure")]
     Treasure {
         /// The seed for which to generate the treasure map.
         /// To avoid problems with negative seeds, use the following syntax:
         /// -s=-1234 or --seed=-1234
-        #[structopt(short = "s", long)]
+        #[clap(short = 's', long)]
         seed: i64,
         /// x position of the map as "fragment" coordinate.
         /// The formula to convert between fragment coordinates and
@@ -207,95 +207,95 @@ enum Opt {
         /// x = fragment_x * 256 - 64
         /// To avoid problems with negative coordinates, use the following
         /// syntax: -x=-2 or --fragment-x=-2
-        #[structopt(short = "x", long)]
+        #[clap(short = 'x', long)]
         fragment_x: i64,
         /// z position of the map as "fragment" coordinate.
-        #[structopt(short = "z", long)]
+        #[clap(short = 'z', long)]
         fragment_z: i64,
         /// Output filename. Defaults to treasure_map_<seed>_x_z.png.
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
     },
 
     /// Read a minecraft region file and try to find its seed
-    #[structopt(name = "anvil")]
+    #[clap(name = "anvil")]
     Anvil {
         /// Path to "minecraft_saved_world/region"
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_dir: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Number of threads to use. By default, same as number of CPUs
-        #[structopt(short = "j", long, default_value = "0")]
+        #[clap(short = 'j', long, default_value = "0")]
         threads: usize,
         /// Center x coordinate around which to look for rivers
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         center_x: i64,
         /// Center z coordinate around which to look for rivers
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         center_z: i64,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
     },
 
     /// Read a minecraft region file and try to find its seed
-    #[structopt(name = "anvil-zip")]
+    #[clap(name = "anvil-zip")]
     AnvilZip {
         /// Path to "minecraft_saved_world.zip"
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_zip: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
         /// Number of threads to use. By default, same as number of CPUs
-        #[structopt(short = "j", long, default_value = "0")]
+        #[clap(short = 'j', long, default_value = "0")]
         threads: usize,
         /// Center x coordinate around which to look for rivers
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         center_x: i64,
         /// Center z coordinate around which to look for rivers
-        #[structopt(long, default_value = "0")]
+        #[clap(long, default_value = "0")]
         center_z: i64,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
     },
 
     /// Bruteforce world seed hash
-    #[structopt(name = "bruteforce-seed-hash")]
+    #[clap(name = "bruteforce-seed-hash")]
     BruteforceSeedHash {
         /// Seed hash as 64-bit signed integer.
         /// To avoid problems with negative seeds, use the following
         /// syntax: --seed-hash=-2
-        #[structopt(long)]
+        #[clap(long)]
         seed_hash: i64,
         /// When creating a Minecraft world, if the seed field is left blank,
         /// the seed will be generated randomly using (new Random()).nextLong(),
         /// which uses only 48 bits of entropy. With this flag, 64 bits of
         /// entropy will be used, allowing to explore the complete seed space.
-        #[structopt(long)]
+        #[clap(long)]
         seed_not_from_java_next_long: bool,
         /// Path to file containing a list of 26-bit candidates
-        #[structopt(long)]
+        #[clap(long)]
         candidates_file: Option<PathBuf>,
     },
 
     /// Given a seed, calculate the seed hash
-    #[structopt(name = "seed-hash")]
+    #[clap(name = "seed-hash")]
     SeedHash {
         /// Seed as 64-bit signed integer.
         /// To avoid problems with negative seeds, use the following
         /// syntax: --seed=-2
-        #[structopt(long)]
+        #[clap(long)]
         seed: i64,
     },
 
@@ -304,17 +304,17 @@ enum Opt {
     /// first introduced.
     /// The dungeon seed is not the world seed, you will need to use dungeon-seed-to-world-seed
     /// with the output of this command.
-    #[structopt(name = "dungeon-seed")]
+    #[clap(name = "dungeon-seed")]
     DungeonSeed {
-        #[structopt(short = "x", long)]
+        #[clap(short = 'x', long)]
         spawner_x: i64,
-        #[structopt(short = "y", long)]
+        #[clap(short = 'y', long)]
         spawner_y: i64,
         /// Coordinates of the dungeon spawner.
         ///
         /// Use the "looking at block" section from the F3 screen. To avoid problems with negative
         /// coordinates, use the following syntax: --spawner-z=-2
-        #[structopt(short = "z", long)]
+        #[clap(short = 'z', long)]
         spawner_z: i64,
         /// Block layout of the dungeon floor. The orientation should be the most negative
         /// coordinate at the top right.
@@ -332,68 +332,68 @@ enum Opt {
         ///
         /// "MMMMCMM;M?????M;C?????M;M?????M;C?????M;M?????C;CMMMMMM;"
         ///
-        #[structopt(short = "f", long)]
+        #[clap(short = 'f', long)]
         floor: String,
         /// Number of threads to use. By default, same as number of CPUs
-        #[structopt(short = "j", long, default_value = "0")]
+        #[clap(short = 'j', long, default_value = "0")]
         threads: usize,
     },
 
     /// Given 3 dungeon seeds in the format "159,23,-290,982513219448", find the world seed.
     /// To avoid problems with negative seeds, use -- before the arguments: slime_seed_finder
     /// dungeon-seed-to-world-seed -- "159,23,-290,982513219448"
-    #[structopt(name = "dungeon-seed-to-world-seed")]
+    #[clap(name = "dungeon-seed-to-world-seed")]
     DungeonSeedToWorldSeed {
         /// Maximum number of calls to rng.previous(). Try increasing this value if the seed could
         /// not be found. You can also set a different limit for one particular dungeon by
         /// appending the limit to the dungeon seed: "159,23,-290,982513219448,1500" will have l=1500
-        #[structopt(short = "l", long, default_value = "128")]
+        #[clap(short = 'l', long, default_value = "128")]
         limit_steps_back: u32,
         dungeon_seeds: Vec<String>,
     },
 
     /// Read a minecraft world, read its seed, generate biome map using the
     /// same seed, and compare both worlds
-    #[structopt(name = "test-generation")]
+    #[clap(name = "test-generation")]
     TestGeneration {
         /// Path to "minecraft_saved_world.zip"
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
         /// Render biome map from the biomes according to the saved world
-        #[structopt(long)]
+        #[clap(long)]
         draw_biome_map: bool,
     },
 
     /// Read a minecraft world and find all the already generated dungeons
-    #[structopt(name = "read-dungeons")]
+    #[clap(name = "read-dungeons")]
     ReadDungeons {
         /// Path to "minecraft_saved_world.zip"
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
         /// Supported values: 1.16
-        #[structopt(long)]
+        #[clap(long)]
         mc_version: String,
     },
 
     /// Read a list of candidate seeds from a file and a list of biomes from a seedInfo and write
     /// the matching seeds to a file
-    #[structopt(name = "filter-biomes")]
+    #[clap(name = "filter-biomes")]
     FilterBiomes {
         /// File containing the SeedInfo
-        #[structopt(short = "i", long, parse(from_os_str))]
+        #[clap(short = 'i', long, parse(from_os_str))]
         input_file: PathBuf,
         /// File containing a JSON array of all the candidate seeds: so instead
         /// of bruteforcing all the possible seeds we only try the ones from
         /// this file.
-        #[structopt(long, parse(from_os_str))]
+        #[clap(long, parse(from_os_str))]
         candidate_seeds: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[structopt(short = "o", long, parse(from_os_str))]
+        #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
 }
