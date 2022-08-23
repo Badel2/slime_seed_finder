@@ -1,0 +1,16 @@
+{
+  "name": "selenium-e2e-tests",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "dependencies": {
+    "mocha": "^10.0.0",
+    "selenium-webdriver": "^4.4.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "mocha --timeout 10000"
+  },
+  "author": "Badel2",
+  "license": "GPLv3"
+}
