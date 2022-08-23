@@ -694,7 +694,7 @@ pub fn extract_map_from_screenshot(width: u32, height: u32, screenshot: &[u8]) -
         }
 
         let ret = ExtractMapResult {
-            cropped_scaled_img: detected_map.cropped_scaled_img.to_bytes(),
+            cropped_scaled_img: detected_map.cropped_scaled_img.into_bytes(),
             treasure_map_img,
             land_water,
         };
