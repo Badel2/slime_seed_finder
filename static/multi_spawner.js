@@ -45,6 +45,13 @@ function findBlock() {
     }
     let ignoreCaveSpiders = document.getElementById("ignore_cave_spiders")
         .checked;
+    if (region) {
+        document.getElementById("how_many_found").innerHTML = `Searching...`;
+    } else {
+        document.getElementById(
+            "how_many_found"
+        ).innerHTML = `No world file specified, please select a world file and try again`;
+    }
     mainWorker.postMessage({
         command: "find_spawners_in_world",
         args: [
