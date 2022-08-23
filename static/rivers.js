@@ -7,8 +7,8 @@ window.onload = function() {
     let pos_div = document.getElementById("position_info");
     let center_butt = document.getElementById("center_button");
     center_butt.onclick = function() {
-        let x = document.getElementById("extraBiomeX").value;
-        let z = document.getElementById("extraBiomeZ").value;
+        let x = document.getElementById("extraBiomeX").value | 0;
+        let z = document.getElementById("extraBiomeZ").value | 0;
         Game.centerAt(x, z);
     };
     let elem = document.getElementById("demo");

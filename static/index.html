@@ -37,8 +37,12 @@
                 <canvas id="demo" width="512" height="512"></canvas>
                 <div id="position_info"></div>
                 <div>
-                    <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
-                    <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                    <button id="zoom-" onClick="Game.zoomBy(0.8)">
+                        ZOOM -
+                    </button>
+                    <button id="zoom+" onClick="Game.zoomBy(1.25)">
+                        ZOOM +
+                    </button>
                     <input id="center_x" size="2" />
                     <input id="center_z" size="2" />
                     <button id="center_button">CENTER</button>
@@ -66,8 +70,12 @@ Found 48-bit seeds will appear here.</textarea
                     rows="1"
                     readonly
                 ></textarea>
-                <button onClick="load_selection()">LOAD JSON</button>
-                <button onClick="countCandidates()">ESTIMATE RUNTIME</button>
+                <button id="load_json" onClick="load_selection()">
+                    LOAD JSON
+                </button>
+                <button id="estimate_runtime" onClick="countCandidates()">
+                    ESTIMATE RUNTIME
+                </button>
                 <button id="comphdl_start" onClick="runGui()">RUN!</button>
             </div>
         </div>

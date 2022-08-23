@@ -83,8 +83,8 @@ function startGame(lastLayer, callbackPixelColor = null) {
     let pos_div = document.getElementById("position_info");
     let center_butt = document.getElementById("center_button");
     center_butt.onclick = function() {
-        let x = document.getElementById("center_x").value;
-        let z = document.getElementById("center_z").value;
+        let x = document.getElementById("center_x").value | 0;
+        let z = document.getElementById("center_z").value | 0;
         // Center at block if supported, otherwise center at chunk/fragment
         if (Game.centerAtBlock) {
             Game.centerAtBlock(x, z);
@@ -209,12 +209,18 @@ function startGame(lastLayer, callbackPixelColor = null) {
                     );
                     if (seltextarea) {
                         seltextarea.value = stringify(
+                            // Update selection textarea, but keep most fields intact
                             {
-                                version: "1.7",
-                                seedInfo: "0.1",
-                                slimeChunks: Game.getSelection(0, 1),
-                                negative: {
-                                    slimeChunks: Game.getSelection(0, 2),
+                                ...{
+                                    version: "1.7",
+                                    seedInfo: "0.1",
+                                },
+                                ...JSON.parse(seltextarea.value),
+                                ...{
+                                    slimeChunks: Game.getSelection(0, 1),
+                                    negative: {
+                                        slimeChunks: Game.getSelection(0, 2),
+                                    },
                                 },
                             },
                             { maxLength: 20 }
@@ -350,6 +356,10 @@ function load_selection() {
     let seltextarea = document.getElementById("selection_output");
     let x = JSON.parse(seltextarea.value);
     Game.clearSelection(0);
-    Game.setSelection(0, 1, x.slimeChunks);
-    Game.setSelection(0, 2, x.negative.slimeChunks);
+    if (x.slimeChunks) {
+        Game.setSelection(0, 1, x.slimeChunks);
+    }
+    if (x.negative && x.negative.slimeChunks) {
+        Game.setSelection(0, 2, x.negative.slimeChunks);
+    }
 }
