@@ -38,10 +38,8 @@ jobs:
         run: cargo test --verbose --features="main"
 
       - name: Install nj-cli
-        uses: actions-rs/install@v0.1
-        with:
-          crate: nj-cli
-          version: 0.4.1
+        run: ./ci/install_nj_cli.sh
+
       - name: Build node bindings
         run: ./ci/build_node_bindings.sh
 
@@ -86,10 +84,7 @@ jobs:
           override: true
 
       - name: Install nj-cli
-        uses: actions-rs/install@v0.1
-        with:
-          crate: nj-cli
-          version: 0.4.1
+        run: ./ci/install_nj_cli.sh
 
       - name: Install Node.js, NPM and Yarn
         uses: actions/setup-node@v1
