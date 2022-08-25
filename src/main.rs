@@ -396,6 +396,17 @@ enum Opt {
         #[clap(short = 'o', long, parse(from_os_str))]
         output_file: Option<PathBuf>,
     },
+
+    /// Read a minecraft world and find positions of the provided block
+    #[clap(name = "find-block")]
+    FindBlock {
+        /// Path to "minecraft_saved_world.zip"
+        #[clap(short = 'i', long, parse(from_os_str))]
+        input_zip: PathBuf,
+        /// Block id, eg. "minecraft:diamond_ore"
+        #[clap(long)]
+        block: String,
+    },
 }
 
 fn main() {
@@ -1478,6 +1489,15 @@ fn main() {
                 write_seeds_to_file(&seeds.into_iter().map(|x| x as i64).collect::<Vec<_>>(), of)
                     .expect("Error writing seeds to file");
             }
+        }
+
+        Opt::FindBlock { input_zip, block } => {
+            let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+            let block_positions =
+                anvil::find_blocks_in_world(&mut chunk_provider, &block, None).unwrap();
+            // Convert DungeonKind to string in order to serialize it
+            let block_positions_json = serde_json::to_string(&block_positions).unwrap();
+            println!("{}", block_positions_json);
         }
     }
 }
