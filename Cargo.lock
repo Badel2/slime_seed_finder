@@ -596,11 +596,11 @@ dependencies = [
 [[package]]
 name = "fastanvil"
 version = "0.26.0"
-source = "git+https://github.com/Badel2/fastnbt?rev=2d8951f0b96338deda6fd62fab07d800be65aa85#2d8951f0b96338deda6fd62fab07d800be65aa85"
+source = "git+https://github.com/Badel2/fastnbt?rev=c2f661eaf599a6d1e9532481ee49bf2979afb624#c2f661eaf599a6d1e9532481ee49bf2979afb624"
 dependencies = [
  "bit_field",
  "byteorder",
- "fastnbt 2.2.0",
+ "fastnbt 2.3.1",
  "flate2",
  "hematite-nbt",
  "image 0.23.14",
@@ -612,8 +612,8 @@ dependencies = [
 
 [[package]]
 name = "fastnbt"
-version = "2.2.0"
-source = "git+https://github.com/Badel2/fastnbt?rev=2d8951f0b96338deda6fd62fab07d800be65aa85#2d8951f0b96338deda6fd62fab07d800be65aa85"
+version = "2.3.1"
+source = "git+https://github.com/Badel2/fastnbt?rev=c2f661eaf599a6d1e9532481ee49bf2979afb624#c2f661eaf599a6d1e9532481ee49bf2979afb624"
 dependencies = [
  "byteorder",
  "cesu8",
