@@ -459,7 +459,7 @@ pub fn dungeon_rng_bruteforce_range(
 
         // r_clone.get_seed() is what we refer to as "dungeon seed": it will generate the correct
         // dungeon starting from the x value
-        for (r_clone, mut r) in check_any_version() {
+        'nextversion: for (r_clone, mut r) in check_any_version() {
             if r.next_int_n(2) != wx as i32 {
                 continue;
             }
@@ -467,17 +467,26 @@ pub fn dungeon_rng_bruteforce_range(
                 continue;
             }
 
+            let max_errors = 0;
+            let mut errors = 0;
+
             // Check floor
             'nexttile: for mt in &floor.tiles {
                 match mt {
                     DungeonFloorTile::Mossy => {
                         if r.next_int_n(4) == 0 {
-                            continue 'nextseed;
+                            errors += 1;
+                            if errors > max_errors {
+                                continue 'nextversion;
+                            }
                         }
                     }
                     DungeonFloorTile::Cobble => {
                         if r.next_int_n(4) != 0 {
-                            continue 'nextseed;
+                            errors += 1;
+                            if errors > max_errors {
+                                continue 'nextversion;
+                            }
                         }
                     }
                     DungeonFloorTile::Unknown => {
