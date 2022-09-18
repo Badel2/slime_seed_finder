@@ -863,6 +863,13 @@ pub fn chunk_population_seed_to_world_seed(
     let p12 = p1 ^ p2;
     let p13 = p1 ^ p3;
 
+    // Early check for first bit, which we know because M and N are always odd
+    let expected_low_bits_of_p12 = ((x1.wrapping_add(z1) ^ x2.wrapping_add(z2)) & 1) as i64;
+    let expected_low_bits_of_p13 = ((x1.wrapping_add(z1) ^ x3.wrapping_add(z3)) & 1) as i64;
+    if expected_low_bits_of_p12 != (p12 & 1) || expected_low_bits_of_p13 != (p13 & 1) {
+        return vec![];
+    }
+
     // The constants must be odd
     let m = 1;
     let n = 1;
@@ -882,7 +889,10 @@ pub fn chunk_population_seed_to_world_seed(
         let (x1, z1) = (x1 as i64, z1 as i64);
         let (x2, z2) = (x2 as i64, z2 as i64);
         let (x3, z3) = (x3 as i64, z3 as i64);
-        let mut valid_mn = vec![];
+        // Worst case in practice seems to be mn.len() * 2, but in theory it is mn.len() * 4
+        // Default capacity of 4 to avoid small allocations, but it would be much better to reuse
+        // the existing `mn` vector instead.
+        let mut valid_mn = Vec::with_capacity(4);
         let msk = (1i64 << i).wrapping_sub(1);
 
         for (mut m, mut n) in mn.iter().cloned() {
@@ -936,37 +946,39 @@ pub fn chunk_population_seed_to_world_seed(
         //println!("{}: {:?}", i, new_cc);
         //println!("{}: {:?}", i, new_cc.len());
         cc = new_cc;
+        if cc.is_empty() {
+            // Early return if no candidates
+            return vec![];
+        }
+        if cc.len() > 1048576 {
+            // Panic in case of quadratic explosion. This can happen if the low bits of x and z are
+            // all zero, because the equation (x*M + z*N) has infinite solutions when x=0 and z=0.
+            // In the future this case will be handled separately, but for now it makes more sense
+            // to warn the user that this loop may be much slower than expected. And this case is
+            // triggered by the spawner coordinates, so it could be detected early on.
+            panic!(
+                "Too many candidates in chunk_population_seed_to_world_seed{:?}",
+                (i1, i2, i3)
+            );
+        }
     }
 
     let ws = cc
         .into_iter()
-        .map(|(m, n)| {
-            let vm: Vec<_> = reverse_round_to_odd_bits_any_version(m, 48)
-                .into_iter()
-                .flat_map(|x| JavaRng::extend_long_48(x as u64))
-                .map(|x| x as i64)
-                .collect();
-            // TODO: maybe we can avoid this call to reverse and check if
-            // round_to_odd(r.next_long()) == n
-            let vn: Vec<_> = reverse_round_to_odd_bits_any_version(n, 48)
-                .into_iter()
-                .flat_map(|x| JavaRng::extend_long_48(x as u64))
-                .map(|x| x as i64)
-                .collect();
-
-            (vm, vn)
-        })
-        .flat_map(|(vm, vn)| {
+        .flat_map(|(m, n)| {
             let mut ws = vec![];
-            for m in vm {
-                // This cannot fail because we created m using extend_long_48
-                let mut r = JavaRng::create_from_long(m as u64).unwrap();
-                let world_seed = r.get_seed() as i64;
-                let _m = r.next_long();
-                let n = r.next_long();
+            for m in reverse_round_to_odd_bits_any_version(m, 48) {
+                for m in JavaRng::extend_long_48(m as u64) {
+                    let mut r = JavaRng::create_from_long(m as u64).unwrap();
+                    let world_seed = r.get_seed() as i64;
+                    let _m = r.next_long();
+                    let cand_n = r.next_long();
 
-                if vn.contains(&n) {
-                    ws.push(world_seed);
+                    if ((cand_n | 1) & ((1 << 48) - 1)) == n
+                        || round_to_odd(cand_n) & ((1 << 48) - 1) == n
+                    {
+                        ws.push(world_seed);
+                    }
                 }
             }
 
