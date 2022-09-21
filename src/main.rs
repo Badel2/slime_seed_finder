@@ -27,6 +27,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
+use std::ops::ControlFlow;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -349,6 +350,14 @@ enum Opt {
         /// appending the limit to the dungeon seed: "159,23,-290,982513219448,1500" will have l=1500
         #[clap(short = 'l', long, default_value = "128")]
         limit_steps_back: u32,
+        /// Continue a previous bruteforce that did not find the seed. For example, if running the
+        /// command with `-l 128` does not find the world seed, try running it with `-l 256
+        /// --resume-l 128` to continue the bruteforce.
+        #[clap(long = "resume-l")]
+        resume_l: Option<u32>,
+        /// Number of threads to use. By default, same as number of CPUs
+        #[clap(short = 'j', long, default_value = "0")]
+        threads: usize,
         dungeon_seeds: Vec<String>,
     },
 
@@ -1141,6 +1150,8 @@ fn main() {
 
         Opt::DungeonSeedToWorldSeed {
             limit_steps_back,
+            resume_l,
+            threads,
             dungeon_seeds,
         } => {
             /// Parse the string output of the dungeon-seed command into (dungeon_seed, chunk_x,
@@ -1195,7 +1206,39 @@ fn main() {
             let i1 = dungeon_seeds[0];
             let i2 = dungeon_seeds[1];
             let i3 = dungeon_seeds[2];
-            let world_seeds = population::dungeon_seed_to_world_seed_any_version(i1, i2, i3);
+
+            let num_threads = if threads == 0 {
+                num_cpus::get()
+            } else {
+                threads
+            };
+            let limit = std::cmp::max(i1.3, std::cmp::max(i2.3, i3.3));
+            let mut step = resume_l.unwrap_or(0);
+            let world_seeds = run_workers(
+                num_threads,
+                || {
+                    // Generate next work packet
+                    if step >= limit {
+                        return None;
+                    }
+                    let res = step;
+                    step += 1;
+                    Some(res)
+                },
+                move |step| {
+                    // Process work
+                    let world_seeds =
+                        population::dungeon_seed_to_world_seed_any_version_step(i1, i2, i3, step);
+                    if world_seeds.is_empty() {
+                        // Get more work
+                        ControlFlow::Continue(vec![])
+                    } else {
+                        // Found seed, done
+                        ControlFlow::Break(world_seeds)
+                    }
+                },
+            )
+            .unwrap_or_default();
             println!("Found {} world seeds:", world_seeds.len());
             println!("{:?}", world_seeds);
         }
@@ -1580,4 +1623,100 @@ where
     }
 
     Ok(r)
+}
+
+// Spawn n threads and wait for them to finish, returning a vector of the results
+// Optimization: when n is 1 do not spawn any threads and run the computation on the current thread
+fn run_workers<F1, F2, W, T>(
+    num_threads: usize,
+    mut get_work: F1,
+    mut process_work: F2,
+) -> Result<Vec<T>, Box<dyn std::any::Any + Send>>
+where
+    F1: FnMut() -> Option<W>,
+    F2: Clone + Send + 'static + FnMut(W) -> ControlFlow<Vec<T>, Vec<T>>,
+    W: Send + 'static,
+    T: Send + 'static,
+{
+    // Handle special case by not spawning threads
+    if num_threads == 1 {
+        let mut candidates = vec![];
+
+        while let Some(work) = get_work() {
+            let res = process_work(work);
+            match res {
+                ControlFlow::Continue(r) => {
+                    candidates.extend(r);
+                }
+                ControlFlow::Break(r) => {
+                    candidates.extend(r);
+                    return Ok(candidates);
+                }
+            }
+        }
+
+        return Ok(candidates);
+    }
+
+    let (get_work_tx, get_work_rx) = std::sync::mpsc::channel::<WorkerCommand<T, W>>();
+
+    enum WorkerCommand<T, W> {
+        GetWork(std::sync::mpsc::Sender<Option<W>>),
+        Candidates(Vec<T>),
+        Done(Vec<T>),
+    }
+
+    let mut threads = vec![];
+    for _thread_id in 0..num_threads {
+        let mut ff = process_work.clone();
+        let get_work_tx = get_work_tx.clone();
+        let handle = thread::spawn(move || loop {
+            let (tx, rx) = std::sync::mpsc::channel();
+            get_work_tx.send(WorkerCommand::GetWork(tx)).unwrap();
+            let work = rx.recv().unwrap();
+            if work.is_none() {
+                return;
+            }
+            let res = ff(work.unwrap());
+            match res {
+                ControlFlow::Continue(res) => {
+                    get_work_tx.send(WorkerCommand::Candidates(res)).unwrap();
+                }
+                ControlFlow::Break(res) => {
+                    get_work_tx.send(WorkerCommand::Done(res)).unwrap();
+                    return;
+                }
+            }
+        });
+        threads.push(handle);
+    }
+
+    let mut res = vec![];
+    while let Ok(command) = get_work_rx.recv() {
+        match command {
+            WorkerCommand::GetWork(tx) => {
+                let work = get_work();
+                tx.send(work).unwrap();
+            }
+            WorkerCommand::Candidates(r) => {
+                res.extend(r);
+            }
+            WorkerCommand::Done(r) => {
+                res.extend(r);
+                break;
+            }
+        }
+    }
+
+    // Drop rx end of channel, so threads that call get_work_tx.send() will panic
+    drop(get_work_rx);
+
+    // Wait for threads to finish
+    // TODO: can we skip this step here? It would be nice to exit this function as soon as one
+    // thread sends the Done command
+    for h in threads {
+        h.join()?;
+    }
+
+    Ok(res)
 }

@@ -1,5 +1,6 @@
 use crate::chunk::Chunk;
 use crate::chunk::Point;
+use crate::gen_pairs3::GenPairs3L;
 use crate::java_rng::JavaRng;
 use crate::seed_info::MinecraftVersion;
 
@@ -1245,37 +1246,51 @@ pub fn dungeon_seed_to_world_seed_any_version(
     i2: (u64, i32, i32, u32),
     i3: (u64, i32, i32, u32),
 ) -> Vec<i64> {
+    let max_steps = std::cmp::max(i1.3, std::cmp::max(i2.3, i3.3));
+
+    for step in 0..max_steps {
+        let seeds = dungeon_seed_to_world_seed_any_version_step(i1, i2, i3, step);
+        if !seeds.is_empty() {
+            return seeds;
+        }
+    }
+
+    vec![]
+}
+
+// step must be in 0..=limit range, where limit is the max of the l arguments of the inputs.
+pub fn dungeon_seed_to_world_seed_any_version_step(
+    i1: (u64, i32, i32, u32),
+    i2: (u64, i32, i32, u32),
+    i3: (u64, i32, i32, u32),
+    step: u32,
+) -> Vec<i64> {
     let (s1, x1, z1, l1) = i1;
     let (s2, x2, z2, l2) = i2;
     let (s3, x3, z3, l3) = i3;
-    let p1d = JavaRng::with_seed(s1);
-    let p2d = JavaRng::with_seed(s2);
-    let p3d = JavaRng::with_seed(s3);
 
-    let mut p1 = p1d;
-    // Call next() to cancel out the first call to previous
-    p1.next(32);
-    for _ in 0..=l1 {
-        p1.previous();
-        let mut p2 = p2d;
-        p2.next(32);
-        for _ in 0..=l2 {
-            p2.previous();
-            let mut p3 = p3d;
-            p3.next(32);
-            for _ in 0..=l3 {
-                p3.previous();
+    let initial_rngs = (
+        JavaRng::with_seed(s1),
+        JavaRng::with_seed(s2),
+        JavaRng::with_seed(s3),
+    );
+    let limits = (l1, l2, l3);
+    let increment = |mut r: JavaRng| {
+        r.previous();
 
-                let seeds = chunk_population_seed_to_world_seed(
-                    (p1.get_seed(), x1, z1),
-                    (p2.get_seed(), x2, z2),
-                    (p3.get_seed(), x3, z3),
-                );
+        r
+    };
+    let gen = GenPairs3L::new_one_step(initial_rngs, increment, limits, step);
 
-                if !seeds.is_empty() {
-                    return seeds;
-                }
-            }
+    for (p1, p2, p3) in gen {
+        let seeds = chunk_population_seed_to_world_seed(
+            (p1.get_seed(), x1, z1),
+            (p2.get_seed(), x2, z2),
+            (p3.get_seed(), x3, z3),
+        );
+
+        if !seeds.is_empty() {
+            return seeds;
         }
     }
 

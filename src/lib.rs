@@ -17,6 +17,7 @@ pub mod biome_layers;
 pub mod chunk;
 pub mod climate;
 pub mod fastanvil_ext;
+pub mod gen_pairs3;
 #[rustfmt::skip]
 pub mod java_rng;
 #[rustfmt::skip]
