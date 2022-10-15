@@ -122,6 +122,7 @@ Minecraft world with seed 1 or 2 is to manually set the seed to that number.
 ### Theory
 
 [PRNG internals](https://github.com/Badel2/slime_seed_finder/blob/master/docs/prng.md)
+
 [Slime Chunks](https://github.com/Badel2/slime_seed_finder/blob/master/docs/slime_chunks.md)
 
 ### Building WebAssembly demo
