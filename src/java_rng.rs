@@ -350,6 +350,17 @@ impl JavaRng {
             })
             .collect()
     }
+
+    /// How many calls to `next` are needed to transform self into other
+    pub fn num_steps_to(&self, other: &Self) -> u64 {
+        distance_between_rngs(self, other)
+    }
+
+    /// Returns how many calls to `next` are needed to transform self into other, or `None` if the
+    /// number of calls is greater than or equal to `l`
+    pub fn num_steps_to_other_under_l(&self, other: &Self, l: u64) -> Option<u64> {
+        distance_between_rngs_less_than(self, other, l)
+    }
 }
 
 // Calculate base^exp (mod 2^64).
@@ -391,6 +402,59 @@ fn mod_inv(a: u64, module: u64) -> u64 {
     xy.0 % module
 }
 
+// Algorithm source:
+// https://math.stackexchange.com/questions/2008585/computing-the-distance-between-two-linear-congruential-generator-states
+fn distance_between_rngs(ss: &JavaRng, se: &JavaRng) -> u64 {
+    let mut a = lcg_const::A;
+    let mut c = lcg_const::C;
+    let mut p = 1;
+    let mut z = ss.get_raw_seed();
+    let mut d = 0;
+
+    while z != se.get_raw_seed() {
+        if ((z ^ se.get_raw_seed()) & p) != 0 {
+            z = a.wrapping_mul(z).wrapping_add(c) & mask(48);
+            d += p;
+        }
+
+        c = c.wrapping_mul(a.wrapping_add(1));
+        a = a.wrapping_mul(a);
+        p <<= 1;
+    }
+
+    d
+}
+
+// Algorithm source:
+// https://math.stackexchange.com/questions/2008585/computing-the-distance-between-two-linear-congruential-generator-states
+fn distance_between_rngs_less_than(ss: &JavaRng, se: &JavaRng, limit: u64) -> Option<u64> {
+    let mut a = lcg_const::A;
+    let mut c = lcg_const::C;
+    let mut p = 1;
+    let mut z = ss.get_raw_seed();
+    let mut d = 0;
+    let mut i = 0;
+
+    while z != se.get_raw_seed() {
+        if d + p >= limit {
+            return None;
+        }
+        if ((z ^ se.get_raw_seed()) & p) != 0 {
+            d += p;
+            if d >= limit {
+                return None;
+            }
+            z = a.wrapping_mul(z).wrapping_add(c) & mask(48);
+        }
+
+        i += 1;
+        c = c.wrapping_mul(a.wrapping_add(1));
+        a = a.wrapping_mul(a);
+        p <<= 1;
+    }
+
+    Some(d)
+}
 
 #[cfg(test)]
 mod tests {
@@ -593,7 +657,7 @@ mod tests {
         let x1 = r1.next_int_n_10();
         assert_eq!(x0, 6);
         assert_eq!(x0, x1);
-        
+
         for target in 2147483630..2147483648 {
             let mut rt = JavaRng::with_raw_seed(target << 17);
             rt.previous();
@@ -603,7 +667,7 @@ mod tests {
         }
 
     }
-    
+
     #[test]
     fn extend_48_to_64() {
         assert_eq!(&JavaRng::extend_long_48(132607203138509), &[4400149443144113101]);
@@ -626,5 +690,50 @@ mod tests {
             let ee = JavaRng::low_16_for_next_int(i0 as u32, i1 as u32);
             assert_eq!(ee, Some(expected));
         }
+    }
+
+    #[test]
+    fn distance_fn0() {
+        let r = JavaRng::with_seed(12345);
+        assert_eq!(distance_between_rngs(&r, &r), 0);
+    }
+
+    #[test]
+    fn distance_fn1() {
+        let r0 = JavaRng::with_seed(12345);
+        let mut r = r0;
+        r.next(32);
+        assert_eq!(distance_between_rngs(&r0, &r), 1);
+    }
+
+    #[test]
+    fn distance_fn2() {
+        let r0 = JavaRng::with_seed(12345);
+        let mut r = r0;
+        r.next(32);
+        r.next(32);
+        assert_eq!(distance_between_rngs(&r0, &r), 2);
+    }
+
+    #[test]
+    fn distance_fn99() {
+        let r0 = JavaRng::with_seed(12345);
+        let mut r = r0;
+        for _ in 0..99 {
+            r.next(32);
+        }
+        assert_eq!(distance_between_rngs(&r0, &r), 99);
+    }
+
+    #[test]
+    fn distance_limit_fn99() {
+        let r0 = JavaRng::with_seed(12345);
+        let mut r = r0;
+        for _ in 0..99 {
+            r.next(32);
+        }
+        assert_eq!(distance_between_rngs_less_than(&r0, &r, 100), Some(99));
+        assert_eq!(distance_between_rngs_less_than(&r0, &r, 99), None);
+        assert_eq!(distance_between_rngs_less_than(&r0, &r, 98), None);
     }
 }
