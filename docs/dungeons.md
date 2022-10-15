@@ -313,6 +313,13 @@ with 1 water lake, 1 lava lake, 8 dungeons, and this being the 8th dungeon.
 slime_seed_finder dungeon-seed-to-world-seed -- "471,16,10,215961279147504" "454,19,-161,167052204480180" "-244,17,-212,149909570098943" -l 1100
 ```
 
+You can use the `--resume-l` parameter to continue the bruteforce after having checked a lower value
+of `-l`. For example, if the default value of `-l 128` did not find the world seed, use a command
+like this to continue the bruteforce up to `-l 1100`:
+
+```
+slime_seed_finder dungeon-seed-to-world-seed -- "471,16,10,215961279147504" "454,19,-161,167052204480180" "-244,17,-212,149909570098943" -l 1100 --resume-l 128
+```
 
 # Dungeon floor templates
 
