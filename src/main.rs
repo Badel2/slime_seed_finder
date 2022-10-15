@@ -361,6 +361,23 @@ enum Opt {
         dungeon_seeds: Vec<String>,
     },
 
+    /// Given a dungeon seed in the format "159,23,-290,982513219448", and a world seed, check if
+    /// this dungeon seed is possible, and print the number of steps from the chunk seed to the
+    /// dungeon seed.
+    /// To avoid problems with negative seeds, use this syntax: --dungeon-seed="-123,32,123,544561342"
+    #[clap(name = "dungeon-seed-check")]
+    DungeonSeedCheck {
+        /// Maximum number of calls to rng.previous(). Try increasing this value if the seed could
+        /// not be found. You can also set a different limit for one particular dungeon by
+        /// appending the limit to the dungeon seed: "159,23,-290,982513219448,1500" will have l=1500
+        #[clap(short = 'l', long, default_value = "10000")]
+        limit_steps_back: u64,
+        #[clap(long)]
+        dungeon_seed: String,
+        #[clap(long)]
+        world_seed: i64,
+    },
+
     /// Read a minecraft world, read its seed, generate biome map using the
     /// same seed, and compare both worlds
     #[clap(name = "test-generation")]
@@ -1241,6 +1258,77 @@ fn main() {
             .unwrap_or_default();
             println!("Found {} world seeds:", world_seeds.len());
             println!("{:?}", world_seeds);
+        }
+
+        Opt::DungeonSeedCheck {
+            limit_steps_back,
+            dungeon_seed,
+            world_seed,
+        } => {
+            /// Parse the string output of the dungeon-seed command into (dungeon_seed, chunk_x,
+            /// chunk_z, limit_steps_back).
+            ///
+            /// Example: `"159,23,-290,982513219448"` is parsed into `(159, 23, -290, 982513219448, default_l)`
+            // Actually, l is only an argument because the syntax to convert a tuple with 4
+            // elements into a tuple of 5 elements is super ugly, so it looks better to just return
+            // a 5 element tuple here
+            fn parse_dungeon_seed(
+                s: &str,
+                default_l: u64,
+            ) -> Result<(i64, i64, i64, u64, u64), ()> {
+                let mut parts = s.split(',');
+                let x = parts.next().ok_or(())?;
+                let y = parts.next().ok_or(())?;
+                let z = parts.next().ok_or(())?;
+                let seed = parts.next().ok_or(())?;
+                let l = parts.next();
+                if parts.next().is_some() {
+                    // Trailing ','
+                    return Err(());
+                }
+
+                let x = x.parse().map_err(|_| ())?;
+                let y = y.parse().map_err(|_| ())?;
+                let z = z.parse().map_err(|_| ())?;
+                let seed = seed.parse().map_err(|_| ())?;
+                let l = if let Some(l) = l {
+                    l.parse().map_err(|_| ())?
+                } else {
+                    default_l
+                };
+
+                Ok((x, y, z, seed, l))
+            }
+
+            let dungeon_seeds: Vec<_> = vec![dungeon_seed].into_iter().map(|d| {
+                parse_dungeon_seed(&d, limit_steps_back).map(|(x, _y, z, seed, l)| {
+                    let Chunk { x: chunk_x, z: chunk_z } = population::spawner_coordinates_to_chunk(x, z);
+                    (seed, chunk_x, chunk_z, l)
+                }).unwrap_or_else(|_| {
+                    panic!("Error parsing \"{}\": dungeon seed should follow the format \"{}\"`", d, "159,23,-290,982513219448");
+                })
+            }).collect();
+            assert_eq!(
+                dungeon_seeds.len(),
+                1,
+                "Only 1 dungeon seed is supported by this command, got {}",
+                dungeon_seeds.len()
+            );
+            println!("{:?}", dungeon_seeds);
+            let dungeon_seed = (dungeon_seeds[0].0, dungeon_seeds[0].1, dungeon_seeds[0].2);
+            let limit_steps_back = std::cmp::min(limit_steps_back, dungeon_seeds[0].3.into());
+
+            let num_steps =
+                population::check_dungeon_seed(dungeon_seed, world_seed, limit_steps_back);
+
+            if let Some(num_steps) = num_steps {
+                println!("Dungeon seed possible in {} steps", num_steps);
+            } else {
+                println!(
+                    "Dungeon seed not possible in less than {} steps",
+                    limit_steps_back
+                );
+            }
         }
 
         Opt::TestGeneration {

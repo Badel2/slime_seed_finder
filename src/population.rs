@@ -807,6 +807,20 @@ pub fn world_seed_to_chunk_population_seed_1_13(
         ^ world_seed) as u64
 }
 
+/// Check the number of steps needed to get the dungeon seed from this world seed, or return `None`
+/// if the number is greater than the limit.
+pub fn check_dungeon_seed(
+    dungeon_seed: (u64, i32, i32),
+    world_seed: i64,
+    limit_steps_back: u64,
+) -> Option<u64> {
+    let chunk_seed =
+        world_seed_to_chunk_population_seed(world_seed, dungeon_seed.1, dungeon_seed.2);
+
+    JavaRng::with_seed(chunk_seed)
+        .num_steps_to_other_under_l(&JavaRng::with_seed(dungeon_seed.0), limit_steps_back)
+}
+
 // Returns true if all the elements of a slice are different.
 // Do not use with large slices.
 fn all_unique<T: PartialEq>(a: &[T]) -> bool {
