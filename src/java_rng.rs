@@ -189,10 +189,9 @@ impl JavaRng {
         self.previous();
         */
         //self.seed = JavaRng::previous_state(JavaRng::previous_state(self.seed));
-        self.seed = (((self.seed.wrapping_sub(lcg_const::C))
-            .wrapping_mul(lcg_const_extra::INV_A))
+        self.seed = (((self.seed.wrapping_sub(lcg_const::C)).wrapping_mul(lcg_const_extra::INV_A))
             .wrapping_sub(lcg_const::C))
-            .wrapping_mul(lcg_const_extra::INV_A);
+        .wrapping_mul(lcg_const_extra::INV_A);
     }
 
     /* 3 calls:
@@ -231,7 +230,9 @@ impl JavaRng {
     pub fn previous_verify_16(&self, target: u16) -> u32 {
         let p1 = Self::previous_state(self.seed) as u16;
         let p = ((target as u32) << 16) | (p1 as u32);
-        let p2 = p.wrapping_mul((lcg_const::A & mask(32)) as u32).wrapping_add(lcg_const::C as u32);
+        let p2 = p
+            .wrapping_mul((lcg_const::A & mask(32)) as u32)
+            .wrapping_add(lcg_const::C as u32);
 
         p2 ^ (self.seed as u32)
     }
@@ -299,8 +300,7 @@ impl JavaRng {
         // x = i1 - i0 * A
         let x: u32 = i1.wrapping_sub(i0.wrapping_mul((lcg_const::A & mask(32)) as u32));
         for i in 0..6 {
-            let low16 =
-                ((x as u64 | ((i as u64) << 32)) / (lcg_const::A >> 16)) as u16;
+            let low16 = ((x as u64 | ((i as u64) << 32)) / (lcg_const::A >> 16)) as u16;
             let y = (Self::next_state(low16 as u64) >> 16) as u32;
             if y == x {
                 // Could this function return more than one value?
@@ -369,24 +369,24 @@ impl JavaRng {
 // But just copying the implementation and changing one type seems easier
 // https://github.com/rust-lang/rust/blob/118b50524b79e565f017e08bce9b90a16c63634f/src/libcore/num/mod.rs#L1611
 fn pow_wrapping(mut base: u64, mut exp: u64) -> u64 {
-	let mut acc: u64 = 1;
+    let mut acc: u64 = 1;
 
-	while exp > 1 {
-		if (exp & 1) == 1 {
-			acc = acc.wrapping_mul(base);
-		}
-		exp /= 2;
-		base = base.wrapping_mul(base);
-	}
+    while exp > 1 {
+        if (exp & 1) == 1 {
+            acc = acc.wrapping_mul(base);
+        }
+        exp /= 2;
+        base = base.wrapping_mul(base);
+    }
 
-	// Deal with the final bit of the exponent separately, since
-	// squaring the base afterwards is not necessary and may cause a
-	// needless overflow.
-	if exp == 1 {
-		acc = acc.wrapping_mul(base);
-	}
+    // Deal with the final bit of the exponent separately, since
+    // squaring the base afterwards is not necessary and may cause a
+    // needless overflow.
+    if exp == 1 {
+        acc = acc.wrapping_mul(base);
+    }
 
-	acc
+    acc
 }
 
 // Borrowed from rosetta code
@@ -548,7 +548,6 @@ mod tests {
 
             assert!(diff < max_diff, "Seed {}: diff {}", seed, diff);
         }
-
     }
 
     #[test]
@@ -636,8 +635,14 @@ mod tests {
     #[test]
     fn know_your_constants() {
         assert_eq!(mod_inv(lcg_const::A, 1 << 48), lcg_const_extra::INV_A);
-        assert_eq!(mod_inv((lcg_const_extra::INV_A - 1) >> 2, 1 << 48), lcg_const_extra::INV__INV_A__1);
-        assert_eq!(mod_inv((lcg_const::A - 1) >> 2, 1 << 48), lcg_const_extra::INV_A_1);
+        assert_eq!(
+            mod_inv((lcg_const_extra::INV_A - 1) >> 2, 1 << 48),
+            lcg_const_extra::INV__INV_A__1
+        );
+        assert_eq!(
+            mod_inv((lcg_const::A - 1) >> 2, 1 << 48),
+            lcg_const_extra::INV_A_1
+        );
         assert_eq!(2147483640, (1u32 << 31) / 10 * 10);
     }
 
@@ -662,20 +667,36 @@ mod tests {
             let mut rt = JavaRng::with_raw_seed(target << 17);
             rt.previous();
             let mut rtc = rt.clone();
-            assert_eq!((target, rt.next_int_n(10)),
-                       (target, rtc.next_int_n_10()));
+            assert_eq!((target, rt.next_int_n(10)), (target, rtc.next_int_n_10()));
         }
-
     }
 
     #[test]
     fn extend_48_to_64() {
-        assert_eq!(&JavaRng::extend_long_48(132607203138509), &[4400149443144113101]);
-        assert_eq!(&JavaRng::extend_long_48(113453751637441), &[6895687433209288129, 955720999684314561]);
-        assert_eq!(&JavaRng::extend_long_48(18021957452394), &[3640896845709787754]);
-        assert_eq!(&JavaRng::extend_long_48(131291916928825), &[-1095369317440944327i64 as u64]);
-        assert_eq!(&JavaRng::extend_long_48(249127199878301), &[5773582374512143517, -166384059012830051i64 as u64]);
-        assert_eq!(&JavaRng::extend_long_48(186701866325681), &[3353398099420370609, -2586568334104602959i64 as u64]);
+        assert_eq!(
+            &JavaRng::extend_long_48(132607203138509),
+            &[4400149443144113101]
+        );
+        assert_eq!(
+            &JavaRng::extend_long_48(113453751637441),
+            &[6895687433209288129, 955720999684314561]
+        );
+        assert_eq!(
+            &JavaRng::extend_long_48(18021957452394),
+            &[3640896845709787754]
+        );
+        assert_eq!(
+            &JavaRng::extend_long_48(131291916928825),
+            &[-1095369317440944327i64 as u64]
+        );
+        assert_eq!(
+            &JavaRng::extend_long_48(249127199878301),
+            &[5773582374512143517, -166384059012830051i64 as u64]
+        );
+        assert_eq!(
+            &JavaRng::extend_long_48(186701866325681),
+            &[3353398099420370609, -2586568334104602959i64 as u64]
+        );
     }
 
     #[test]
