@@ -57,7 +57,7 @@ function findBlock() {
         args: [
             region,
             {
-                center_position_and_chunk_radius: [
+                centerPositionAndChunkRadius: [
                     { x: centerX, y: centerY, z: centerZ },
                     chunkRadius,
                 ],
