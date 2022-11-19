@@ -36,9 +36,20 @@ function findBlock() {
     if (chunkRadius === 0) {
         searchAround = null;
     }
+    let dimension = document.getElementById("dimension").value;
+    if (dimension == "DIM0") {
+        dimension = null;
+    }
     mainWorker.postMessage({
         command: "find_blocks_in_world",
-        args: [region, blockName, searchAround],
+        args: [
+            region,
+            {
+                blockName: blockName,
+                centerPositionAndChunkRadius: searchAround,
+                dimension: dimension,
+            },
+        ],
     });
     mainWorker.onmessage = function(e) {
         let local_found_blocks = e.data;

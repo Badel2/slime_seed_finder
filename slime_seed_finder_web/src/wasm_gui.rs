@@ -765,29 +765,35 @@ pub fn read_dungeons(zip_file: web_sys::File) -> Vec<JsValue> {
     dungeons
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FindBlocksInWorldParams {
+    pub block_name: String,
+    pub center_position_and_chunk_radius: Option<(Position, u32)>,
+    pub dimension: Option<String>,
+}
+
 #[wasm_bindgen]
 /// Returns `Vec<Position>`
-pub fn find_blocks_in_world(
-    zip_file: web_sys::File,
-    block_name: &str,
-    center_position_and_chunk_radius: JsValue,
-) -> Vec<JsValue> {
-    let center_position_and_chunk_radius: Option<(Position, u32)> =
-        match center_position_and_chunk_radius.into_serde() {
-            Ok(x) => x,
-            Err(e) => {
-                error!("Failed to parse argument `center_position_and_chunk_radius`, will ignore it. Error: {}", e);
-                None
-            }
-        };
+pub fn find_blocks_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsValue> {
+    let params: FindBlocksInWorldParams = match params.into_serde() {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Failed to parse params: {}", e);
+            // Return empty vector as error
+            return vec![];
+        }
+    };
     use slime_seed_finder::anvil::ZipChunkProvider;
     // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
     let wf = WebSysFile::new(zip_file);
-    let mut chunk_provider = ZipChunkProvider::new(wf).unwrap();
+    let mut chunk_provider =
+        ZipChunkProvider::new_with_dimension(wf, params.dimension.as_deref()).unwrap();
     let blocks = anvil::find_blocks_in_world(
         &mut chunk_provider,
-        block_name,
-        center_position_and_chunk_radius
+        &params.block_name,
+        params
+            .center_position_and_chunk_radius
             .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
     )
     .unwrap();

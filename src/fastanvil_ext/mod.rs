@@ -83,6 +83,22 @@ impl<S: Read + Seek> Dimension<S> {
         Ok(s)
     }
 
+    pub fn from_regions<I>(r: I) -> Result<Self, String>
+    where
+        I: IntoIterator<Item = ((i32, i32), fastanvil::Region<S>)>,
+    {
+        let mut s = Self {
+            regions: HashMap::new(),
+            chunks: HashMap::new(),
+        };
+
+        for ((chunk_x, chunk_z), region) in r.into_iter() {
+            s.regions.insert((chunk_x, chunk_z), Some(region));
+        }
+
+        Ok(s)
+    }
+
     /// Deserialize this chunk and add it to this dimension
     pub fn add_chunk<R>(&mut self, chunk_x: i32, chunk_z: i32, reader: &mut R) -> Result<(), String>
     where
@@ -108,15 +124,13 @@ impl<S: Read + Seek> Dimension<S> {
         self.chunks.contains_key(&(chunk_x, chunk_z))
     }
 
-    /// Get the block at this coordinates
+    /// Get the chunk at this coordinates
     // TODO: remove need to use mutable reference to self?
-    pub fn get_block<'a>(&'a mut self, x: i64, y: i64, z: i64) -> Option<&'a fastanvil::Block> {
-        let block_x = u8::try_from(x & 0xF).unwrap();
-        let block_z = u8::try_from(z & 0xF).unwrap();
-
-        let chunk_x = i32::try_from(x >> 4).unwrap();
-        let chunk_z = i32::try_from(z >> 4).unwrap();
-
+    pub fn get_chunk<'a>(
+        &'a mut self,
+        chunk_x: i32,
+        chunk_z: i32,
+    ) -> Option<&'a fastanvil::JavaChunk> {
         if !self.chunks.contains_key(&(chunk_x, chunk_z)) {
             let (region_x, region_z) = chunk_coords_to_region_coords(chunk_x, chunk_z);
             let (region_chunk_x, region_chunk_z) = chunk_coords_inside_region(chunk_x, chunk_z);
@@ -133,6 +147,20 @@ impl<S: Read + Seek> Dimension<S> {
         }
 
         let chunk = self.chunks.get_mut(&(chunk_x, chunk_z)).unwrap();
+
+        Some(chunk)
+    }
+
+    /// Get the block at this coordinates
+    // TODO: remove need to use mutable reference to self?
+    pub fn get_block<'a>(&'a mut self, x: i64, y: i64, z: i64) -> Option<&'a fastanvil::Block> {
+        let block_x = u8::try_from(x & 0xF).unwrap();
+        let block_z = u8::try_from(z & 0xF).unwrap();
+
+        let chunk_x = i32::try_from(x >> 4).unwrap();
+        let chunk_z = i32::try_from(z >> 4).unwrap();
+
+        let chunk = self.get_chunk(chunk_x, chunk_z)?;
 
         chunk.block(
             usize::from(block_x),
