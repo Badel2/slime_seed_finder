@@ -47,6 +47,9 @@ ordered-float = "3"
 [patch.crates-io]
 wasm-bindgen = { git = "https://github.com/Badel2/wasm-bindgen" }
 
+[dev-dependencies]
+rand = "0.8.4"
+
 [[bin]]
 name = "slime_seed_finder"
 path = "src/main.rs"

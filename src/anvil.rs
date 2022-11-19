@@ -3,7 +3,7 @@
 //! Anvil is the name of the format used by Minecraft to store world files.
 //! It contains all the block data, entities, and biome info of each chunk.
 
-use fastanvil::Chunk;
+pub use fastanvil::Chunk;
 use crate::fastanvil_ext::CompoundTag;
 use crate::fastanvil_ext::CompoundTagError;
 use crate::fastanvil_ext::read_gzip_compound_tag;
@@ -20,6 +20,7 @@ use crate::biome_info::UNKNOWN_BIOME_ID;
 use crate::chunk::Point;
 use crate::chunk::Point4;
 use crate::chunk::Point3D4;
+use crate::patterns::CompiledBlockPattern;
 use crate::seed_info::BiomeId;
 use crate::seed_info::MinecraftVersion;
 use crate::fastanvil_ext::Dimension;
@@ -36,6 +37,8 @@ use std::io::Read;
 use std::io::Seek;
 use std::str::FromStr;
 use std::convert::TryInto;
+use std::ops::RangeInclusive;
+use serde::Deserialize;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -1077,6 +1080,11 @@ pub fn find_blocks_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block
     Ok(found_blocks)
 }
 
+pub fn find_block_pattern_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, block_pattern: &CompiledBlockPattern, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>, y_range: Option<RangeInclusive<i32>>) -> Result<Vec<(i64, i64, i64)>, String> {
+    iterate_find_block_pattern(chunk_provider, block_pattern, center_position_and_chunk_radius, y_range).map(|res| res.1)
+}
+
+
 pub fn iterate_chunks_in_world<A: AnvilChunkProvider, F: FnMut((i32, i32), &fastanvil::JavaChunk)>(chunk_provider: &mut A, center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>, mut f: F) -> Result<(), String> {
     let only_check_chunks = center_position_and_chunk_radius.map(|((x, _y, z), chunk_radius)| {
         let chunk_x = i32::try_from(x >> 4).unwrap();
@@ -1154,4 +1162,271 @@ pub fn find_spawners_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, _ce
     let multi_spawners = find_multi_spawners(all_dungeons);
 
     Ok(multi_spawners)
+}
+
+#[derive(Debug)]
+pub struct Box3D {
+    pub x_min: i64,
+    pub x_max: i64,
+    pub y_min: i64,
+    pub y_max: i64,
+    pub z_min: i64,
+    pub z_max: i64,
+}
+
+impl Box3D {
+    /// Returns an infinitely sized 3d area
+    pub fn max_size() -> Self {
+        Self {
+            x_min: i64::MIN,
+            x_max: i64::MAX,
+            y_min: i64::MIN,
+            y_max: i64::MAX,
+            z_min: i64::MIN,
+            z_max: i64::MAX,
+        }
+    }
+
+    /// Returns true if any block inside the Box3D belongs to the chunk
+    pub fn contains_chunk(&self, chunk_x: i32, chunk_z: i32) -> bool {
+        // This can be done as a 2D rectangle intersection using (chunk_min_x, chunk_min_z) and (chunk_max_z, chunk_max_z) as the edges
+        // TODO: implement a generic rectangle-point intersection function
+        let chunk1 = crate::chunk::Chunk::from_point(Point { x: self.x_min, z: self.z_min });
+        let chunk2 = crate::chunk::Chunk::from_point(Point { x: self.x_max, z: self.z_max });
+
+        // chunk1.x <= chunk_x <= chunk2.x && chunk1.z <= chunk_z <= chunk2.z
+        chunk1.x <= chunk_x && chunk_x <= chunk2.x && chunk1.z <= chunk_z && chunk_z <= chunk2.z
+    }
+}
+
+#[derive(Debug)]
+pub enum SearchBounds {
+    Everywhere,
+    CenterAndRadius { center: (i64, i64, i64), radius: u32 },
+    BoundingBox(Box3D),
+    Intersection(Vec<SearchBounds>),
+    Union(Vec<SearchBounds>),
+    Not(Box<SearchBounds>),
+    // TODO: add modulo conditions such as x%16 == 9 for treasure chests
+}
+
+impl SearchBounds {
+    pub fn contains_chunk(&self, chunk_x: i32, chunk_z: i32) -> bool {
+        match self {
+            SearchBounds::Everywhere => true,
+            SearchBounds::CenterAndRadius { .. } => todo!(),
+            SearchBounds::BoundingBox(bb) => bb.contains_chunk(chunk_x, chunk_z),
+            SearchBounds::Intersection(v) => {
+                v.iter().all(|bound| bound.contains_chunk(chunk_x, chunk_z))
+            }
+            SearchBounds::Union(v) => {
+                v.iter().any(|bound| bound.contains_chunk(chunk_x, chunk_z))
+            }
+            SearchBounds::Not(bound) => !bound.contains_chunk(chunk_x, chunk_z),
+        }
+    }
+}
+
+pub enum SearchMode {
+    /// Return the coordinates of all the matches
+    FindAll,
+    /// Return the first n matches only
+    FindSome(u32),
+    /// Count the number of matches
+    CountAll,
+    /// Count the number of matches, up to the first n
+    CountSome(u32),
+}
+
+impl SearchMode {
+    fn counter(&self) -> SearchModeCounter {
+        match self {
+            SearchMode::FindSome(n) => {
+                SearchModeCounter {
+                    limit: *n,
+                    num_matches: 0,
+                    matches: Some(vec![]),
+                }
+            }
+            SearchMode::FindAll => {
+                SearchModeCounter {
+                    limit: u32::MAX,
+                    num_matches: 0,
+                    matches: Some(vec![]),
+                }
+            }
+            SearchMode::CountSome(n) => {
+                SearchModeCounter {
+                    limit: *n,
+                    num_matches: 0,
+                    matches: None,
+                }
+            }
+            SearchMode::CountAll => {
+                SearchModeCounter {
+                    limit: u32::MAX,
+                    num_matches: 0,
+                    matches: None,
+                }
+            }
+        }
+    }
+}
+
+struct SearchModeCounter {
+    limit: u32,
+    num_matches: u32,
+    matches: Option<Vec<(i64, i64, i64)>>,
+}
+
+impl SearchModeCounter {
+    fn push(&mut self, pos: (i64, i64, i64)) -> Result<(), ()> {
+        self.num_matches += 1;
+        if let Some(m) = &mut self.matches {
+            m.push(pos);
+        }
+
+        if self.num_matches >= self.limit {
+            Err(())
+        } else {
+            Ok(())
+        }
+    }
+}
+
+pub trait WorldSearchInterface {
+    fn list_chunks(&mut self) -> Vec<(i32, i32)>;
+    fn chunk_y_range(&mut self, chunk_x: i32, chunk_z: i32) -> std::ops::Range<isize>;
+    fn get_block_name(&mut self, x: i64, y: i64, z: i64) -> Option<&str>;
+    // None: the block is missing
+    // Some(None): the block does not have that property
+    fn get_block_property(&mut self, x: i64, y: i64, z: i64, key: &str) -> Option<Option<&str>>;
+}
+
+struct FirstWorldSearchInterface<'a, 'b, A> {
+    chunk_provider: &'a mut A,
+    dimension: &'b mut Dimension<std::fs::File>,
+}
+
+impl<'a, 'b, A: AnvilChunkProvider> WorldSearchInterface for FirstWorldSearchInterface<'a, 'b, A> {
+    fn list_chunks(&mut self) -> Vec<(i32, i32)> {
+        self.chunk_provider.list_chunks().unwrap()
+    }
+    fn chunk_y_range(&mut self, chunk_x: i32, chunk_z: i32) -> std::ops::Range<isize> {
+        // TODO: read y range from chunk list
+        -64..256
+    }
+    fn get_block_name(&mut self, x: i64, y: i64, z: i64) -> Option<&str> {
+        self.dimension.get_block(x, y, z).map(|block| block.name())
+    }
+    fn get_block_property(&mut self, x: i64, y: i64, z: i64, key: &str) -> Option<Option<&str>> {
+        fn get_property_from_encoded_description<'a, 'b>(key: &'a str, x: &'b str) -> Option<&'b str> {
+            // Block::encoded_description returns:
+            // A string of the format “id|prop1=val1,prop2=val2”. The properties are ordered lexigraphically. This somewhat matches the way Minecraft stores variants in blockstates, but with the block ID/name prepended.
+            // Get string after first |
+            let x_kv = x.splitn(2, '|').skip(1).next()?;
+
+            for kv in x_kv.split_terminator(',') {
+                // TODO: maybe rewrite this as kv.strip_prefix(key + '=')
+                let mut ikv = kv.splitn(2, '=');
+                let k = ikv.next().unwrap();
+                if k != key {
+                    continue;
+                }
+                let v = ikv.next().unwrap();
+                return Some(v);
+            }
+
+            None
+        }
+        self.dimension.get_block(x, y, z).map(|block| get_property_from_encoded_description(key, block.encoded_description()))
+    }
+}
+
+pub fn search_pattern_in_world<W>(block_pattern: &CompiledBlockPattern, bounds: &SearchBounds, mode: &SearchMode, world: &mut W) -> Result<(u32, Vec<(i64, i64, i64)>), String>
+where W: WorldSearchInterface
+{
+    let mut counter = mode.counter();
+    let mut processed_chunks_count = 0;
+    let ys = block_pattern.max_y_size();
+    let all_chunks = world.list_chunks();
+    let total_chunks = all_chunks.len();
+
+    for (chunk_x, chunk_z) in all_chunks {
+        if processed_chunks_count % 1024 == 0 {
+            log::debug!("{}/{} chunks processed, {} matches found", processed_chunks_count, total_chunks, counter.num_matches);
+        }
+        processed_chunks_count += 1;
+        if !bounds.contains_chunk(chunk_x, chunk_z) {
+            continue;
+        }
+
+        // TODO: find the optimal way to iterate over the chunk depending on the WorldBounds.
+
+        let mut y_range = world.chunk_y_range(chunk_x, chunk_z);
+        y_range.start -= ys as isize;
+        y_range.end += ys as isize;
+        'next_world_block_y: for y in y_range.clone() {
+            for cz in 0..16 {
+                'next_world_block: for cx in 0..16 {
+                    let x = i64::from(chunk_x * 16 + cx);
+                    let y = i64::try_from(y).unwrap();
+                    let z = i64::from(chunk_z * 16 + cz);
+
+                    let good = block_pattern.check_position(x, y, z, y_range.clone(), world);
+
+                    if good {
+                        let reached_limit = counter.push((x, y, z)).is_err();
+                        if reached_limit {
+                            return Ok((counter.num_matches, counter.matches.unwrap_or_default()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok((counter.num_matches, counter.matches.unwrap_or_default()))
+}
+
+pub fn iterate_find_block_pattern<A: AnvilChunkProvider>(chunk_provider: &mut A, block_pattern: &CompiledBlockPattern, _center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>, limit_y_range: Option<RangeInclusive<i32>>) -> Result<(u32, Vec<(i64, i64, i64)>), String> {
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    let mut overworld: Dimension<std::fs::File> = Dimension::new();
+
+    // Load all chunks into memory
+    for (chunk_x, chunk_z) in all_chunks.iter().copied() {
+        let c_bytes = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c_bytes).unwrap();
+        overworld.add_chunk(chunk_x, chunk_z, &mut Cursor::new(&c_bytes)).expect("Failed to add chunk");
+    }
+
+    let mut search_bounds = SearchBounds::Everywhere;
+
+    if let Some(limit_y_range) = limit_y_range {
+        search_bounds = SearchBounds::BoundingBox(Box3D { y_min: i64::from(*limit_y_range.start()), y_max: i64::from(*limit_y_range.end()), ..Box3D::max_size() });
+    }
+    let search_mode = SearchMode::FindAll;
+
+    let mut world_interface = FirstWorldSearchInterface { chunk_provider, dimension: &mut overworld };
+
+    let (num_matches, matches) = search_pattern_in_world(block_pattern, &search_bounds, &search_mode, &mut world_interface)?;
+
+    log::debug!("All chunks processed, {} matches found", num_matches);
+
+    Ok((num_matches, matches))
+}
+
+pub fn iterate_find_block_pattern_callback<A: AnvilChunkProvider, R, F: FnOnce(Dimension<std::fs::File>, Vec<(i32, i32)>) -> R>(chunk_provider: &mut A, cb: F, _center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> R {
+    let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
+    let mut overworld: Dimension<std::fs::File> = Dimension::new();
+    let total_chunks = all_chunks.len();
+
+    // Load all chunks into memory
+    for (chunk_x, chunk_z) in all_chunks.iter().copied() {
+        let c_bytes = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
+        let c = CompoundTag::from_bytes(&c_bytes).unwrap();
+        overworld.add_chunk(chunk_x, chunk_z, &mut Cursor::new(&c_bytes)).expect("Failed to add chunk");
+    }
+
+    cb(overworld, all_chunks)
 }

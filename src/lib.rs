@@ -23,6 +23,7 @@ pub mod java_rng;
 pub mod mc_rng;
 pub mod multi_spawners;
 pub mod noise_generator;
+pub mod patterns;
 pub mod population;
 #[rustfmt::skip]
 pub mod seed_info;

@@ -15,6 +15,8 @@ use slime_seed_finder::biome_layers::PanicMap;
 use slime_seed_finder::chunk::Point;
 use slime_seed_finder::java_rng::JavaRng;
 use slime_seed_finder::mc_rng::McRng;
+use slime_seed_finder::patterns::BlockPattern;
+use slime_seed_finder::patterns::BlockPatternItem;
 use slime_seed_finder::seed_info;
 use slime_seed_finder::seed_info::BiomeId;
 use slime_seed_finder::seed_info::MinecraftVersion;
@@ -795,6 +797,150 @@ pub fn find_blocks_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsV
         params
             .center_position_and_chunk_radius
             .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
+    )
+    .unwrap();
+    let blocks: Vec<_> = blocks
+        .into_iter()
+        .map(|(x, y, z)| Position { x, y, z })
+        .map(|pos| {
+            JsValue::from_serde(&pos).unwrap_or_else(|e| {
+                JsValue::from_str(&format!(
+                    "Failed to serialize position {:?}, error was: {}",
+                    pos, e
+                ))
+            })
+        })
+        .collect();
+
+    blocks
+}
+
+fn block_pattern_item_from_json(x: serde_json::Value) -> Result<BlockPatternItem, String> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum X {
+        BlockName { block_name: String },
+        Not { not: Box<X> },
+        Or { or: Vec<X> },
+        S(String),
+    }
+
+    impl TryFrom<X> for BlockPatternItem {
+        type Error = String;
+
+        fn try_from(x: X) -> Result<Self, String> {
+            Ok(match x {
+                X::BlockName { block_name } => BlockPatternItem::BlockName(block_name),
+                X::Not { not } => BlockPatternItem::Not(Box::new((*not).try_into()?)),
+                X::Or { or } => BlockPatternItem::Or(
+                    or.into_iter()
+                        .map(|p| p.try_into())
+                        .collect::<Result<_, _>>()?,
+                ),
+                X::S(s) if s == "any" => BlockPatternItem::Any,
+                X::S(s) => return Err(format!("Invalid pattern item: {:?}", s)),
+            })
+        }
+    }
+
+    let lx: X = serde_json::from_value(x).map_err(|e| format!("{:?}", e))?;
+
+    lx.try_into().map_err(|e| format!("{:?}", e))
+}
+
+fn get_char_from_string(s: &str) -> Option<char> {
+    if s.chars().count() != 1 {
+        None
+    } else {
+        Some(s.chars().next().unwrap())
+    }
+}
+
+fn palette_from_json(x: &serde_json::Value) -> Result<HashMap<char, BlockPatternItem>, String> {
+    let x_obj = x.as_object().unwrap();
+    let mut h = HashMap::new();
+
+    for (key, value) in x_obj {
+        if let Some(k) = get_char_from_string(key) {
+            let v = block_pattern_item_from_json(value.clone())?;
+            h.insert(k, v);
+        } else {
+            return Err(format!(
+                "{:?} is not a valid key, must be a single characted",
+                key
+            ));
+        }
+    }
+
+    Ok(h)
+}
+
+fn rotation_list_from_json(x: Option<&serde_json::Value>) -> Result<Vec<u8>, String> {
+    if x.is_none() {
+        return Ok(vec![0]);
+    }
+    let x = x.unwrap();
+    let x_arr = x.as_array().unwrap();
+    let mut rots = vec![];
+
+    for y in x_arr {
+        let y_u = y.as_u64().unwrap();
+        // Only valid values are 0..=47
+        if y_u >= 48 {
+            return Err(format!("Invalid rotation index: {}", y_u));
+        }
+        rots.push(u8::try_from(y_u).unwrap());
+    }
+
+    // Remove duplicates
+    rots.sort_unstable();
+    rots.dedup();
+
+    Ok(rots)
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FindBlockPatternInWorldParams {
+    pub pattern: String,
+    pub center_position_and_chunk_radius: Option<(Position, u32)>,
+    pub dimension: Option<String>,
+    pub y_range: Option<(i32, i32)>,
+}
+
+#[wasm_bindgen]
+/// Returns `Vec<Position>`
+pub fn find_block_pattern_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsValue> {
+    let params: FindBlockPatternInWorldParams = match params.into_serde() {
+        Ok(x) => x,
+        Err(e) => {
+            error!("Failed to parse params: {}", e);
+            // Return empty vector as error
+            return vec![];
+        }
+    };
+    let pattern_js_value: serde_json::Value = serde_json::from_str(&params.pattern).unwrap();
+    let palette = palette_from_json(&pattern_js_value["palette"]).unwrap();
+    let map_str = &pattern_js_value["map"];
+    let rotations = pattern_js_value.get("rotations");
+    let block_pattern = BlockPattern {
+        palette,
+        map: slime_seed_finder::patterns::parse_block_pattern_map(map_str.as_str().unwrap())
+            .unwrap(),
+        rotations: rotation_list_from_json(rotations).unwrap(),
+    };
+    use slime_seed_finder::anvil::ZipChunkProvider;
+    // TODO: check if the input is actually a zipped_world, as it also may be a raw region file
+    let wf = WebSysFile::new(zip_file);
+    let mut chunk_provider =
+        ZipChunkProvider::new_with_dimension(wf, params.dimension.as_deref()).unwrap();
+    let blocks = anvil::find_block_pattern_in_world(
+        &mut chunk_provider,
+        &block_pattern.compile(),
+        params
+            .center_position_and_chunk_radius
+            .map(|(position, radius)| ((position.x, position.y, position.z), radius)),
+        params.y_range.map(|(y_min, y_max)| y_min..=y_max),
     )
     .unwrap();
     let blocks: Vec<_> = blocks
