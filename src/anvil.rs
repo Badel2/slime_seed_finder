@@ -1125,18 +1125,20 @@ pub fn iterate_chunks_in_region<R: Read + Seek, F: FnMut((i32, i32), &fastanvil:
 
 pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fastanvil::Block)>(region: R, (region_x, region_z): (i32, i32), only_check_chunks: Option<&[(i32, i32)]>, mut f: F) -> Result<(), String> {
     iterate_chunks_in_region(region, (region_x, region_z), only_check_chunks, |(chunk_x, chunk_z), chunk| {
-        for x in 0..16 {
-            for y in 0..256 {
+        let y_range = chunk.y_range();
+
+        for y in y_range {
+            for x in 0..16 {
                 for z in 0..16 {
+                    let (x, y, z) = (x as i64, y as i64, z as i64);
+                    let block_x = chunk_x as i64 * 16 + x;
+                    let block_y = i64::from(y);
+                    let block_z = chunk_z as i64 * 16 + z;
                     if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
-                        let (x, y, z) = (x as i64, y as i64, z as i64);
-                        let block_x = chunk_x as i64 * 16 + x;
-                        let block_y = i64::from(y);
-                        let block_z = chunk_z as i64 * 16 + z;
                         f((block_x, block_y, block_z), block);
                     } else {
-                        // TODO: check max y to avoid iterating from 0 to 255
-                        //println!("No block?");
+                        // chunk.block() should never return None because we checked the y_range
+                        log::warn!("iterate_blocks_in_region: Failed to get block at {:?}", (block_x, block_y, block_z));
                     }
                 }
             }
