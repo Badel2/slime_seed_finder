@@ -22,20 +22,19 @@ main = ["base_main", "rand"]
 wasi = ["base_main"]
 
 [dependencies]
-spiral = "0.1.9"
+spiral = "0.2"
 num_cpus = { version = "1.13.0", optional = true }
-clap = { version = "3.2.17", features = ["derive"], optional = true }
+clap = { version = "4", features = ["derive"], optional = true }
 image = { version = "0.24.1", optional = true }
 log = { version = "0.4.14", features = ["std"] }
 serde = { version = "1.0.126", features = ["derive"] }
 serde_json = { version = "1.0.64", optional = false }
 ndarray = "0.15.3"
 rand = { version = "0.8.4", optional = true }
-pretty_env_logger = "0.4.0"
+pretty_env_logger = "0.5.0"
 sha2 = "0.10.2"
 zip = { version = "0.6.2", default-features = false, features = ["deflate"] }
-fastanvil = { git = "https://github.com/Badel2/fastnbt", rev = "c2f661eaf599a6d1e9532481ee49bf2979afb624" }
-#fastanvil = "0.26"
+fastanvil = "0.28"
 fastnbt = "2"
 lazy_static = "1.4.0"
 flate2 = "1.0.24"

@@ -299,9 +299,15 @@ pub fn parse_region_file_name(s: &str) -> Option<(i32, i32)> {
 #[derive(Debug)]
 pub enum ChunkLoadError {
     /// Region at specified coordinates not found.
-    RegionNotFound { region_x: i32, region_z: i32 },
+    RegionNotFound {
+        region_x: i32,
+        region_z: i32,
+    },
     /// Chunk at specified coordinates inside region not found.
-    ChunkNotFound { chunk_x: u8, chunk_z: u8 },
+    ChunkNotFound {
+        chunk_x: u8,
+        chunk_z: u8,
+    },
     /*
     /// Chunk length overlaps declared maximum.
     ///
@@ -325,7 +331,9 @@ pub enum ChunkLoadError {
     },
     */
     /// I/O Error which happened while were reading chunk data from region file.
-    ReadError { io_error: io::Error },
+    ReadError {
+        io_error: io::Error,
+    },
     /*
     /// Error while decoding binary data to NBT tag.
     ///
@@ -334,11 +342,20 @@ pub enum ChunkLoadError {
     /// Region file are corrupted or a developer error in the NBT library.
     TagDecodeError { tag_decode_error: TagDecodeError },
     */
+    Loader {
+        inner: fastanvil::LoaderError,
+    },
 }
 
 impl From<io::Error> for ChunkLoadError {
     fn from(io_error: io::Error) -> Self {
         ChunkLoadError::ReadError { io_error }
+    }
+}
+
+impl From<fastanvil::LoaderError> for ChunkLoadError {
+    fn from(inner: fastanvil::LoaderError) -> Self {
+        ChunkLoadError::Loader { inner }
     }
 }
 
@@ -379,7 +396,7 @@ impl AnvilChunkProvider for FolderChunkProvider {
             .region(
                 RCoord(region_x.try_into().unwrap()),
                 RCoord(region_z.try_into().unwrap()),
-            )
+            )?
             .ok_or(ChunkLoadError::RegionNotFound { region_x, region_z })?;
 
         Ok(Box::new(region.into_inner().unwrap()))

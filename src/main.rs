@@ -1,4 +1,4 @@
-use clap::StructOpt;
+use clap::Parser;
 use log::*;
 #[cfg(feature = "rand")]
 use rand::{thread_rng, Rng as _};
@@ -53,7 +53,7 @@ mod wasm_rand {
     }
 }
 
-#[derive(StructOpt, Debug)]
+#[derive(Parser, Debug)]
 #[clap(name = "slime_seed_finder", rename_all = "kebab-case")]
 enum Opt {
     /// Generate a SeedInfo.
@@ -78,7 +78,7 @@ enum Opt {
         num_non_slime_chunks: usize,
         /// Output file. If unspecified, defaults to stdout so the output of
         /// this program can be saved into a file.
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
         /// Add biome information to generated SeedInfo.
         /// This option controls the size of the map. The top-left corner of
@@ -101,7 +101,7 @@ enum Opt {
     #[clap(name = "interactive")]
     Interactive {
         /// File containing the SeedInfo
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_file: Option<PathBuf>,
     },
 
@@ -110,15 +110,15 @@ enum Opt {
     #[clap(name = "find")]
     Find {
         /// File containing the SeedInfo
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_file: PathBuf,
         /// File containing a JSON array of all the candidate seeds: so instead
         /// of bruteforcing all the possible seeds we only try the ones from
         /// this file.
-        #[clap(long, parse(from_os_str))]
+        #[clap(long, value_parser)]
         candidate_seeds: Option<PathBuf>,
         /// Where to write the found seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
     },
 
@@ -126,10 +126,10 @@ enum Opt {
     #[clap(name = "rivers")]
     Rivers {
         /// File containing the SeedInfo
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_file: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
     },
 
@@ -137,20 +137,20 @@ enum Opt {
     #[clap(name = "treasure-rivers")]
     TreasureRivers {
         /// File containing the SeedInfo
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_file: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
     },
 
     #[clap(name = "extend48")]
     Extend48 {
         /// File containing the list of 48-bit seeds as a JSON array
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_file: PathBuf,
         /// Where to write the extended seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
     },
 
@@ -182,7 +182,7 @@ enum Opt {
         height: u32,
         /// Output filename. Defaults to biome_map_<seed>_x_z_wxh.png.
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
@@ -215,7 +215,7 @@ enum Opt {
         fragment_z: i64,
         /// Output filename. Defaults to treasure_map_<seed>_x_z.png.
         /// Supported image formats: jpeg, png, ico, pnm, bmp and tiff.
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
@@ -227,10 +227,10 @@ enum Opt {
     #[clap(name = "anvil")]
     Anvil {
         /// Path to "minecraft_saved_world/region"
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_dir: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
         /// Number of threads to use. By default, same as number of CPUs
         #[clap(short = 'j', long, default_value = "0")]
@@ -251,10 +251,10 @@ enum Opt {
     #[clap(name = "anvil-zip")]
     AnvilZip {
         /// Path to "minecraft_saved_world.zip"
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_zip: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
         /// Number of threads to use. By default, same as number of CPUs
         #[clap(short = 'j', long, default_value = "0")]
@@ -383,7 +383,7 @@ enum Opt {
     #[clap(name = "test-generation")]
     TestGeneration {
         /// Path to "minecraft_saved_world.zip"
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
         /// Supported values: from 1.3 to 1.16
@@ -398,7 +398,7 @@ enum Opt {
     #[clap(name = "read-dungeons")]
     ReadDungeons {
         /// Path to "minecraft_saved_world.zip"
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_zip: PathBuf,
         /// Minecraft version to use (Java edition).
         /// Supported values: 1.16
@@ -411,15 +411,15 @@ enum Opt {
     #[clap(name = "filter-biomes")]
     FilterBiomes {
         /// File containing the SeedInfo
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_file: PathBuf,
         /// File containing a JSON array of all the candidate seeds: so instead
         /// of bruteforcing all the possible seeds we only try the ones from
         /// this file.
-        #[clap(long, parse(from_os_str))]
+        #[clap(long, value_parser)]
         candidate_seeds: PathBuf,
         /// Where to write the found seeds as a JSON array
-        #[clap(short = 'o', long, parse(from_os_str))]
+        #[clap(short = 'o', long, value_parser)]
         output_file: Option<PathBuf>,
     },
 
@@ -427,7 +427,7 @@ enum Opt {
     #[clap(name = "find-block")]
     FindBlock {
         /// Path to "minecraft_saved_world.zip"
-        #[clap(short = 'i', long, parse(from_os_str))]
+        #[clap(short = 'i', long, value_parser)]
         input_zip: PathBuf,
         /// Block id, eg. "minecraft:diamond_ore"
         #[clap(long)]
@@ -438,7 +438,7 @@ enum Opt {
 fn main() {
     pretty_env_logger::init();
 
-    match Opt::from_args() {
+    match Opt::parse() {
         Opt::Generate {
             seed,
             mut seed_not_from_java_next_long,
