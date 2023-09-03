@@ -104,9 +104,14 @@ function updateList(
             }
         });
     }
-    document.getElementById(
-        "how_many_found"
-    ).innerHTML = `Found ${local_found_blocks.length} multi-spawners in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+
+    let found_msg;
+    if (chunkRadius == 0) {
+        found_msg = `Found ${local_found_blocks.length} multi-spawners`;
+    } else {
+        found_msg = `Found ${local_found_blocks.length} multi-spawners in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+    }
+    document.getElementById("how_many_found").innerHTML = found_msg;
 
     let dungeon_list = document.getElementById("dungeon_list");
     dungeon_list.innerHTML = "";
