@@ -35,6 +35,7 @@ use std::io::Read;
 use std::io::Seek;
 use std::str::FromStr;
 use std::convert::TryInto;
+use ordered_float::OrderedFloat;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -1146,13 +1147,17 @@ pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fasta
     })
 }
 
-
+/// Given a list of coordinates and a bucket size, segregate the coordinates into buckets of that
+/// size. Since the coordinates are 3D, a bucket is a 3D cube.
+/// This improves the performance of some algorithms, as instead of checking all the coordinates
+/// they only need to check the coordinates of nearby buckets.
 fn segregate_into_buckets<V>(list: Vec<((i64, i64, i64), V)>, size: u64) -> HashMap<(i64, i64, i64), Vec<((i64, i64, i64), V)>> {
     let size = size as i64;
     let mut buckets: HashMap<(i64, i64, i64), Vec<_>> = HashMap::new();
 
     for el in list {
         let ((x, y, z), v) = el;
+        // We must use div_euclid because `-1 / size` must return `-1` instead of `0`.
         let bucket_id = (x.div_euclid(size), y.div_euclid(size), z.div_euclid(size));
         buckets.entry(bucket_id).or_default().push(((x, y, z), v));
     }
@@ -1160,6 +1165,8 @@ fn segregate_into_buckets<V>(list: Vec<((i64, i64, i64), V)>, size: u64) -> Hash
     buckets
 }
 
+/// Load all the coordinates from the target bucket and its 26-connected neighbors.
+/// 26 extra because there are 27 buckets in 3x3x3.
 fn load_bucket_and_26_neighbors<'b, V>(buckets: &'b HashMap<(i64, i64, i64), Vec<((i64, i64, i64), V)>>, (x, y, z): &(i64, i64, i64)) -> Vec<&'b ((i64, i64, i64), V)> {
     let mut v = vec![];
 
@@ -1167,9 +1174,7 @@ fn load_bucket_and_26_neighbors<'b, V>(buckets: &'b HashMap<(i64, i64, i64), Vec
         for j in -1 ..= 1 {
             for k in -1 ..= 1 {
                 if let Some(bucket) = buckets.get(&(x+i, y+j, z+k)) {
-                    for el in bucket {
-                        v.push(el);
-                    }
+                    v.extend(bucket);
                 }
             }
         }
@@ -1178,6 +1183,9 @@ fn load_bucket_and_26_neighbors<'b, V>(buckets: &'b HashMap<(i64, i64, i64), Vec
     v
 }
 
+/// Return the distance between 2 3D points, squared.
+/// This is useful because comparing distances can be done faster if comparing the distances
+/// squared, as we avoid sqrt operations.
 fn distance3dsquared(a: &(i64, i64, i64), b: &(i64, i64, i64)) -> f64 {
     let x = (a.0 - b.0) as f64;
     let y = (a.1 - b.1) as f64;
@@ -1186,13 +1194,17 @@ fn distance3dsquared(a: &(i64, i64, i64), b: &(i64, i64, i64)) -> f64 {
     x*x + y*y + z*z
 }
 
-fn remove_all_spawners_that_are_too_far<V>(v: &mut Vec<&((i64, i64, i64), V)>, max_distance: u64) {
-    // TODO: this must be one of the most poorly written algorithms in this file
-    let mut to_remove = vec![];
+/// Given a list of spawner coordinates, we want to remove the ones that are not connected to any
+/// other spawner. Connected means that the distance is less than max_distance. Mutates the vec in
+/// place.
+///
+/// Time complexity: O(n^2), could be improved using a 3D quad tree maybe
+fn remove_all_spawners_that_are_not_connected<V>(v: &mut Vec<&((i64, i64, i64), V)>, max_distance: u64) {
     let max_distance_squared = (max_distance as f64) * (max_distance as f64);
+    let mut i = 0;
 
-    for i in 0..v.len() {
-        let mut found_any = false;
+    while i < v.len() {
+        let mut connected = false;
         for j in 0..v.len() {
             if i == j {
                 continue;
@@ -1200,18 +1212,17 @@ fn remove_all_spawners_that_are_too_far<V>(v: &mut Vec<&((i64, i64, i64), V)>, m
             let a = &v[i].0;
             let b = &v[j].0;
             if distance3dsquared(a, b) < max_distance_squared {
-                found_any = true;
+                connected = true;
                 break;
             }
         }
 
-        if !found_any {
-            to_remove.push(i);
+        // If not connected remove it immediately
+        if !connected {
+            v.swap_remove(i);
+        } else {
+            i += 1;
         }
-    }
-
-    for i in to_remove.into_iter().rev() {
-        v.remove(i);
     }
 }
 
@@ -1238,6 +1249,7 @@ struct BoundingBox {
     z_max: i64,
 }
 
+/// Return the smallest 3D rectangle (bounding box) that contains all the points in `p`.
 fn bounding_box<V>(p: &[&((i64, i64, i64), V)]) -> BoundingBox {
     use std::cmp::min;
     use std::cmp::max;
@@ -1249,7 +1261,7 @@ fn bounding_box<V>(p: &[&((i64, i64, i64), V)]) -> BoundingBox {
     let mut z_min = p[0].0.2;
     let mut z_max = p[0].0.2;
 
-    for ((x, y, z), _) in p {
+    for ((x, y, z), _) in p.into_iter().skip(1) {
         x_min = min(x_min, *x);
         x_max = max(x_max, *x);
         y_min = min(y_min, *y);
@@ -1263,6 +1275,9 @@ fn bounding_box<V>(p: &[&((i64, i64, i64), V)]) -> BoundingBox {
     }
 }
 
+/// A bounding box is a 3D rectangle. A bucket is also a 3D rectangle but with all sides the same
+/// length (a cube). This function mutates the bounding box so that it only preserves the part of
+/// the bounding box that intersects with the cube.
 fn clamp_bb_to_bucket(bb: &mut BoundingBox, bucket: &(i64, i64, i64), bucket_side_length: u64) {
     use std::cmp::min;
     use std::cmp::max;
@@ -1283,12 +1298,27 @@ fn clamp_bb_to_bucket(bb: &mut BoundingBox, bucket: &(i64, i64, i64), bucket_sid
     bb.z_max = min(bb.z_max, b_z_max);
 }
 
+/// Returns true if all of the elements that are true in `a` are also true in `b`
 fn a_is_subset_of_b(a: &[bool], b: &[bool]) -> bool {
     assert_eq!(a.len(), b.len());
 
-    false
+    for (i, x) in a.iter().enumerate() {
+        if *x {
+            if b[i] {
+                // True in a and true in b, ok
+                continue;
+            } else {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
+/// Removes all keys that are a subset of other keys.
+///
+/// `v` cannot contain any duplicates
 fn remove_duplicate_keys(v: &mut Vec<(Vec<bool>, (i64, i64, i64))>) {
     // Check if any v[j].0 is a subset of v[i].0
     let mut to_remove = HashSet::new();
@@ -1310,35 +1340,11 @@ fn remove_duplicate_keys(v: &mut Vec<(Vec<bool>, (i64, i64, i64))>) {
     to_remove.sort();
 
     for i in to_remove.into_iter().rev() {
-        v.remove(i);
+        v.swap_remove(i);
     }
 }
 
 fn a_is_subset_of_b_again<V>(a: &[((i64, i64, i64), V)], b: &[((i64, i64, i64), V)]) -> bool {
-    for (a_pos, _) in a {
-        // If all the spawners of a are also present in b
-        let mut found = false;
-        for (b_pos, _) in b {
-            if b_pos == a_pos {
-                found = true;
-                break;
-            }
-        }
-
-        if !found {
-            // At least one spawner of a is not present in b
-            return false;
-        }
-    }
-
-    true
-}
-
-fn a_is_equal_to_b_again<V>(a: &[((i64, i64, i64), V)], b: &[((i64, i64, i64), V)]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-
     for (a_pos, _) in a {
         // If all the spawners of a are also present in b
         let mut found = false;
@@ -1369,62 +1375,84 @@ fn remove_duplicate_keys_again(v: &mut Vec<FindMultiSpawnersOutput>) {
                 continue;
             }
 
-            // Sometimes it happens that a and b are equal, so they are both subsets of each other
-            // and they disappear after removing duplicates. So handle that case by removing the
-            // one with highest index.
-            if a_is_equal_to_b_again(&v[j].spawners, &v[i].spawners) {
-                to_remove.insert(max(i, j));
-            } else if a_is_subset_of_b_again(&v[j].spawners, &v[i].spawners) {
-                // If all the spawners of a are also present in b
-                to_remove.insert(j);
+            if a_is_subset_of_b_again(&v[j].spawners, &v[i].spawners) {
+                if &v[j].spawners.len() == &v[i].spawners.len() {
+                    // Sometimes it happens that a and b are equal, so they are both subsets of each other
+                    // and they disappear after removing duplicates. So handle that case by removing the
+                    // one with highest index.
+                    to_remove.insert(max(i, j));
+                } else {
+                    // If all the spawners of a are also present in b, remove a
+                    to_remove.insert(j);
+                }
             }
         }
-
     }
 
     let mut to_remove: Vec<_> = to_remove.into_iter().collect();
     to_remove.sort();
 
     for i in to_remove.into_iter().rev() {
-        v.remove(i);
+        v.swap_remove(i);
     }
 }
 
-fn find_multispawners_in_bb(bb: &BoundingBox, spawners: &Vec<&((i64, i64, i64), String)>, max_distance: u64) -> Vec<FindMultiSpawnersOutput> {
+/// Find all the intersections of spawners inside the bounding box. Returns a list of intersections
+/// sorted by number of spawners. Removes any duplicates and subsets: if there is an intersection
+/// A-B and another intersection A-B-C, it only returns A-B-C. However if the intersections are A-B
+/// and A-C-D, it returns both of them.
+///
+/// Performance: O(bb_side^3 * num_spawners)
+/// (that's really bad but bb_side and num_spawners should be small)
+fn find_multispawners_in_bb(bb: &BoundingBox, spawners: &[&((i64, i64, i64), String)], max_distance: u64) -> Vec<FindMultiSpawnersOutput> {
     let mut multispawners = vec![];
 
     let mut hm = HashMap::new();
     let max_distance_squared = (max_distance as f64) * (max_distance as f64);
 
+    // Calculate the distance to all the spawners from a given (x, y, z) coordinate.
+    // Returns:
+    // * A bitmap of which spawners intersect there
+    // * The number of spawners that intersect there
+    // * A score consisting of the sum of (distances squared)
     let distance_to_all = |(x, y, z)| {
         let mut key = Vec::with_capacity(spawners.len());
+        let mut num_true = 0;
         let mut score = 0.0;
         for s in spawners.iter() {
             let dist = distance3dsquared(&(x, y, z), &s.0);
             if dist < max_distance_squared {
                 key.push(true);
+                num_true += 1;
+                // TODO: not sure if this is a good score function or we should sqrt the distance here
+                // But it doesn't matter much, we will find a point that may not be optimal but it
+                // will be valid.
                 score += dist;
             } else {
                 key.push(false);
             }
         }
-        (key, score)
+        (key, num_true, score)
     };
 
-    let all_false = |v: &[bool]| v.iter().all(|x| *x == false);
-
+    // Iterate over all the integer coordinates of the bounding box
+    // TODO: this will not find "micro intersections" that only happen at float coordinates but
+    // disappear at integer coordinates (so at x=1 there is no intersection, at x=1.5 there is, but
+    // at x=2 there is not), but I don't know if those exist yet
     for x in bb.x_min..=bb.x_max {
         for y in bb.y_min..=bb.y_max {
             for z in bb.z_min..=bb.z_max {
-                let (hm_key, score) = distance_to_all((x, y, z));
-                if all_false(&hm_key) {
-                    continue;
+                let (hm_key, num_true, score) = distance_to_all((x, y, z));
+                if num_true <= 1 {
+                    // This point is close to 0 or 1 dungeons, so not a multi dungeon point
                 } else if let Some((prev_score, _prev_pos)) = hm.get(&hm_key) {
+                    // We already have another point that intersects the same dungeons
                     if score < *prev_score {
                         // Smaller distance = better match
                         hm.insert(hm_key, (score, (x, y, z)));
                     }
                 } else {
+                    // New intersection
                     hm.insert(hm_key, (score, (x, y, z)));
                 }
             }
@@ -1433,20 +1461,8 @@ fn find_multispawners_in_bb(bb: &BoundingBox, spawners: &Vec<&((i64, i64, i64), 
 
     // Deduplicate matches: given [true, false, true] and [true, true, true] we only want to keep
     // [true, true, true]
-
     let mut key_list: Vec<_> = hm.into_iter().map(|(hm_key, (_score, pos))| (hm_key, pos)).collect();
-    key_list.sort_by_key(|(k, _)| {
-        let mut ones = 0;
-        for b in k {
-            if *b {
-                ones += 1;
-            }
-        }
-        ones
-    });
-
     remove_duplicate_keys(&mut key_list);
-
     for (hm_key, pos) in key_list {
         let mut sp = vec![];
 
@@ -1460,13 +1476,36 @@ fn find_multispawners_in_bb(bb: &BoundingBox, spawners: &Vec<&((i64, i64, i64), 
             optimal_position: FloatPosition { x: pos.0 as f64, y: pos.1 as f64, z: pos.2 as f64 },
             spawners: sp,
         });
-
     }
-
 
     multispawners
 }
 
+/// Return the center of mass of n points
+// Note that this can only be used to find the intersection of n spawners if n=2
+fn calc_midpoint<I: Iterator<Item = (i64, i64, i64)>>(p: I) -> FloatPosition {
+    let mut n = 0;
+    let mut x = 0.0;
+    let mut y = 0.0;
+    let mut z = 0.0;
+
+    for (px, py, pz) in p {
+        x += px as f64;
+        y += py as f64;
+        z += pz as f64;
+        n += 1;
+    }
+
+    let n = n as f64;
+    x /= n;
+    y /= n;
+    z /= n;
+
+    FloatPosition { x, y, z }
+}
+
+/// Returns the list of multi-spawners in the given dimension, sorted by number of spawners that
+/// can be activated at the same time.
 pub fn find_spawners_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, _center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> Result<Vec<FindMultiSpawnersOutput>, String> {
     let all_dungeons = find_spawners(chunk_provider)?;
 
@@ -1483,47 +1522,53 @@ pub fn find_spawners_in_world<A: AnvilChunkProvider>(chunk_provider: &mut A, _ce
     for bucket in buckets.keys() {
         let mut spawners = load_bucket_and_26_neighbors(&buckets, bucket);
         let orig_len = spawners.len();
-        remove_all_spawners_that_are_too_far(&mut spawners, spawner_activation_radius * 2);
+        remove_all_spawners_that_are_not_connected(&mut spawners, spawner_activation_radius * 2);
         log::debug!("Found {} spawners in bucket {:?} ({} before removing unconnected ones)", spawners.len(), bucket, orig_len);
 
         match spawners.len() {
-            // No double dungeons here
-            0 | 1 => continue,
+            // No multi dungeons here
+            0 | 1 => {},
             2 => {
                 // Simple case, just calculate the midpoint
                 let a = &spawners[0];
                 let b = &spawners[1];
-                let midpoint = FloatPosition { x: (a.0.0 as f64 + b.0.0 as f64) / 2.0, y: (a.0.1 as f64 + b.0.1 as f64) / 2.0, z: (a.0.2 as f64 + b.0.2 as f64) / 2.0 };
+                let midpoint = calc_midpoint([a.0, b.0].iter().cloned());
                 multispawners.push(FindMultiSpawnersOutput {
                     optimal_position: midpoint,
                     spawners: spawners.into_iter().cloned().collect(),
                 });
-                continue;
             }
-            _n => {}
+            _n => {
+                // General case: more than 2 dungeons
+                // Because of the precondition `remove_all_spawners_that_are_not_connected`, we are
+                // guaranteed that there exists an intersection. However that intersection may not
+                // always include all the dungeons, consider the case n=3. It is possible that all
+                // 3 dungeons intersect, or it is possible that one of them intersects with the
+                // other 2, but they never intersect all 3.
+                // Calculate bounding box of all the spawners, and iterate all the possible
+                // positions inside that bounding box and inside the current bucket.
+                // This works because if we want to find the approximate location of an
+                // intersection of n spheres, we can first find the intersection of n cubes (such
+                // that each cube has side length equal to the diameter of the sphere).
+                // However this algorithm does not iterate over the intersection points yet, it
+                // iterates over all the points.
+                let mut bb = bounding_box(spawners.as_slice());
+                clamp_bb_to_bucket(&mut bb, bucket, bucket_side_length);
+                let more_multispawners = find_multispawners_in_bb(&bb, &spawners, spawner_activation_radius);
+                multispawners.extend(more_multispawners);
+            }
         }
-
-
-        // General case: more than 2 dungeons
-        // Check every possible block position inside this bucket, and see if it is within the
-        // desired radius of any spawners
-        // Calculate bounding box of all the spawners, and iterate all the possible positions
-        // inside that bounding box and inside the current bucket
-        let mut bb = bounding_box(spawners.as_slice());
-        clamp_bb_to_bucket(&mut bb, bucket, bucket_side_length);
-
-        let more_multispawners = find_multispawners_in_bb(&bb, &spawners, spawner_activation_radius);
-        multispawners.extend(more_multispawners);
     }
 
+    // Even if we ensure that each bucket does not return any duplicate spawners (subsets of one
+    // another), it is possible that two adjacent buckets have the same spawners, if the
+    // intersection is at the bucket boundary.
     remove_duplicate_keys_again(&mut multispawners);
 
     multispawners.sort_by_key(|k| {
         // Number of spawners (higher first), then x coordinate, then z coordinate, then y coordinate
-        // TODO: use OrderedFloat to sort floats
-        (!k.spawners.len(), k.optimal_position.x as u64, k.optimal_position.z as u64, k.optimal_position.y as u64)
+        (!k.spawners.len(), OrderedFloat(k.optimal_position.x), OrderedFloat(k.optimal_position.z), OrderedFloat(k.optimal_position.y))
     });
 
     Ok(multispawners)
 }
-

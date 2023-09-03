@@ -40,6 +40,7 @@ lazy_static = "1.4.0"
 flate2 = "1.0.24"
 weak-alloc = "0.1"
 cfg-if = "1"
+ordered-float = "3"
 
 # TODO: for some reason this patch section does not work when placed in
 # slime_seed_finder_web/Cargo.toml
