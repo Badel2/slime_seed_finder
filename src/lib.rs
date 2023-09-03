@@ -21,6 +21,7 @@ pub mod gen_pairs3;
 pub mod java_rng;
 #[rustfmt::skip]
 pub mod mc_rng;
+pub mod multi_spawners;
 pub mod noise_generator;
 pub mod population;
 #[rustfmt::skip]
