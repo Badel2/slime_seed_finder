@@ -66,17 +66,21 @@ function findBlock() {
         ],
     });
     mainWorker.onmessage = function(e) {
-        let local_found_blocks = e.data;
-        console.log("Found following blocks:");
-        console.log(local_found_blocks);
-        updateList(local_found_blocks, {
-            chunkRadius,
-            dimension,
-            centerX,
-            centerY,
-            centerZ,
-            ignoreCaveSpiders,
-        });
+        if (e.data.result) {
+            let local_found_blocks = e.data.result;
+            console.log("Found following blocks:");
+            console.log(local_found_blocks);
+            updateList(local_found_blocks, {
+                chunkRadius,
+                dimension,
+                centerX,
+                centerY,
+                centerZ,
+                ignoreCaveSpiders,
+            });
+        } else if (e.data.progress) {
+            console.log("got progress message: ", e.data.progress);
+        }
     };
 }
 

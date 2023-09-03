@@ -21,7 +21,7 @@ function findBlock() {
         args: [region, blockName],
     });
     mainWorker.onmessage = function(e) {
-        let local_found_blocks = e.data;
+        let local_found_blocks = e.data.result;
 
         console.log("Found following blocks:");
         console.log(local_found_blocks);

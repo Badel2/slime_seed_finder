@@ -52,7 +52,7 @@ function findBlock() {
         ],
     });
     mainWorker.onmessage = function(e) {
-        let local_found_blocks = e.data;
+        let local_found_blocks = e.data.result;
         console.log("Found following blocks:");
         console.log(local_found_blocks);
         let outputTextarea = document.getElementById("output_textarea");
