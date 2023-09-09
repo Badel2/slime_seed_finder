@@ -481,7 +481,6 @@ mod tests {
     #[test]
     fn previous() {
         let mut r = JavaRng::with_seed(12345);
-        r.set_seed(12345);
         r.next_int();
         r.previous();
         assert_eq!(r.get_seed(), 12345);
@@ -756,5 +755,31 @@ mod tests {
         assert_eq!(distance_between_rngs_less_than(&r0, &r, 100), Some(99));
         assert_eq!(distance_between_rngs_less_than(&r0, &r, 99), None);
         assert_eq!(distance_between_rngs_less_than(&r0, &r, 98), None);
+    }
+}
+
+// Unfortunately kani is so slow that this is useless, I have not been able to verify any of these
+// proofs. Reproduce with:
+//   cargo kani --features="base_main"
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    #[kani::proof]
+    fn create_from_long_works_for_any_seed() {
+        let seed = kani::any::<u64>() & mask(48);
+        let mut r = JavaRng::with_seed(seed);
+        let l = r.next_long();
+        let rs = JavaRng::create_from_long(l as u64).unwrap();
+        assert_eq!(rs.get_seed(), seed);
+    }
+
+    #[kani::proof]
+    fn previous_is_the_inverse_of_next() {
+        let seed = kani::any::<u64>() & mask(48);
+        let mut r = JavaRng::with_seed(seed);
+        r.next_int();
+        r.previous();
+        assert_eq!(r.get_seed(), seed);
     }
 }
