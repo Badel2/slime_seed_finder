@@ -13,12 +13,6 @@ use std::path::Path;
 use std::ptr;
 use std::slice;
 
-// TODO: Panicking across a FFI boundary is undefined behavior.
-// Solution: either ensure that the exported functions never panic or use panic="abort".
-// Problem: I don't know how to set panic="abort" for this crate only, cargo complains and says
-// that it must be set at the workspace root. Should be as simple as adding
-// [profile.release] panic = "abort"
-
 // Error handling: instead of Result<(), Error> we use *mut c_char, which is null when the result
 // is Ok, and it is a c string of the error message when the result is Err.
 // This function is used to build errors from the Rust side, and it is expected that the C code
