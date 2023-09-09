@@ -1,0 +1,71 @@
+[package]
+name = "slime_seed_finder-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+base64 = "0.5"
+libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
+pretty_env_logger = "0.5"
+log = "0.4"
+serde_json = "1.0"
+
+[dependencies.slime_seed_finder]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "dungeon_seed_to_world_seed"
+path = "fuzz_targets/dungeon_seed_to_world_seed.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "world_seed_to_chunk_population_seed_low_bits"
+path = "fuzz_targets/world_seed_to_chunk_population_seed_low_bits.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "world_seed_to_chunk_population_seed_low_bits2"
+path = "fuzz_targets/world_seed_to_chunk_population_seed_low_bits2.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "genpairs3_full"
+path = "fuzz_targets/genpairs3_full.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "genpairs3_steps"
+path = "fuzz_targets/genpairs3_steps.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "world_seed_to_chunk_population_seed_low_bits3"
+path = "fuzz_targets/world_seed_to_chunk_population_seed_low_bits3.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "multi_spawners"
+path = "fuzz_targets/multi_spawners.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "multi_spawners_all_intersect"
+path = "fuzz_targets/multi_spawners_all_intersect.rs"
+test = false
+doc = false
