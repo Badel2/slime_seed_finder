@@ -62,7 +62,9 @@ pub fn find_multi_spawners(
                 // However this algorithm does not iterate over the intersection points yet, it
                 // iterates over all the points.
                 let mut bb = bounding_box(spawners.as_slice());
-                clamp_bb_to_bucket(&mut bb, bucket, bucket_side_length);
+                // TODO: this makes it faster but leads to missed intersections
+                // see test intersection_in_different_bucket
+                //clamp_bb_to_bucket(&mut bb, bucket, bucket_side_length);
                 let more_multispawners =
                     find_multispawners_in_bb(&bb, &spawners, spawner_activation_radius);
                 multispawners.extend(more_multispawners);
@@ -72,7 +74,7 @@ pub fn find_multi_spawners(
 
     // Even if we ensure that each bucket does not return any duplicate spawners (subsets of one
     // another), it is possible that two adjacent buckets have the same spawners, if the
-    // intersection is at the bucket boundary.
+    // intersection is at the bucket boundary. Or if the bucket only has 2 spawners.
     remove_duplicate_keys_again(&mut multispawners);
 
     multispawners.sort_by_key(|k| {
@@ -91,7 +93,7 @@ pub fn find_multi_spawners(
 /// Given a list of coordinates and a bucket size, segregate the coordinates into buckets of that
 /// size. Since the coordinates are 3D, a bucket is a 3D cube.
 /// This improves the performance of some algorithms, as instead of checking all the coordinates
-/// they only need to check the coordinates of nearby buckets.
+/// they only need to check the coordinates in nearby buckets.
 fn segregate_into_buckets<V>(
     list: Vec<((i64, i64, i64), V)>,
     size: u64,
@@ -176,14 +178,14 @@ fn remove_all_spawners_that_are_not_connected<V>(
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, PartialEq)]
 pub struct FloatPosition {
     pub x: f64,
     pub y: f64,
     pub z: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, PartialEq)]
 pub struct FindMultiSpawnersOutput {
     pub optimal_position: FloatPosition,
     pub spawners: Vec<((i64, i64, i64), String)>,
@@ -330,7 +332,7 @@ fn remove_duplicate_keys_again(v: &mut Vec<FindMultiSpawnersOutput>) {
             }
 
             if a_is_subset_of_b_again(&v[j].spawners, &v[i].spawners) {
-                if &v[j].spawners.len() == &v[i].spawners.len() {
+                if v[j].spawners.len() == v[i].spawners.len() {
                     // Sometimes it happens that a and b are equal, so they are both subsets of each other
                     // and they disappear after removing duplicates. So handle that case by removing the
                     // one with highest index.
@@ -370,7 +372,7 @@ fn find_multispawners_in_bb(
 
     // Calculate the distance to all the spawners from a given (x, y, z) coordinate.
     // Returns:
-    // * A bitmap of which spawners intersect there
+    // * A bitset of which spawners intersect there
     // * The number of spawners that intersect there
     // * A score consisting of the sum of (distances squared)
     let distance_to_all = |(x, y, z)| {
@@ -467,4 +469,40 @@ fn calc_midpoint<I: Iterator<Item = (i64, i64, i64)>>(p: I) -> FloatPosition {
     z /= n;
 
     FloatPosition { x, y, z }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intersection_in_different_bucket() {
+        // Bug: if the intersection does not fall in the same bucket as any spawner, and
+        // num_spawners > 2, this used to fail to find it
+        let pos = (-16776961, 16779271, -520093696);
+        let offsets = [(-13, -1, -1), (0, 8, -12), (0, -12, 4)];
+
+        let all_dungeons: Vec<_> = offsets
+            .iter()
+            .map(|(dx, dy, dz)| {
+                (
+                    (
+                        (pos.0 as i64).saturating_add(*dx as i64),
+                        (pos.1 as i64).saturating_add(*dy as i64),
+                        (pos.2 as i64).saturating_add(*dz as i64),
+                    ),
+                    "".to_string(),
+                )
+            })
+            .collect();
+
+        let res = find_multi_spawners(all_dungeons.clone());
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].spawners.len(), all_dungeons.len());
+        assert_eq!(
+            HashSet::<_>::from_iter(res[0].spawners.iter()),
+            HashSet::from_iter(all_dungeons.iter())
+        );
+    }
 }
