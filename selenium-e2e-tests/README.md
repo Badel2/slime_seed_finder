@@ -11,7 +11,6 @@ And in another one run:
 
 ```
 cd selenium-e2e-tests
+export SELENIUM_BROWSER=firefox
 npm run test
 ```
-
-Requirements: geckodriver binary in PATH
