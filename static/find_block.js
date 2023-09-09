@@ -57,8 +57,12 @@ function findBlock() {
         console.log(local_found_blocks);
         let outputTextarea = document.getElementById("output_textarea");
         outputTextarea.value = stringify(local_found_blocks, { maxLength: 20 });
-        document.getElementById(
-            "how_many_found"
-        ).innerHTML = `Found ${local_found_blocks.length} blocks with id "${blockName}" in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+        let found_msg;
+        if (chunkRadius == 0) {
+            found_msg = `Found ${local_found_blocks.length} blocks with id "${blockName}"`;
+        } else {
+            found_msg = `Found ${local_found_blocks.length} blocks with id "${blockName}" in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+        }
+        document.getElementById("how_many_found").innerHTML = found_msg;
     };
 }

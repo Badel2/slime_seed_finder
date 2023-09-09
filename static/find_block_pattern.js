@@ -69,14 +69,18 @@ function findBlock() {
         ],
     });
     mainWorker.onmessage = function(e) {
-        let local_found_blocks = e.data;
+        let local_found_blocks = e.data.result;
         console.log("Found following blocks:");
         console.log(local_found_blocks);
         let outputTextarea = document.getElementById("output_textarea");
         outputTextarea.value = stringify(local_found_blocks, { maxLength: 20 });
-        document.getElementById(
-            "how_many_found"
-        ).innerHTML = `Found ${local_found_blocks.length} matches in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+        let found_msg;
+        if (chunkRadius == 0) {
+            found_msg = `Found ${local_found_blocks.length} matches`;
+        } else {
+            found_msg = `Found ${local_found_blocks.length} matches in a ${chunkRadius}-chunk radius around ${centerX},${centerY},${centerZ}`;
+        }
+        document.getElementById("how_many_found").innerHTML = found_msg;
     };
 }
 
