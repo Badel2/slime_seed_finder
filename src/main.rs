@@ -433,6 +433,14 @@ enum Opt {
         #[clap(long)]
         block: String,
     },
+
+    /// Read a minecraft world and find positions of the provided block
+    #[clap(name = "multi-spawners")]
+    MultiSpawners {
+        /// Path to "minecraft_saved_world.zip"
+        #[clap(short = 'i', long, value_parser)]
+        input_zip: PathBuf,
+    },
 }
 
 fn main() {
@@ -1626,9 +1634,15 @@ fn main() {
             let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
             let block_positions =
                 anvil::find_blocks_in_world(&mut chunk_provider, &block, None).unwrap();
-            // Convert DungeonKind to string in order to serialize it
             let block_positions_json = serde_json::to_string(&block_positions).unwrap();
             println!("{}", block_positions_json);
+        }
+
+        Opt::MultiSpawners { input_zip } => {
+            let mut chunk_provider = ZipChunkProvider::file(input_zip).unwrap();
+            let multi_spawners = anvil::find_spawners_in_world(&mut chunk_provider, None).unwrap();
+            let multi_spawners_json = serde_json::to_string(&multi_spawners).unwrap();
+            println!("{}", multi_spawners_json);
         }
     }
 }

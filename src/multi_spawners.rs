@@ -4,6 +4,7 @@
 //! the intersections between N spheres of the same radius.
 
 use ordered_float::OrderedFloat;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -178,14 +179,14 @@ fn remove_all_spawners_that_are_not_connected<V>(
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FloatPosition {
     pub x: f64,
     pub y: f64,
     pub z: f64,
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FindMultiSpawnersOutput {
     pub optimal_position: FloatPosition,
     pub spawners: Vec<((i64, i64, i64), String)>,
