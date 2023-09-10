@@ -382,7 +382,7 @@ fn find_multispawners_in_bb(
         let mut score = 0.0;
         for s in spawners.iter() {
             let dist = distance3dsquared(&(x, y, z), &s.0);
-            if dist < max_distance_squared {
+            if dist <= max_distance_squared {
                 key.push(true);
                 num_true += 1;
                 // TODO: not sure if this is a good score function or we should sqrt the distance here
@@ -499,6 +499,63 @@ mod tests {
 
         let res = find_multi_spawners(all_dungeons.clone());
 
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].spawners.len(), all_dungeons.len());
+        assert_eq!(
+            HashSet::<_>::from_iter(res[0].spawners.iter()),
+            HashSet::from_iter(all_dungeons.iter())
+        );
+    }
+
+    /// Returns true if the player can active that spawner from the exact position.
+    /// When standing at the center of block (0, 0), the position is (0.5, 0.5).
+    fn is_spawner_active(player_position: FloatPosition, spawner: (i64, i64, i64)) -> bool {
+        todo!("implement this function, it may be useful for more precise tests")
+    }
+
+    #[test]
+    fn precise_activation_radius_1() {
+        // Values taken from a minecraft world
+        let all_dungeons = vec![
+            ((-28, -60, 37), "".to_string()),
+            ((-28, -60, 68), "".to_string()),
+        ];
+
+        let res = find_multi_spawners(all_dungeons.clone());
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].spawners.len(), all_dungeons.len());
+        assert_eq!(
+            HashSet::<_>::from_iter(res[0].spawners.iter()),
+            HashSet::from_iter(all_dungeons.iter())
+        );
+    }
+
+    #[test]
+    fn precise_activation_radius_2() {
+        // Values taken from a minecraft world
+        // Move 1 dungeon 1 block away, there is no intersection now
+        let all_dungeons = vec![
+            ((-28, -60, 37), "".to_string()),
+            ((-28, -60, 69), "".to_string()),
+        ];
+
+        let res = find_multi_spawners(all_dungeons.clone());
+        assert_eq!(res, vec![]);
+    }
+
+    #[test]
+    fn precise_activation_radius_3() {
+        // Values taken from a minecraft world
+        let all_dungeons = vec![
+            ((-7, -44, -64), "".to_string()),
+            ((8, -44, -79), "".to_string()),
+            ((8, -60, -64), "".to_string()),
+            ((8, -29, -64), "".to_string()),
+            ((8, -44, -48), "".to_string()),
+            ((23, -44, -64), "".to_string()),
+        ];
+
+        let res = find_multi_spawners(all_dungeons.clone());
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].spawners.len(), all_dungeons.len());
         assert_eq!(
