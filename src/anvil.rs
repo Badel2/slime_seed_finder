@@ -850,6 +850,10 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
 }
 
 pub fn find_spawners<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Vec<((i64, i64, i64), String)>, String> {
+    // TODO: this function returns an error if there exists one dungeon in the world that was
+    // placed using creative mode (and thus doesn't have the expected tags).
+    // We should try to improve it, either ignoring some errors, or detect this kind of dungeon
+    // specifically.
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     let mut dungeons = vec![];
     let total_chunks = all_chunks.len();
@@ -872,7 +876,7 @@ pub fn find_spawners<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
             get_all_dungeons_in_chunk2(&c)
         }).map_err(|e| {
             errs.push(("1.17", e));
-        }).map_err(|_| {
+        }).map_err(|()| {
             // Convert the list of errors into a String because sadly that's our error type
             let mut s = String::new();
             s.push_str(&"Failed to read spawners from chunk: unsupported version or corrupted file. Detailed list of errors:\n");
