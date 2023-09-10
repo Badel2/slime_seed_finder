@@ -26,3 +26,9 @@ cd selenium-e2e-tests
 export SELENIUM_BROWSER=firefox
 npm run test
 ```
+
+To run only one test, use the grep param and pass a regex:
+
+```
+npm run test -- -g '.*spawner.*'
+```

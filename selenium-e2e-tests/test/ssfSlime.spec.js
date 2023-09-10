@@ -7,6 +7,10 @@ const firefox = require("selenium-webdriver/firefox");
 const APP_ROOT_URL = process.env.SLIME_SEED_FINDER_DEMO_URL || 'https://badel2.github.io/slime_seed_finder';
 const APP_URL = `${APP_ROOT_URL}/slime.html`;
 
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 suite(function(env) {
     describe("Slime Seed Finder slime.html", function() {
         let driver;
@@ -301,6 +305,7 @@ suite(function(env) {
             outputTextareaText = await outputTextarea.getAttribute("value");
             assert.equal(outputTextareaText, "Calculating...");
             while (outputTextareaText[0] !== "F") {
+                await sleep(100);
                 outputTextareaText = await outputTextarea.getAttribute("value");
             }
             assert.equal(
@@ -330,6 +335,7 @@ suite(function(env) {
 
             outputExtend48Text = await outputExtend48.getAttribute("value");
             while (!outputExtend48Text.startsWith("Found 2 seeds!")) {
+                await sleep(100);
                 outputExtend48Text = await outputExtend48.getAttribute("value");
             }
             assert.equal(outputExtend48Text.startsWith("Found 2 seeds!"), true);
