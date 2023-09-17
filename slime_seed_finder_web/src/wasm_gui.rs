@@ -57,7 +57,7 @@ pub struct GenerateRiversCandidate {
 
 #[wasm_bindgen]
 pub fn slime_seed_finder(o: JsValue) -> String {
-    let o: Options = match o.into_serde() {
+    let o: Options = match serde_wasm_bindgen::from_value(o) {
         Ok(o) => o,
         Err(e) => {
             return format!("Error parsing args: {}", e);
@@ -109,7 +109,7 @@ pub fn draw_rivers(o: String) -> JsValue {
         l42_area: m.area(),
         l42: biome_layers::draw_map_image(&m),
     };
-    JsValue::from_serde(&ret)
+    serde_wasm_bindgen::to_value(&ret)
         .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
@@ -139,13 +139,13 @@ pub fn generate_rivers_candidate(o: String) -> JsValue {
             0,
         ),
     };
-    JsValue::from_serde(&ret)
+    serde_wasm_bindgen::to_value(&ret)
         .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
 #[wasm_bindgen]
 pub fn count_candidates(o: JsValue) -> String {
-    let o: Options = match o.into_serde() {
+    let o: Options = match serde_wasm_bindgen::from_value(o) {
         Ok(o) => o,
         Err(e) => {
             return format!("Error parsing args: {}", e);
@@ -164,7 +164,7 @@ pub fn count_candidates(o: JsValue) -> String {
 
 #[wasm_bindgen]
 pub fn draw_reverse_voronoi(o: JsValue) -> Vec<u8> {
-    let o: Options = match o.into_serde() {
+    let o: Options = match serde_wasm_bindgen::from_value(o) {
         Ok(o) => o,
         Err(e) => {
             error!("Error parsing args: {}", e);
@@ -703,7 +703,7 @@ pub fn extract_map_from_screenshot(width: u32, height: u32, screenshot: &[u8]) -
             treasure_map_img,
             land_water,
         };
-        JsValue::from_serde(&ret)
+        serde_wasm_bindgen::to_value(&ret)
             .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
     } else {
         JsValue::NULL
@@ -762,7 +762,7 @@ pub fn read_dungeons(zip_file: web_sys::File) -> Vec<JsValue> {
             floor,
         })
         .map(|found_dungeon| {
-            JsValue::from_serde(&found_dungeon)
+            serde_wasm_bindgen::to_value(&found_dungeon)
                 .unwrap_or_else(|e| JsValue::from_str(&format!("Error serializing result: {}", e)))
         })
         .collect();
@@ -781,7 +781,7 @@ pub struct FindBlocksInWorldParams {
 #[wasm_bindgen]
 /// Returns `Vec<Position>`
 pub fn find_blocks_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsValue> {
-    let params: FindBlocksInWorldParams = match params.into_serde() {
+    let params: FindBlocksInWorldParams = match serde_wasm_bindgen::from_value(params) {
         Ok(x) => x,
         Err(e) => {
             error!("Failed to parse params: {}", e);
@@ -806,7 +806,7 @@ pub fn find_blocks_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsV
         .into_iter()
         .map(|(x, y, z)| Position { x, y, z })
         .map(|pos| {
-            JsValue::from_serde(&pos).unwrap_or_else(|e| {
+            serde_wasm_bindgen::to_value(&pos).unwrap_or_else(|e| {
                 JsValue::from_str(&format!(
                     "Failed to serialize position {:?}, error was: {}",
                     pos, e
@@ -914,7 +914,7 @@ pub struct FindBlockPatternInWorldParams {
 #[wasm_bindgen]
 /// Returns `Vec<Position>`
 pub fn find_block_pattern_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsValue> {
-    let params: FindBlockPatternInWorldParams = match params.into_serde() {
+    let params: FindBlockPatternInWorldParams = match serde_wasm_bindgen::from_value(params) {
         Ok(x) => x,
         Err(e) => {
             error!("Failed to parse params: {}", e);
@@ -950,7 +950,7 @@ pub fn find_block_pattern_in_world(zip_file: web_sys::File, params: JsValue) -> 
         .into_iter()
         .map(|(x, y, z)| Position { x, y, z })
         .map(|pos| {
-            JsValue::from_serde(&pos).unwrap_or_else(|e| {
+            serde_wasm_bindgen::to_value(&pos).unwrap_or_else(|e| {
                 JsValue::from_str(&format!(
                     "Failed to serialize position {:?}, error was: {}",
                     pos, e
@@ -996,7 +996,7 @@ pub struct FindMultiDungeonsOutput {
 #[wasm_bindgen]
 /// Returns `Vec<FindMultiDungeonsOutput>`
 pub fn find_spawners_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<JsValue> {
-    let params: FindMultiDungeonsParams = match params.into_serde() {
+    let params: FindMultiDungeonsParams = match serde_wasm_bindgen::from_value(params) {
         Ok(x) => x,
         Err(e) => {
             error!("Failed to parse params: {}", e);
@@ -1042,7 +1042,7 @@ pub fn find_spawners_in_world(zip_file: web_sys::File, params: JsValue) -> Vec<J
             },
         )
         .map(|x| {
-            JsValue::from_serde(&x).unwrap_or_else(|e| {
+            serde_wasm_bindgen::to_value(&x).unwrap_or_else(|e| {
                 JsValue::from_str(&format!("Failed to serialize result: {}", e))
             })
         })
@@ -1078,7 +1078,7 @@ pub fn get_color_to_biome_map() -> JsValue {
             (color_string, biome_id)
         })
         .collect();
-    JsValue::from_serde(&ret)
+    serde_wasm_bindgen::to_value(&ret)
         .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 
@@ -1095,7 +1095,7 @@ pub fn get_biome_id_to_biome_name_map() -> JsValue {
     }
 
     let ret = h;
-    JsValue::from_serde(&ret)
+    serde_wasm_bindgen::to_value(&ret)
         .unwrap_or_else(|e| JsValue::from_str(&format!("Failed to serialize result: {}", e)))
 }
 

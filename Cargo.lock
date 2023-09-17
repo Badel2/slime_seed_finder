@@ -2312,6 +2312,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30c9933e5689bd420dc6c87b7a1835701810cbc10cd86a26e4da45b73e6b1d78"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "serde_bytes"
 version = "0.11.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2470,6 +2481,7 @@ dependencies = [
  "log",
  "minecraft_screenshot_parser",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "slime_seed_finder",
  "wasm-bindgen",
