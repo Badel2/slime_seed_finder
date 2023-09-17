@@ -1,5 +1,5 @@
+use colorgrad::{Color, CustomGradient, Gradient};
 use log::*;
-use palette::{Gradient, LinSrgb};
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_file_reader::WebSysFile;
@@ -404,7 +404,7 @@ pub fn generate_fragment_up_to_layer(
     v
 }
 
-pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4] {
+pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient) -> [u8; 4] {
     assert!(id <= total);
 
     if id == 0 {
@@ -414,12 +414,12 @@ pub fn slime_to_color(id: u32, total: u32, grad1: &Gradient<LinSrgb>) -> [u8; 4]
         // white
         [0xFF, 0xFF, 0xFF, 0xFF]
     } else {
-        let color = grad1.get(id as f32 / total as f32);
+        let color = grad1.at(id as f64 / total as f64);
         [
-            (color.red * 255.0) as u8,
-            (color.green * 255.0) as u8,
-            (color.blue * 255.0) as u8,
-            0xFF,
+            (color.r * 255.0) as u8,
+            (color.g * 255.0) as u8,
+            (color.b * 255.0) as u8,
+            (color.a * 255.0) as u8,
         ]
     }
 }
@@ -469,11 +469,14 @@ pub fn generate_fragment_slime_map(
         }
     }
 
-    let grad1 = Gradient::new(vec![
-        LinSrgb::new(0.0, 0.2, 0.0),
-        //LinSrgb::new(1.0, 1.0, 0.0),
-        LinSrgb::new(0.0, 1.0, 0.0),
-    ]);
+    let grad1 = CustomGradient::new()
+        .colors(&[
+            Color::from_rgba8(0, 51, 0, 255),
+            //Color::from_rgba8(255, 255, 0, 255),
+            Color::from_rgba8(0, 255, 0, 255),
+        ])
+        .build()
+        .unwrap();
     let mut v = vec![0; w * h * 4];
     for i in 0..w * h {
         let color = slime_to_color(map_sum[i], num_seeds as u32, &grad1);
