@@ -3125,8 +3125,3 @@ checksum = "73ab332fe2f6680068f3582b16a24f90ad7096d5d39b974d1c0aff0125116f02"
 dependencies = [
  "simd-adler32",
 ]
-
-[[patch.unused]]
-name = "wasm-bindgen"
-version = "0.2.81"
-source = "git+https://github.com/Badel2/wasm-bindgen#d3728f6e72cb89348b91c12a9f93787c44f10545"

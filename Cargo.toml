@@ -42,11 +42,6 @@ weak-alloc = "0.1"
 cfg-if = "1"
 ordered-float = "3"
 
-# TODO: for some reason this patch section does not work when placed in
-# slime_seed_finder_web/Cargo.toml
-[patch.crates-io]
-wasm-bindgen = { git = "https://github.com/Badel2/wasm-bindgen" }
-
 [dev-dependencies]
 rand = "0.8.4"
 

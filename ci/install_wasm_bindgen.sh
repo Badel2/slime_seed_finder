@@ -1,2 +1,2 @@
 #!/bin/sh
-cargo install -f wasm-bindgen-cli --git "https://github.com/Badel2/wasm-bindgen"
+cargo install -f wasm-bindgen-cli --version 0.2.87
