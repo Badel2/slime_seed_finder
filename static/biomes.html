@@ -93,7 +93,11 @@
                 <span>Select y-level (0 for caves, 63 for surface)</span>
                 <input type="text" id="y_offset" size="3" value="63" />
                 <a id="download" download="biome_map.png">
-                    <button type="button" onClick="download()">
+                    <button
+                        id="download_button"
+                        type="button"
+                        onClick="download()"
+                    >
                         DOWNLOAD MAP
                     </button></a
                 >
@@ -902,6 +906,11 @@
                         }
                     );
                 }
+            }
+
+            // Used for testing
+            function numGeneratingFragments() {
+                return map.generating[Game.activeLayer].size;
             }
 
             let color_to_biome_id_map = null;

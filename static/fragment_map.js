@@ -54,6 +54,7 @@ let map = {
                         //console.log(value); // Success!
                         //console.log("Finished generating fragment: " + fx + ", " + fy);
                         this_layers_layer.set(k, value);
+                        this_generating_layer.delete(k);
                         Game.dirty = true;
                     },
                     function(reason) {
