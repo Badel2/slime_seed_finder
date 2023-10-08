@@ -89,6 +89,9 @@
                     <option value="TreasureMap15"
                         >Java 1.15-1.17 Treasure Map</option
                     >
+                    <option value="TreasureMap18"
+                        >Java 1.18 Treasure Map</option
+                    >
                 </select>
                 <span>Select y-level (0 for caves, 63 for surface)</span>
                 <input type="text" id="y_offset" size="3" value="63" />
@@ -343,7 +346,10 @@
                 ) {
                     scales = scales113;
                     i = 51;
-                } else if (minecraft_version == "1.18") {
+                } else if (
+                    minecraft_version == "1.18" ||
+                    minecraft_version == "TreasureMap18"
+                ) {
                     scales = scales118;
                     i = 8;
                 } else {
@@ -367,7 +373,8 @@
                 }
                 if (
                     minecraft_version == "TreasureMap13" ||
-                    minecraft_version == "TreasureMap15"
+                    minecraft_version == "TreasureMap15" ||
+                    minecraft_version == "TreasureMap18"
                 ) {
                     layerScale = 2;
                 }
@@ -481,7 +488,7 @@
                         // Set layer to 51
                         updateWithLayerPlus(51 - lastLayer);
                     }
-                    if (new_v == "1.18") {
+                    if (new_v == "1.18" || new_v == "TreasureMap18") {
                         // Set layer to 8
                         // TODO: set to 9 because that one is high resolution
                         updateWithLayerPlus(8 - lastLayer);
@@ -504,7 +511,11 @@
                     if (old_v == "1.13" || old_v == "1.14" || old_v == "1.15") {
                         // Keep same layer
                     }
-                    if (old_v == "TreasureMap13" || old_v == "TreasureMap15") {
+                    if (
+                        old_v == "TreasureMap13" ||
+                        old_v == "TreasureMap15" ||
+                        old_v == "TreasureMap18"
+                    ) {
                         // Set layer to 51
                         updateWithLayerPlus(51 - lastLayer);
                     }
@@ -553,7 +564,10 @@
                 ) {
                     scales = scales113;
                     num_layers = 51;
-                } else if (minecraft_version == "1.18") {
+                } else if (
+                    minecraft_version == "1.18" ||
+                    minecraft_version == "TreasureMap18"
+                ) {
                     scales = scales118;
                     num_layers = 9;
                 } else {
@@ -573,6 +587,16 @@
                     //Game.clear();
                     Game.setActiveLayer(51);
                     document.getElementById("lastLayer").value = 51;
+                } else if (minecraft_version == "TreasureMap18") {
+                    let newScale = 2;
+                    if (Game.camera) {
+                        Game.camera.resolutionChange(newScale / layerScale);
+                    }
+                    layerScale = newScale;
+                    //Game.clear();
+                    // TODO: set to 9 because that one is high resolution
+                    Game.setActiveLayer(8);
+                    document.getElementById("lastLayer").value = 8;
                 } else if (minecraft_version == "1.18") {
                     if (i >= 0 && i <= num_layers) {
                         let newScale = scales[i];

@@ -664,6 +664,34 @@ pub trait GetMap3D {
     fn get_map_from_pmap_3d(&self, pmap: &Map3D) -> Map3D;
 }
 
+/// Convert a 3D map into a 2D map by setting a fixed y value
+pub struct Map3DToMap2D<T: GetMap3D> {
+    pub map_3d: T,
+    pub y_level: i64,
+}
+
+impl<T: GetMap3D> GetMap for Map3DToMap2D<T> {
+    fn get_map(&self, area: Area) -> Map {
+        let area_3d = Area3D::from_area2d_and_y_level(area, self.y_level);
+        let map3d = self.map_3d.get_map_3d(area_3d);
+        map3d.into_map2d()
+    }
+
+    fn get_map_from_pmap(&self, pmap: &Map) -> Map {
+        panic!("3D map should never use pmap");
+    }
+}
+
+impl GetMap3D for Box<dyn GetMap3D> {
+    fn get_map_3d(&self, area: Area3D) -> Map3D {
+        (**self).get_map_3d(area)
+    }
+
+    fn get_map_from_pmap_3d(&self, pmap: &Map3D) -> Map3D {
+        (**self).get_map_from_pmap_3d(pmap)
+    }
+}
+
 // Test layer which always generates a map consisting of only zeros.
 // To be used as a parent for testing.
 pub struct TestMapZero;
@@ -5845,6 +5873,13 @@ pub fn generate_fragment_treasure_map(version: MinecraftVersion, area: Area, see
         MinecraftVersion::Java1_15 | MinecraftVersion::Java1_16_1 | MinecraftVersion::Java1_16 | MinecraftVersion::Java1_17 => {
             let mut mhv = MapHalfVoronoiZoom115::new(seed);
             let parent = Rc::from(generator_up_to_layer_1_15(seed, 50, version));
+            mhv.parent = Some(parent);
+
+            Rc::from(mhv)
+        }
+        MinecraftVersion::Java1_18 => {
+            let mut mhv = MapHalfVoronoiZoom115::new(seed);
+            let parent = Rc::from(Map3DToMap2D { map_3d: generator_up_to_layer_1_18(seed, 8, version), y_level: 63 });
             mhv.parent = Some(parent);
 
             Rc::from(mhv)

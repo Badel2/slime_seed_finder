@@ -321,6 +321,14 @@ pub fn generate_fragment(
                     MinecraftVersion::Java1_14
                 } else if version == "TreasureMap15" {
                     MinecraftVersion::Java1_15
+                } else if version == "TreasureMap16" {
+                    MinecraftVersion::Java1_16
+                } else if version == "TreasureMap16.1" {
+                    MinecraftVersion::Java1_16_1
+                } else if version == "TreasureMap17" {
+                    MinecraftVersion::Java1_17
+                } else if version == "TreasureMap18" {
+                    MinecraftVersion::Java1_18
                 } else {
                     error!("{} is not a valid treasure map version", version);
                     return empty_map_as_error();
@@ -372,6 +380,14 @@ pub fn generate_fragment_up_to_layer(
                     MinecraftVersion::Java1_14
                 } else if version == "TreasureMap15" {
                     MinecraftVersion::Java1_15
+                } else if version == "TreasureMap16" {
+                    MinecraftVersion::Java1_16
+                } else if version == "TreasureMap16.1" {
+                    MinecraftVersion::Java1_16_1
+                } else if version == "TreasureMap17" {
+                    MinecraftVersion::Java1_17
+                } else if version == "TreasureMap18" {
+                    MinecraftVersion::Java1_18
                 } else {
                     error!("{} is not a valid treasure map version", version);
                     return empty_map_as_error();
