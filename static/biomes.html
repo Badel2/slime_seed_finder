@@ -382,19 +382,18 @@
                 Game.setActiveLayer(i);
             }
             function randomSeed() {
-                // Return a random 17-digit integer as a string
-                // TODO: implement real 64-bit number generation?
-                // Or try to emulate Random.nextLong()?
-                let r = "";
-                // 50% of being negative
-                if (Math.random() < 0.5) {
-                    r += "-";
-                }
-                for (let i = 0; i < 17; i++) {
-                    let d = Math.floor(Math.random() * 10);
-                    r += d;
-                }
-                return r;
+                // Generate random 64-bit integer
+                // 64 bits = 8 bytes = 16 hex characters
+                // https://stackoverflow.com/a/66993210
+                const hexString = Array(16)
+                    .fill()
+                    .map(() => Math.round(Math.random() * 0xf).toString(16))
+                    .join("");
+
+                let randomBigInt = BigInt(`0x${hexString}`);
+                // Make it signed by subtracting 2^63
+                randomBigInt -= BigInt(2) ** BigInt(63);
+                return randomBigInt.toString();
             }
             let oldSeed;
             {
