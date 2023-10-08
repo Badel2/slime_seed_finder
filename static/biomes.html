@@ -927,8 +927,8 @@
                     return;
                 }
                 let position_div = document.getElementById("position_info");
-                let biome_id = color_to_biome_id_map[color];
-                let biome_name = biome_id_to_biome_name_map[biome_id];
+                let biome_id = color_to_biome_id_map.get(color);
+                let biome_name = biome_id_to_biome_name_map.get(biome_id + "");
                 position_div.innerHTML +=
                     " --- Biome: [" + biome_id + "] " + biome_name;
             }
