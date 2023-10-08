@@ -1161,3 +1161,81 @@ pub fn read_fragment_biome_map(
 
     biome_layers::draw_map_image(&map)
 }
+
+fn get_bounding_box<I>(mut i: I) -> (i32, i32, u32, u32)
+where
+    I: Iterator<Item = (i32, i32)>,
+{
+    use std::cmp::{max, min};
+    let first = i.next().unwrap();
+    let mut x_min = first.0;
+    let mut x_max = first.0;
+    let mut y_min = first.1;
+    let mut y_max = first.1;
+
+    for (x, y) in i {
+        x_min = min(x_min, x);
+        x_max = max(x_max, x);
+        y_min = min(y_min, y);
+        y_max = max(y_max, y);
+    }
+
+    let x_size = (x_max - x_min) as u32 + 1;
+    let y_size = (y_max - y_min) as u32 + 1;
+
+    (x_min, y_min, x_size, y_size)
+}
+
+#[wasm_bindgen]
+pub fn map_fragments_to_png_base64(fragments: js_sys::Map, tsize: u32) -> String {
+    use base64::{engine::general_purpose, Engine as _};
+    use image::GenericImage;
+
+    let (x_min, y_min, x_size, y_size) = get_bounding_box(fragments.keys().into_iter().map(|k| {
+        let k_jsvalue = k.unwrap();
+        let k_str = k_jsvalue.as_string().unwrap();
+        let (l, r) = k_str.split_once(",").unwrap();
+
+        (l.parse().unwrap(), r.parse().unwrap())
+    }));
+    let width = x_size * tsize;
+    let height = y_size * tsize;
+    let img = image::RgbaImage::new(width, height);
+    let mut img = image::DynamicImage::ImageRgba8(img);
+
+    for js_entry in fragments.entries() {
+        let js_entry = js_entry.unwrap();
+        let js_array = js_sys::Array::from(&js_entry);
+        assert_eq!(js_array.length(), 2);
+        let k_jsvalue = js_array.get(0);
+        let v_jsvalue = js_array.get(1);
+        let k_str = k_jsvalue.as_string().unwrap();
+        let (l, r) = k_str.split_once(",").unwrap();
+        let (l, r): (i32, i32) = (l.parse().unwrap(), r.parse().unwrap());
+
+        let v_str = v_jsvalue.as_string().unwrap();
+        let v_b64 = v_str.strip_prefix("data:image/png;base64,").unwrap();
+        let v = general_purpose::STANDARD.decode(v_b64).unwrap();
+        let frag_img = image::DynamicImage::from_decoder(
+            image::codecs::png::PngDecoder::new(std::io::Cursor::new(v)).unwrap(),
+        )
+        .unwrap();
+
+        let sub_img_x = (l - x_min) as u32 * tsize;
+        let sub_img_y = (r - y_min) as u32 * tsize;
+        //let sub_img = img.sub_image(sub_img_x, sub_img_y, tsize, tsize);
+        img.copy_from(&frag_img, sub_img_x, sub_img_y).unwrap();
+
+        // Copy frag_img to sub_img
+    }
+
+    let mut img_bytes = vec![];
+
+    img.write_to(
+        &mut std::io::Cursor::new(&mut img_bytes),
+        image::ImageFormat::Png,
+    )
+    .unwrap();
+
+    general_purpose::STANDARD.encode(img_bytes)
+}

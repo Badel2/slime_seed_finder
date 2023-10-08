@@ -349,6 +349,33 @@ Game.render_to_image = function() {
     return c;
 };
 
+Game.get_fragments = function() {
+    let layer = this.activeLayer;
+    // Get bounding box: minimum size canvas that can fit all the generated fragments
+    let [start_x, start_y, x_num_frag, y_num_frag] = this._get_bounding_box();
+    let fragments = new Map();
+
+    // Draw fragments to canvas
+    for (let c = 0; c <= x_num_frag; c++) {
+        for (let r = 0; r <= y_num_frag; r++) {
+            let frag_x = start_x + c;
+            let frag_y = start_y + r;
+
+            let fragmentImage = map.getFragment(layer, frag_x, frag_y);
+            if (fragmentImage != undefined) {
+                fragments.set(
+                    frag_x + "," + frag_y,
+                    fragmentImage.toDataURL("image/png")
+                );
+            } else {
+                // Set missing fragments to "transparent"
+            }
+        }
+    }
+
+    return { fragments, tsize: map.tsize };
+};
+
 Game._get_bounding_box = function() {
     let layer = this.activeLayer;
     let min_x = 1000000;

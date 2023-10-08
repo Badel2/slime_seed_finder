@@ -128,16 +128,42 @@
             // https://stackoverflow.com/a/42546234
             function download() {
                 var download = document.getElementById("download");
+                // Try using a canvas to create the PNG
                 var image = Game.render_to_image()
                     .toDataURL("image/png")
                     .replace("image/png", "image/octet-stream");
-                download.setAttribute("href", image);
-                download.setAttribute(
-                    "download",
-                    "seed_" +
-                        document.getElementById("worldSeed").value +
-                        ".png"
-                );
+                if (image === "data:,") {
+                    // If it didn't work because the canvas size is too big, use Rust code to create a bigger PNG
+                    download.setAttribute("href", "");
+                    var { fragments, tsize } = Game.get_fragments();
+                    Rust.slime_seed_finder_web.then(
+                        function(slime_seed_finder_web) {
+                            let png_base64 = slime_seed_finder_web.map_fragments_to_png_base64(
+                                fragments,
+                                tsize
+                            );
+                            let image = "data:image/png;base64," + png_base64;
+                            download.setAttribute("href", image);
+                            download.setAttribute(
+                                "download",
+                                "seed_" +
+                                    document.getElementById("worldSeed").value +
+                                    ".png"
+                            );
+                        },
+                        function(err) {
+                            console.error(err);
+                        }
+                    );
+                } else {
+                    download.setAttribute("href", image);
+                    download.setAttribute(
+                        "download",
+                        "seed_" +
+                            document.getElementById("worldSeed").value +
+                            ".png"
+                    );
+                }
             }
 
             let scales13 = [
