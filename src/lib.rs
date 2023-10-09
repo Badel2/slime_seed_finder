@@ -14,6 +14,7 @@ pub mod biome_info_118;
 #[allow(non_upper_case_globals)]
 #[rustfmt::skip]
 pub mod biome_layers;
+pub mod candidates;
 pub mod chunk;
 pub mod climate;
 pub mod fastanvil_ext;
