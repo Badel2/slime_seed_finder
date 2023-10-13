@@ -528,6 +528,9 @@
 
                 let ws = document.getElementById("worldSeed");
                 let y_offset = get_y_offset();
+                // Cancel all pending worker tasks
+                cancelAllTasks();
+
                 Game.clear(
                     "mc=" +
                         minecraft_version +
@@ -755,20 +758,39 @@
             // https://codeburst.io/promises-for-the-web-worker-9311b7831733
             const resolves = {};
             const rejects = {};
+            const cancelFlags = {};
             let globalMsgId = 0;
+
+            function cancelAllTasks() {
+                for (let cancelFlag of Object.values(cancelFlags)) {
+                    cancelFlag[0] = 1;
+                }
+            }
 
             // Activate calculation in the worker, returning a promise
             function sendMsg(payload, worker) {
+                //console.log("main script, sendMsg to ", worker, ": ", payload);
                 const msgId = globalMsgId++;
+                let cancelFlag;
+
+                if (crossOriginIsolated) {
+                    cancelFlag = new SharedArrayBuffer(4); // 4 bytes for a single Int32
+                } else {
+                    // If running without access to SharedArrayBuffer, cancelling tasks is not supported
+                    // Unfortunately, github pages does not support SharedArrayBuffer
+                    cancelFlag = new ArrayBuffer(4);
+                }
                 const msg = {
                     id: msgId,
                     payload,
+                    cancelFlag,
                 };
 
                 return new Promise(function(resolve, reject) {
                     // save callbacks for later
                     resolves[msgId] = resolve;
                     rejects[msgId] = reject;
+                    cancelFlags[msgId] = new Int32Array(cancelFlag);
 
                     worker.postMessage(msg);
                 });
@@ -798,6 +820,7 @@
                 // purge used callbacks
                 delete resolves[id];
                 delete rejects[id];
+                delete cancelFlags[id];
             }
 
             // Wrapper class

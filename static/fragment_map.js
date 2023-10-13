@@ -60,7 +60,9 @@ let map = {
                     function(reason) {
                         this_generating_layer.delete(k);
                         //Game.dirty = true;
-                        console.error(reason); // Error!
+                        if (reason !== "Cancelled") {
+                            console.error(reason); // Error!
+                        }
                     }
                 );
             }

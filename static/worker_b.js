@@ -4,7 +4,7 @@ importScripts("slime_seed_finder_web.js");
 function doCalculation(slime_seed_finder_web, data, cb) {
     let err = null;
     /*
-    console.log('Message received from main script');
+    console.log("Message received from main script");
     console.log(data);
     */
     let version = data.version;
@@ -29,7 +29,19 @@ function doCalculation(slime_seed_finder_web, data, cb) {
 
 // Handle incoming messages
 self.onmessage = function(msg) {
-    const { id, payload } = msg.data;
+    const { id, payload, cancelFlag } = msg.data;
+
+    const cancelFlagView = new Int32Array(cancelFlag);
+    if (cancelFlagView[0] === 1) {
+        //console.log(`Task ${id} was cancelled.`);
+        const msg = {
+            id,
+            err: "Cancelled",
+            payload: null,
+        };
+        self.postMessage(msg);
+        return;
+    }
 
     Rust.slime_seed_finder_web.then(function(slime_seed_finder_web) {
         doCalculation(slime_seed_finder_web, payload, function(err, result) {

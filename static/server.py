@@ -6,7 +6,11 @@ import socketserver
 PORT = 8000
 
 class Handler(http.server.SimpleHTTPRequestHandler):
-    pass
+    def end_headers(self):
+        # Allows using SharedArrayBuffer
+        self.send_header('Cross-Origin-Embedder-Policy', 'require-corp')
+        self.send_header('Cross-Origin-Opener-Policy', 'same-origin')
+        http.server.SimpleHTTPRequestHandler.end_headers(self)
 
 Handler.extensions_map['.shtml'] = 'text/html'
 Handler.extensions_map['.wasm'] = 'application/wasm'
