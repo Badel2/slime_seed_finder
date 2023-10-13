@@ -4,10 +4,10 @@ use ndarray::Array2;
 
 // Rotate 90 degrees counter-clockwise
 fn rotate_2d_cc(c: Vec<Vec<char>>) -> Vec<Vec<char>> {
-    let (size_x, size_y) = (c[0].len(), c.len());
+    let size_x = c[0].len();
     let mut o = vec![vec![]; size_x];
 
-    for (j, d1) in c.into_iter().enumerate() {
+    for (_j, d1) in c.into_iter().enumerate() {
         for (i, d2) in d1.into_iter().enumerate() {
             o[size_x - 1 - i].push(d2);
         }
@@ -31,10 +31,10 @@ fn rotate_3d_y(c: Vec<Vec<Vec<char>>>) -> Vec<Vec<Vec<char>>> {
 
 // Rotate 90 degrees perpendicular to the z axis (left side down and right side up, if looking from above)
 fn rotate_3d_z(c: Vec<Vec<Vec<char>>>) -> Vec<Vec<Vec<char>>> {
-    let (size_x, size_y, size_z) = (c[0][0].len(), c.len(), c[0].len());
+    let (size_x, _size_y, size_z) = (c[0][0].len(), c.len(), c[0].len());
     let mut o = vec![vec![vec![]; size_z]; size_x];
 
-    for (k, d1) in c.into_iter().enumerate().rev() {
+    for (_k, d1) in c.into_iter().enumerate().rev() {
         for (j, d2) in d1.into_iter().enumerate() {
             for (i, d3) in d2.into_iter().enumerate() {
                 o[i][j].push(d3);
@@ -47,10 +47,10 @@ fn rotate_3d_z(c: Vec<Vec<Vec<char>>>) -> Vec<Vec<Vec<char>>> {
 
 // Rotate 90 degrees perpendicular to the x axis (top side up and bottom side down, if looking from above)
 fn rotate_3d_x(c: Vec<Vec<Vec<char>>>) -> Vec<Vec<Vec<char>>> {
-    let (size_x, size_y, size_z) = (c[0][0].len(), c.len(), c[0].len());
+    let (_size_x, _size_y, size_z) = (c[0][0].len(), c.len(), c[0].len());
     let mut o = vec![vec![]; size_z];
 
-    for (k, d1) in c.into_iter().enumerate() {
+    for (_k, d1) in c.into_iter().enumerate() {
         for (j, d2) in d1.into_iter().enumerate() {
             o[size_z - 1 - j].push(d2);
         }
@@ -94,9 +94,9 @@ fn multiply_rotation_matrix_by(rotation: &Array2<i8>, x: &Array2<i8>) -> Array2<
 
 /// (nx, ny, nz, reflect_y)
 fn decompose_rotation_matrix_into_xyz_rots(m: &Array2<i8>) -> (u8, u8, u8, bool) {
-    let mut nx = 0;
-    let mut ny = 0;
-    let mut nz = 0;
+    let nx;
+    let ny;
+    let nz;
     let reflect_y = if determinant(&m) == -1 { -1 } else { 1 };
 
     let singular = m[(0, 0)] == 0 && m[(1, 0)] == 0;
@@ -195,8 +195,8 @@ fn determinant(m: &Array2<i8>) -> i8 {
 /// rotations/reflections.
 fn mat2idx(m: &Vec<i8>) -> u8 {
     let mut idx = 0;
-    let mut b1 = 0;
-    let mut b2 = 1;
+    let b1;
+    let b2;
     let mut c1 = 0;
     match &m[0..3] {
         &[1, 0, 0] => {
@@ -265,9 +265,9 @@ fn mat2idx(m: &Vec<i8>) -> u8 {
 
 fn idx2mat(idx: u8) -> Array2<i8> {
     let mut v = vec![0; 9];
-    let mut b1 = 0;
-    let mut b2 = 1;
-    let mut c1 = 0;
+    let b1;
+    let b2;
+    let c1;
 
     match idx / 8 {
         0 => {

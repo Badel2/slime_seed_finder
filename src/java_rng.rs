@@ -367,8 +367,11 @@ impl JavaRng {
 // Copied from the standard library, but the wrapping_pow implemented there uses u32 for the
 // exponent. We could use some property like a^(b*(2^32) + c) = ((a^b)^(2^32)) * (a^c)
 // But just copying the implementation and changing one type seems easier
-// https://github.com/rust-lang/rust/blob/118b50524b79e565f017e08bce9b90a16c63634f/src/libcore/num/mod.rs#L1611
+// https://github.com/rust-lang/rust/blob/130ff8cb6c3d62ed66daf652cbb5323d3f93c4fc/library/core/src/num/int_macros.rs#L1516
 fn pow_wrapping(mut base: u64, mut exp: u64) -> u64 {
+    if exp == 0 {
+        return 1;
+    }
     let mut acc: u64 = 1;
 
     while exp > 1 {
@@ -379,14 +382,11 @@ fn pow_wrapping(mut base: u64, mut exp: u64) -> u64 {
         base = base.wrapping_mul(base);
     }
 
+    // since exp!=0, finally the exp must be 1.
     // Deal with the final bit of the exponent separately, since
     // squaring the base afterwards is not necessary and may cause a
     // needless overflow.
-    if exp == 1 {
-        acc = acc.wrapping_mul(base);
-    }
-
-    acc
+    acc.wrapping_mul(base)
 }
 
 // Borrowed from rosetta code
@@ -433,7 +433,6 @@ fn distance_between_rngs_less_than(ss: &JavaRng, se: &JavaRng, limit: u64) -> Op
     let mut p = 1;
     let mut z = ss.get_raw_seed();
     let mut d = 0;
-    let mut i = 0;
 
     while z != se.get_raw_seed() {
         if d + p >= limit {
@@ -447,7 +446,6 @@ fn distance_between_rngs_less_than(ss: &JavaRng, se: &JavaRng, limit: u64) -> Op
             z = a.wrapping_mul(z).wrapping_add(c) & mask(48);
         }
 
-        i += 1;
         c = c.wrapping_mul(a.wrapping_add(1));
         a = a.wrapping_mul(a);
         p <<= 1;

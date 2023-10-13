@@ -44,7 +44,7 @@ impl CompiledBlockPattern {
         let mut max_y = 0;
 
         for map in &self.maps {
-            let (xs, ys, zs) = Self::map_dims(map);
+            let (_xs, ys, _zs) = Self::map_dims(map);
             max_y = std::cmp::max(max_y, ys);
         }
 

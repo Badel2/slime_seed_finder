@@ -32,9 +32,6 @@ impl SlimeChunks {
         // low_18_candidates is sorted, this is important
         let low_18_candidates = slime_candidates_18(&slime_data, max_errors);
 
-        let slime_chunks = slime_chunks.to_vec();
-        let no_slime_chunks = no_slime_chunks.to_vec();
-
         SlimeChunks {
             slime_data,
             no_slime_data,

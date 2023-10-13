@@ -38,7 +38,6 @@ use std::io::Seek;
 use std::str::FromStr;
 use std::convert::TryInto;
 use std::ops::RangeInclusive;
-use serde::Deserialize;
 
 /// Read all the existing chunks in a `area_size*area_size` block area around
 /// `(block_x, block_z)`.
@@ -1316,7 +1315,7 @@ impl<'a, 'b, A: AnvilChunkProvider> WorldSearchInterface for FirstWorldSearchInt
     fn list_chunks(&mut self) -> Vec<(i32, i32)> {
         self.chunk_provider.list_chunks().unwrap()
     }
-    fn chunk_y_range(&mut self, chunk_x: i32, chunk_z: i32) -> std::ops::Range<isize> {
+    fn chunk_y_range(&mut self, _chunk_x: i32, _chunk_z: i32) -> std::ops::Range<isize> {
         // TODO: read y range from chunk list
         -64..256
     }
@@ -1400,7 +1399,6 @@ pub fn iterate_find_block_pattern<A: AnvilChunkProvider>(chunk_provider: &mut A,
     // Load all chunks into memory
     for (chunk_x, chunk_z) in all_chunks.iter().copied() {
         let c_bytes = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
-        let c = CompoundTag::from_bytes(&c_bytes).unwrap();
         overworld.add_chunk(chunk_x, chunk_z, &mut Cursor::new(&c_bytes)).expect("Failed to add chunk");
     }
 
@@ -1423,12 +1421,10 @@ pub fn iterate_find_block_pattern<A: AnvilChunkProvider>(chunk_provider: &mut A,
 pub fn iterate_find_block_pattern_callback<A: AnvilChunkProvider, R, F: FnOnce(Dimension<std::fs::File>, Vec<(i32, i32)>) -> R>(chunk_provider: &mut A, cb: F, _center_position_and_chunk_radius: Option<((i64, i64, i64), u32)>) -> R {
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     let mut overworld: Dimension<std::fs::File> = Dimension::new();
-    let total_chunks = all_chunks.len();
 
     // Load all chunks into memory
     for (chunk_x, chunk_z) in all_chunks.iter().copied() {
         let c_bytes = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
-        let c = CompoundTag::from_bytes(&c_bytes).unwrap();
         overworld.add_chunk(chunk_x, chunk_z, &mut Cursor::new(&c_bytes)).expect("Failed to add chunk");
     }
 

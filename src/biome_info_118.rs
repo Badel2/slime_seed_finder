@@ -16,6 +16,10 @@ pub struct BiomeList {
 
 impl BiomeList {
     pub fn add(&mut self, biome_id: BiomeId, climate_range: ClimateRange) {
+        assert!(
+            self.tree.is_none(),
+            "Cannot add more biomes once the tree has been set"
+        );
         self.list.push((climate_range, biome_id));
     }
 
@@ -47,7 +51,7 @@ impl BiomeList {
             .map(|(_climate_range, biome_id)| *biome_id)
     }
 
-    /// Faster but sometimes inaccurate alternative to `search`
+    /// Faster but sometimes inaccurate alternative to `search_bruteforce`
     pub fn search_tree(&self, climate: &Climate) -> Option<BiomeId> {
         self.tree.as_ref().unwrap().search(climate)
     }

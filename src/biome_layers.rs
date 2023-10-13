@@ -1487,8 +1487,14 @@ impl MapGenBiomeNoise3D118 {
         let t = self.temperature.sample(px, 0.0, pz);
         let h = self.humidity.sample(px, 0.0, pz);
 
-        let mut l_np = Climate::default();
-        let p_np = np.unwrap_or(&mut l_np);
+        let mut l_np;
+        let p_np = match np {
+            Some(np) => np,
+            None => {
+                l_np = Climate::default();
+                &mut l_np
+            }
+        };
 
         p_np.temperature = (10000.0*t) as i64;
         p_np.humidity = (10000.0*h) as i64;
@@ -1522,6 +1528,8 @@ impl MapGenBiomeNoise3D118 {
             lazy_static! {
                 static ref LIMITS: RwLock<[(f64, f64); 100]> = RwLock::new([(f64::MAX, f64::MIN); 100]);
             }
+            // First, read RwLock to see if the value is within limits. This is the most likely
+            // case, and multiple threads can read a RwLock at the same time.
             if let Some((lmin, lmax)) = LIMITS.read().expect("rwlock error").get(part as usize) {
                 if f > *lmax {
                     updated_limits = true;
@@ -1530,8 +1538,12 @@ impl MapGenBiomeNoise3D118 {
                     updated_limits = true;
                 }
             }
+            // If the previous check returned true, we need to update the limits. In that case,
+            // lock the RwLock for writing and update the limit
             if updated_limits {
                 if let Some((lmin, lmax)) = LIMITS.write().expect("rwlock error").get_mut(part as usize) {
+                    // Another thread may have already updated the limits, so reset flag to avoid
+                    // printing the same error message twice
                     updated_limits = false;
                     if f > *lmax {
                         *lmax = f;
@@ -1546,11 +1558,23 @@ impl MapGenBiomeNoise3D118 {
             let r = (f - fmin) * 256.0 / (fmax - fmin);
             let r = r as i32;
 
+            // Check if the resulting value is a valid u8
             if !(0..=255).contains(&r) {
+                // Invalid value, this means that the limits are not correct. Print error message
+                // and return a gray pixel.
                 let string_in_the_stack;
                 let arg_name = match part {
                     0 => "shift_x",
                     1 => "shift_z",
+                    2 => "temperature",
+                    3 => "humidity",
+                    4 => "continentalness",
+                    5 => "erosion",
+                    6 => "weirdness",
+                    7 => "depth",
+                    8 => "biome",
+                    50 => "debug_distance_to_second_biome",
+                    51 => "debug_search_bruteforce_xor_search_tree",
                     _ => {
                         string_in_the_stack = format!("arg_{}", part);
                         &string_in_the_stack
@@ -1574,6 +1598,27 @@ impl MapGenBiomeNoise3D118 {
         let mut px = x;
         let mut pz = z;
 
+        // Parts 0..=1 are independent of each other
+        match part {
+            0 => {
+                let shift_x = self.shift.sample(x, 0.0, z) * 4.0;
+                px += shift_x;
+
+                if part == 0 {
+                    return clamp_float_to_u8_range(shift_x, -6.0, 6.0);
+                }
+            }
+            1 => {
+                let shift_z = self.shift.sample(z, x, 0.0) * 4.0;
+                pz += shift_z;
+
+                if part == 1 {
+                    return clamp_float_to_u8_range(shift_z, -6.0, 6.0);
+                }
+            }
+            _ => {}
+        }
+
         let shift_x = self.shift.sample(x, 0.0, z) * 4.0;
         px += shift_x;
 
@@ -1588,8 +1633,59 @@ impl MapGenBiomeNoise3D118 {
             return clamp_float_to_u8_range(shift_z, -6.0, 6.0);
         }
 
-        let mut l_np = Climate::default();
-        let p_np = np.unwrap_or(&mut l_np);
+        let mut l_np;
+        let p_np = match np {
+            Some(np) => np,
+            None => {
+                l_np = Climate::default();
+                &mut l_np
+            }
+        };
+
+        // Parts 2..=6 only depend on parts 0 and 1, not on the previous part
+        match part {
+            2 => {
+                let t = self.temperature.sample(px, 0.0, pz);
+                p_np.temperature = (10000.0*t) as i64;
+
+                if part == 2 {
+                    return clamp_float_to_u8_range(p_np.temperature as f64, -12010.0, 12010.0);
+                }
+            }
+            3 => {
+                let h = self.humidity.sample(px, 0.0, pz);
+                p_np.humidity = (10000.0*h) as i64;
+
+                if part == 3 {
+                    return clamp_float_to_u8_range(p_np.humidity as f64, -10500.0, 10000.0);
+                }
+            }
+            4 => {
+                let c = self.continentalness.sample(px, 0.0, pz);
+                p_np.continentalness = (10000.0*c) as i64;
+
+                if part == 4 {
+                    return clamp_float_to_u8_range(p_np.continentalness as f64, -14200.0, 15000.0);
+                }
+            }
+            5 => {
+                let e = self.erosion.sample(px, 0.0, pz);
+                p_np.erosion = (10000.0*e) as i64;
+
+                if part == 5 {
+                    return clamp_float_to_u8_range(p_np.erosion as f64, -13500.0, 13500.0);
+                }
+            }
+            6 => {
+                let w = self.weirdness.sample(px, 0.0, pz);
+                p_np.weirdness = (10000.0*w) as i64;
+
+                if part == 6 {
+                    return clamp_float_to_u8_range(p_np.weirdness as f64, -16000.0, 16100.0);
+                }
+            }
+            _ => {}
+        }
 
         let t = self.temperature.sample(px, 0.0, pz);
         p_np.temperature = (10000.0*t) as i64;
@@ -4897,23 +4993,6 @@ pub fn reverse_map_smooth(m: &Map) -> Map {
 /// p = 0.9992 for each tile
 /// The probability of having at least one error in a 30x30 area is 50%
 pub fn reverse_map_voronoi_zoom(m: &Map) -> Result<Map, ()> {
-    // Ignore these functions, I decided to shift the map by 2 and make them useless
-    fn divide_coord_by_4(x: i64) -> i64 {
-        // 0 => 0
-        // 1 => 0
-        // 2 => 0
-        // 3 => 1
-        // 4 => 1
-        // 5 => 1
-        // 6 => 1
-        // 7 => 2
-        (x + 1) / 4
-    }
-    fn multiply_coord_by_4(x: i64) -> i64 {
-        // 0 => 2
-        // 1 => 6
-        (x * 4) + 2
-    }
     // 0 => 0, 1 => 4, 2 => 4, 3 => 4, 4 => 4
     fn next_multiple_of_4(x: i64) -> i64 {
         (x + 3) & !0x03
