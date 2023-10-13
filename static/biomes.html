@@ -529,7 +529,7 @@
                 let ws = document.getElementById("worldSeed");
                 let y_offset = get_y_offset();
                 // Cancel all pending worker tasks
-                cancelAllTasks();
+                work1.cancelAllPending();
 
                 Game.clear(
                     "mc=" +
@@ -758,39 +758,21 @@
             // https://codeburst.io/promises-for-the-web-worker-9311b7831733
             const resolves = {};
             const rejects = {};
-            const cancelFlags = {};
             let globalMsgId = 0;
-
-            function cancelAllTasks() {
-                for (let cancelFlag of Object.values(cancelFlags)) {
-                    cancelFlag[0] = 1;
-                }
-            }
 
             // Activate calculation in the worker, returning a promise
             function sendMsg(payload, worker) {
                 //console.log("main script, sendMsg to ", worker, ": ", payload);
                 const msgId = globalMsgId++;
-                let cancelFlag;
-
-                if (crossOriginIsolated) {
-                    cancelFlag = new SharedArrayBuffer(4); // 4 bytes for a single Int32
-                } else {
-                    // If running without access to SharedArrayBuffer, cancelling tasks is not supported
-                    // Unfortunately, github pages does not support SharedArrayBuffer
-                    cancelFlag = new ArrayBuffer(4);
-                }
                 const msg = {
                     id: msgId,
                     payload,
-                    cancelFlag,
                 };
 
                 return new Promise(function(resolve, reject) {
                     // save callbacks for later
                     resolves[msgId] = resolve;
                     rejects[msgId] = reject;
-                    cancelFlags[msgId] = new Int32Array(cancelFlag);
 
                     worker.postMessage(msg);
                 });
@@ -820,7 +802,6 @@
                 // purge used callbacks
                 delete resolves[id];
                 delete rejects[id];
-                delete cancelFlags[id];
             }
 
             // Wrapper class
@@ -831,19 +812,79 @@
                 for (let i = 0; i < this.maxWorkers; i++) {
                     this.workers[i] = new Worker("./worker_b.js");
                     this.workers[i].onmessage = handleMsg;
+                    this.workers[i].numHandlingMsg = 0;
                 }
-                this.incr = 0;
+                // Each worker will have 2 pending messages: one that they are currently processing, and another one in
+                // the queue so that when they send the result of the first one to the main thread, they can
+                // immediately start working on the second one without waiting for a reply from the main thread.
+                // Using a value of 1 would make cancelling tasks a bit faster, but that shouldn't be a big deal.
+                this.maxPendingMessagesPerWorker = 2;
+                // Queue to hold messages while workers are busy
+                this.messageQueue = [];
             }
-            Wrapper.prototype.sendMsg = function(payload) {
-                // Pooling strategy: send one message to each worker
-                this.incr++;
-                if (this.incr >= this.maxWorkers) {
-                    this.incr = 0;
-                }
-                payload.threadId = this.incr;
-                return sendMsg(payload, this.workers[this.incr]);
-            };
+            Wrapper.prototype.getAvailableWorkerId = function() {
+                // Return the worker with the lowest number of pending tasks, assuming it will be the first one to
+                // become available. If all workers are at the limit, return -1
+                let lowestLoadWorkerIndex = -1;
+                let lowestLoad = this.maxPendingMessagesPerWorker;
 
+                for (let i = 0; i < this.workers.length; i++) {
+                    const currentLoad = this.workers[i].numHandlingMsg;
+
+                    if (currentLoad === 0) {
+                        // A worker with no pending messages found, use it immediately
+                        return i;
+                    }
+
+                    if (currentLoad < lowestLoad) {
+                        lowestLoad = currentLoad;
+                        lowestLoadWorkerIndex = i;
+                    }
+                }
+
+                return lowestLoadWorkerIndex;
+            };
+            Wrapper.prototype.sendMsg = function(payload) {
+                // Send the message to an available worker, or enqueue the message until a worker is available.
+                // Enqueued messages are useful because they can be cancelled.
+                const availableWorkerIndex = this.getAvailableWorkerId();
+
+                if (availableWorkerIndex !== -1) {
+                    // An available worker was found, send the message to it
+                    payload.threadId = availableWorkerIndex;
+                    this.workers[availableWorkerIndex].numHandlingMsg++;
+
+                    return sendMsg(
+                        payload,
+                        this.workers[availableWorkerIndex]
+                    ).finally(() => {
+                        this.workers[availableWorkerIndex].numHandlingMsg--;
+                        // If there are some messages in the queue, this worker can handle one of them
+                        this.dequeueAndSendMsg();
+                    });
+                } else {
+                    // All workers are at max capacity, queue the message
+                    return new Promise((resolve, reject) => {
+                        this.messageQueue.push({ payload, resolve, reject });
+                    });
+                }
+            };
+            Wrapper.prototype.dequeueAndSendMsg = function() {
+                if (this.messageQueue.length > 0) {
+                    const messageInfo = this.messageQueue.shift();
+                    const { payload, resolve, reject } = messageInfo;
+                    this.sendMsg(payload)
+                        .then(resolve)
+                        .catch(reject);
+                }
+            };
+            Wrapper.prototype.cancelAllPending = function() {
+                while (this.messageQueue.length > 0) {
+                    const messageInfo = this.messageQueue.shift();
+                    const { reject } = messageInfo;
+                    reject("Cancelled");
+                }
+            };
             const work1 = new Wrapper();
 
             let FRAG_SIZE = 256;
