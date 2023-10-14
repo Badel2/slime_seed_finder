@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <a href="https://github.com/Badel2/slime_seed_finder"
+            >SLIME SEED FINDER</a
+        >
+        <strong>Under construction.</strong>
+        <div style="width: 100%;">
+            <div style="float: left; width: 66%;">
+                <canvas id="demo" width="720" height="480"></canvas>
+                <div id="position_info"></div>
+                (this should say chunk instead of block: one pixel in the image
+                is one chunk)
+                <div>
+                    <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
+                    <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                    <input id="center_x" size="6" value="0" />
+                    <input id="center_z" size="6" value="0" />
+                    <button id="center_button">CENTER</button>
+                    <input
+                        type="range"
+                        min="0"
+                        max="10"
+                        value="10"
+                        class="slider"
+                        id="gridSize"
+                    />
+                    <button onClick="Game.showGrid = false">GRID OFF</button>
+                </div>
+            </div>
+            <div style="float: right; width: 33%">
+                ENTER SEEDS (comma separated)<br />
+                <textarea
+                    id="worldSeed"
+                    class="code"
+                    rows="20"
+                    style="width: 90%;"
+                ></textarea>
+                <button onClick="Game.clear()">RUN</button>
+                <br />Or generate a list of seeds for testing: base + n *
+                2^bits<br />
+                <input
+                    id="genSeedBase"
+                    size="20"
+                    placeholder="BASE"
+                    value="1234"
+                />
+                + <input id="genSeedN" size="5" placeholder="N" value="10" /> *
+                2 ^
+                <input
+                    id="genSeedBits"
+                    size="2"
+                    placeholder="BITS"
+                    value="18"
+                />
+                <button onClick="genSeedTest()">GENERATE</button>
+            </div>
+        </div>
+
+        <div style="clear: both;"></div>
+
+        <script src="impetus.js"></script>
+        <script src="common.js"></script>
+        <script src="fragment_map.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
+        <script>
+            // Hacks to make workers return promises
+            // https://codeburst.io/promises-for-the-web-worker-9311b7831733
+            const resolves = {};
+            const rejects = {};
+            let globalMsgId = 0;
+
+            // Activate calculation in the worker, returning a promise
+            function sendMsg(payload, worker) {
+                const msgId = globalMsgId++;
+                const msg = {
+                    id: msgId,
+                    payload,
+                };
+
+                return new Promise(function(resolve, reject) {
+                    // save callbacks for later
+                    resolves[msgId] = resolve;
+                    rejects[msgId] = reject;
+
+                    worker.postMessage(msg);
+                });
+            }
+
+            // Handle incoming calculation result
+            function handleMsg(msg) {
+                const { id, err, payload } = msg.data;
+
+                if (payload) {
+                    const resolve = resolves[id];
+                    if (resolve) {
+                        resolve(payload);
+                    }
+                } else {
+                    // error condition
+                    const reject = rejects[id];
+                    if (reject) {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            reject("Got nothing");
+                        }
+                    }
+                }
+
+                // purge used callbacks
+                delete resolves[id];
+                delete rejects[id];
+            }
+
+            // Wrapper class
+            function Wrapper() {
+                this.maxWorkers = navigator.hardwareConcurrency || 4;
+                console.log("Creating " + this.maxWorkers + " workers");
+                this.workers = Array(this.maxWorkers).fill(
+                    new Worker("./worker_s.js")
+                );
+                for (let i = 0; i < this.maxWorkers; i++) {
+                    this.workers[i].onmessage = handleMsg;
+                }
+                this.incr = 0;
+            }
+            Wrapper.prototype.sendMsg = function(payload) {
+                // Pooling strategy: send one message to each worker
+                this.incr++;
+                if (this.incr >= this.maxWorkers) {
+                    this.incr = 0;
+                }
+                payload.threadId = this.incr;
+                return sendMsg(payload, this.workers[this.incr]);
+            };
+
+            const work1 = new Wrapper();
+
+            let FRAG_SIZE = 256;
+            // Generate fragment
+            // This function should return a promise, which is interpreted as
+            // a HTML canvas
+            function generateFragmentB(layer, fx, fy) {
+                if (window.Worker) {
+                    let ws = document.getElementById("worldSeed");
+                    // Since js doesnt support 64 bit ints, we just pass
+                    // the string array to the Rust code, it will be parsed there
+                    let seed = Array.from(
+                        ws.value
+                            .replace(/( |\n)/g, "")
+                            .replace(/,$/g, "")
+                            .split(",")
+                    );
+                    return work1
+                        .sendMsg({
+                            fx: fx,
+                            fy: fy,
+                            seed: seed,
+                            FRAG_SIZE: FRAG_SIZE,
+                        })
+                        .then(function(e) {
+                            /*
+                        console.log("Copying to canvas: " + fx + ", " + fy);
+                        */
+                            // Create off-screen canvas
+                            let c = document.createElement("canvas");
+                            c.width = FRAG_SIZE;
+                            c.height = FRAG_SIZE;
+                            let ctx = c.getContext("2d");
+                            // Generate fragment
+                            let imageData = ctx.createImageData(
+                                FRAG_SIZE,
+                                FRAG_SIZE
+                            );
+                            //imageData.data = rvec; // please
+                            for (
+                                let i = 0;
+                                i < FRAG_SIZE * FRAG_SIZE * 4;
+                                i++
+                            ) {
+                                imageData.data[i] = e.rvec[i];
+                            }
+                            ctx.putImageData(imageData, 0, 0);
+                            return c;
+                        });
+                } else {
+                    return Rust.slime_seed_finder_web.then(
+                        function(slime_seed_finder_web) {
+                            let ws = document.getElementById("worldSeed");
+                            // Since js doesnt support 64 bit ints, we just pass
+                            // the string array to the Rust code, it will be parsed there
+                            let seed = Array.from(
+                                ws.value
+                                    .replace(/( |\n)/g, "")
+                                    .replace(/,$/g, "")
+                                    .split(",")
+                            );
+                            console.log("Seed: " + seed);
+                            console.log(
+                                "Generating fragment: " + fx + ", " + fy
+                            );
+                            let rvec = slime_seed_finder_web.generate_fragment_slime_map(
+                                fx,
+                                fy,
+                                seed,
+                                FRAG_SIZE
+                            );
+                            console.log("Copying to canvas: " + fx + ", " + fy);
+                            // Create off-screen canvas
+                            let c = document.createElement("canvas");
+                            c.width = FRAG_SIZE;
+                            c.height = FRAG_SIZE;
+                            let ctx = c.getContext("2d");
+                            // Generate fragment
+                            let imageData = ctx.createImageData(
+                                FRAG_SIZE,
+                                FRAG_SIZE
+                            );
+                            //imageData.data = rvec; // please
+                            for (
+                                let i = 0;
+                                i < FRAG_SIZE * FRAG_SIZE * 4;
+                                i++
+                            ) {
+                                imageData.data[i] = rvec[i];
+                            }
+                            ctx.putImageData(imageData, 0, 0);
+                            return c;
+                        },
+                        function(err) {
+                            console.error(err);
+                        }
+                    );
+                }
+            }
+
+            map.generateFragment = generateFragmentB;
+
+            function genSeedTest() {
+                let base = document.getElementById("genSeedBase");
+                let n = document.getElementById("genSeedN");
+                let bits = document.getElementById("genSeedBits");
+                // Oh, right, the seed is 64 bits
+
+                Rust.slime_seed_finder_web.then(
+                    function(slime_seed_finder_web) {
+                        let new_value = slime_seed_finder_web.gen_test_seed_base_n_bits(
+                            base.value,
+                            n.value,
+                            bits.value
+                        );
+                        let ws = document.getElementById("worldSeed");
+                        ws.value = new_value;
+                    },
+                    function(err) {
+                        console.error(err);
+                    }
+                );
+            }
+            startGame(0);
+        </script>
+    </body>
+</html>
