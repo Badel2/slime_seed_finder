@@ -697,7 +697,7 @@ pub fn extract_map_from_screenshot(
         }
 
         Serde(Some(ExtractMapResult {
-            cropped_scaled_img: detected_map.cropped_scaled_img.to_bytes(),
+            cropped_scaled_img: detected_map.cropped_scaled_img.into_bytes(),
             treasure_map_img,
             land_water,
         }))
