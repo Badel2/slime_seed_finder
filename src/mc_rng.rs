@@ -56,19 +56,19 @@ impl McRng {
     }
     pub fn set_chunk_seed(&mut self, chunk_x: i64, chunk_z: i64) {
         self.chunk_seed = self.world_seed;
-        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_x as i64);
-        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_z as i64);
-        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_x as i64);
-        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_z as i64);
+        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_x);
+        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_z);
+        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_x);
+        self.chunk_seed = Self::next_state(self.chunk_seed, chunk_z);
     }
     pub fn base_seed(&self) -> i64 {
-        self.base_seed as i64
+        self.base_seed
     }
     pub fn world_seed(&self) -> i64 {
-        self.world_seed as i64
+        self.world_seed
     }
     pub fn chunk_seed(&self) -> i64 {
-        self.chunk_seed as i64
+        self.chunk_seed
     }
     // s *= s * A + C; s += k;
     // A*s*s + C*s + k = s
@@ -209,10 +209,10 @@ impl McRng {
     }
     pub fn world_seed_from_chunk_seed_lower_bits(chunk_seed: i64, chunk_x: i64, chunk_z: i64, bits: u8) -> Vec<i64> {
         let mut x = vec![chunk_seed];
-        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_z as i64, bits)).collect();
-        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_x as i64, bits)).collect();
-        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_z as i64, bits)).collect();
-        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_x as i64, bits)).collect();
+        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_z, bits)).collect();
+        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_x, bits)).collect();
+        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_z, bits)).collect();
+        x = x.into_iter().flat_map(|x| Self::previous_state_lower_bits(x, chunk_x, bits)).collect();
 
         x
     }

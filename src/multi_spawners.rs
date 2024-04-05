@@ -214,7 +214,7 @@ fn bounding_box<V>(p: &[&((i64, i64, i64), V)]) -> BoundingBox {
     let mut z_min = p[0].0 .2;
     let mut z_max = p[0].0 .2;
 
-    for ((x, y, z), _) in p.into_iter().skip(1) {
+    for ((x, y, z), _) in p.iter().skip(1) {
         x_min = min(x_min, *x);
         x_max = max(x_max, *x);
         y_min = min(y_min, *y);

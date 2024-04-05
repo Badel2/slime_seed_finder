@@ -97,7 +97,7 @@ fn decompose_rotation_matrix_into_xyz_rots(m: &Array2<i8>) -> (u8, u8, u8, bool)
     let nx;
     let ny;
     let nz;
-    let reflect_y = if determinant(&m) == -1 { -1 } else { 1 };
+    let reflect_y = if determinant(m) == -1 { -1 } else { 1 };
 
     let singular = m[(0, 0)] == 0 && m[(1, 0)] == 0;
 
@@ -193,38 +193,38 @@ fn determinant(m: &Array2<i8>) -> i8 {
 
 /// Given an orthogonal 3D rotation matrix, return the index into the list of 48 possible
 /// rotations/reflections.
-fn mat2idx(m: &Vec<i8>) -> u8 {
+fn mat2idx(m: &[i8]) -> u8 {
     let mut idx = 0;
     let b1;
     let b2;
     let mut c1 = 0;
-    match &m[0..3] {
-        &[1, 0, 0] => {
+    match m[0..3] {
+        [1, 0, 0] => {
             idx += 0;
             b1 = 1;
             b2 = 2;
         }
-        &[-1, 0, 0] => {
+        [-1, 0, 0] => {
             idx += 40;
             b1 = 1;
             b2 = 2;
         }
-        &[0, 1, 0] => {
+        [0, 1, 0] => {
             idx += 8;
             b1 = 0;
             b2 = 2;
         }
-        &[0, -1, 0] => {
+        [0, -1, 0] => {
             idx += 32;
             b1 = 0;
             b2 = 2;
         }
-        &[0, 0, 1] => {
+        [0, 0, 1] => {
             idx += 16;
             b1 = 0;
             b2 = 1;
         }
-        &[0, 0, -1] => {
+        [0, 0, -1] => {
             idx += 24;
             b1 = 0;
             b2 = 1;
@@ -356,13 +356,13 @@ pub fn max_y_size(dims: (u32, u32, u32), rot_idx: &[u8]) -> u32 {
     max_y
 }
 
-pub fn get_rotated_maps(map: &Vec<Vec<Vec<char>>>, rot_idx: &[u8]) -> Vec<Vec<Vec<Vec<char>>>> {
+pub fn get_rotated_maps(map: &[Vec<Vec<char>>], rot_idx: &[u8]) -> Vec<Vec<Vec<Vec<char>>>> {
     let mut maps = vec![];
 
     for idx in rot_idx {
         let m = idx2mat(*idx);
         let (nx, ny, nz, reflect_y) = decompose_rotation_matrix_into_xyz_rots(&m);
-        let fm = compose_rotation_map(nx, ny, nz, reflect_y, map.clone());
+        let fm = compose_rotation_map(nx, ny, nz, reflect_y, map.to_vec());
         maps.push(fm);
     }
 

@@ -144,7 +144,7 @@ impl NoiseGeneratorPerlin128 {
         // Shuffle array
         for i in 0..256 {
             // j: random number in range i..256
-            let j = (r.next_int_n(256 - i as u32) as i32) + i as i32;
+            let j = r.next_int_n(256 - i as u32) + i as i32;
             let j = (j & 0xFF) as usize;
             d.swap(i, j);
         }

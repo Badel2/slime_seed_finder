@@ -345,7 +345,7 @@ impl CachedMap {
         let area = m.area();
         for x in 0..area.w as usize {
             for z in 0..area.h as usize {
-                self.cache.borrow_mut().insert((area.x as i64 + x as i64, area.z as i64 + z as i64), m.a[(x, z)]);
+                self.cache.borrow_mut().insert((area.x + x as i64, area.z + z as i64), m.a[(x, z)]);
             }
         }
     }
@@ -353,7 +353,7 @@ impl CachedMap {
         let mut m = Map::new(area);
         for x in 0..area.w as usize {
             for z in 0..area.h as usize {
-                if let Some(b) = self.cache.borrow().get(&(area.x as i64 + x as i64, area.z as i64 + z as i64)) {
+                if let Some(b) = self.cache.borrow().get(&(area.x + x as i64, area.z + z as i64)) {
                     m.a[(x, z)] = *b;
                 } else {
                     return None;
@@ -1056,8 +1056,6 @@ impl GetMap for MapVoronoiZoom {
                 if v00 == v01 && v00 == v10 && v00 == v11 {
                     for j in 0..4 {
                         for i in 0..4 {
-                            let x = x as usize;
-                            let z = z as usize;
                             let idx = ((x << 2) + i, (z << 2) + j);
                             m.a[idx] = v00;
                         }
@@ -1880,10 +1878,10 @@ fn rand_offset_3d(seed: i64, x: i32, y: i32, z: i32) -> (f64, f64, f64) {
     r = McRng::next_state(r, i64::from(z));
     let dx = rand_offset(r);
 
-    r = McRng::next_state(r, i64::from(seed));
+    r = McRng::next_state(r, seed);
     let dy = rand_offset(r);
 
-    r = McRng::next_state(r, i64::from(seed));
+    r = McRng::next_state(r, seed);
     let dz = rand_offset(r);
 
     (dx, dy, dz)
@@ -4524,8 +4522,8 @@ impl MapRiverMix13 {
             assert_eq!(pmap1.area(), pmap2.area());
         }
         let mut m = pmap1.clone();
-        for x in 0..p_w as usize {
-            for z in 0..p_h as usize {
+        for x in 0..p_w {
+            for z in 0..p_h {
                 let buf = pmap1.a[(x, z)];
                 let out = pmap2.a[(x, z)];
                 m.a[(x, z)] = if buf == ocean {
@@ -5157,7 +5155,7 @@ pub fn river_seed_finder_26_range(river_coords_quarter_scale: &[Point4], range_l
                 // Basically, target_map is a subset of candidate_map
                 // Except in some rare cases where target_map can have rivers not present
                 // in candidate_map.
-                let candidate_score = count_rivers_and(&candidate_map, &target_map);
+                let candidate_score = count_rivers_and(&candidate_map, target_map);
                 score0 += candidate_score;
                 if candidate_score >= target_score * 90 / 100 {
                     good_maps0 += 1;
@@ -5183,7 +5181,7 @@ pub fn river_seed_finder_26_range(river_coords_quarter_scale: &[Point4], range_l
                 // Basically, target_map is a subset of candidate_map
                 // Except in some rare cases where target_map can have rivers not present
                 // in candidate_map.
-                let candidate_score = count_rivers_and(&candidate_map, &target_map);
+                let candidate_score = count_rivers_and(&candidate_map, target_map);
                 score1 += candidate_score;
                 if candidate_score >= target_score * 90 / 100 {
                     good_maps1 += 1;
@@ -5282,11 +5280,11 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             let world_seed = x | (seed << 26);
             let g43 = MapVoronoiZoom::new(10, world_seed);
             for (target_map_hd, target_map_voronoi_sliced, target_score_voronoi_sliced) in &target_maps_hd {
-                let candidate_voronoi = g43.get_map_from_pmap(&target_map_hd);
+                let candidate_voronoi = g43.get_map_from_pmap(target_map_hd);
                 let candidate_voronoi = HelperMapRiverAll::new(1, 0).get_map_from_pmap(&candidate_voronoi);
                 //debug!("{}", draw_map(&target_map_voronoi_sliced));
                 //debug!("{}", draw_map(&candidate_voronoi));
-                let candidate_score = count_rivers_and(&candidate_voronoi, &target_map_voronoi_sliced);
+                let candidate_score = count_rivers_and(&candidate_voronoi, target_map_voronoi_sliced);
                 // One match is enough to mark this as a candidate
                 if candidate_score >= target_score_voronoi_sliced * 90 / 100 {
                     debug!("{:09X}: {}", world_seed, candidate_score);
@@ -5323,7 +5321,7 @@ pub fn river_seed_finder_range(river_coords_voronoi: &[Point], extra_biomes: &[(
             //let g41 = generate_up_to_layer(MinecraftVersion::Java1_7, area, world_seed, 41);
             // Compare all biomes (slower)
             let g42 = generate_up_to_layer(version, area, world_seed, last_layer - 1, 0);
-            let candidate_score = count_rivers_and(&g42, &target_map);
+            let candidate_score = count_rivers_and(&g42, target_map);
             if candidate_score < target_score * 90 / 100 {
                 // Skip this seed
                 return None;

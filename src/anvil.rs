@@ -172,7 +172,6 @@ pub fn get_rivers_and_some_extra_biomes<A: AnvilChunkProvider>(chunk_provider: &
             for (i_b, b) in biomes_array.into_iter().enumerate() {
                 let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
                 let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
-                let b = b.clone();
 
                 match b {
                     127 => {
@@ -270,7 +269,6 @@ pub fn get_rivers_and_some_extra_biomes_1_15<A: AnvilChunkProvider>(chunk_provid
                 // TODO: this is not tested
                 let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
                 let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
-                let b = b.clone();
 
                 match b {
                     127 => {
@@ -390,7 +388,6 @@ pub fn get_all_biomes_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
             // TODO: this is not tested
             let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
             let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
-            let b = b.clone();
 
             match b {
                 127 => {
@@ -507,7 +504,6 @@ pub fn get_biomes_from_area_1_15<A: AnvilChunkProvider>(chunk_provider: &mut A, 
             // TODO: this is not tested
             let block_x = i64::from(chunk_x) * 4 + (i_b % 4) as i64;
             let block_z = i64::from(chunk_z) * 4 + ((i_b / 4) % 4) as i64;
-            let b = b.clone();
 
             match b {
                 127 => {
@@ -615,7 +611,6 @@ pub fn get_all_biomes_1_14<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Vec
         for (i_b, b) in biomes_array.into_iter().enumerate() {
             let block_x = i64::from(chunk_x) * 16 + (i_b % 16) as i64;
             let block_z = i64::from(chunk_z) * 16 + (i_b / 16) as i64;
-            let b = b.clone();
 
             match b {
                 127 => {
@@ -684,7 +679,7 @@ pub fn read_seed_from_level_dat_zip(input_zip: &Path, minecraft_version: Option<
             }).map_err(|_| {
                 // Convert the list of errors into a String because sadly that's our error type
                 let mut s = String::new();
-                s.push_str(&"Failed to read level.dat: unsupported version or corrupted file. Detailed list of errors:\n");
+                s.push_str("Failed to read level.dat: unsupported version or corrupted file. Detailed list of errors:\n");
                 for (version, err) in errs {
                     s.push_str(&format!("* {}: {}\n", version, err));
                 }
@@ -733,13 +728,11 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
     let mut dungeons = vec![];
     let mut overworld: Dimension<std::fs::File> = Dimension::new();
     let total_chunks = all_chunks.len();
-    let mut processed_chunks_count = 0;
 
-    for (chunk_x, chunk_z) in all_chunks {
+    for (processed_chunks_count, (chunk_x, chunk_z)) in all_chunks.into_iter().enumerate() {
         if processed_chunks_count % 1024 == 0 {
             log::debug!("{}/{} chunks processed, {} dungeons found", processed_chunks_count, total_chunks, dungeons.len());
         }
-        processed_chunks_count += 1;
         let c_bytes = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
         let c = CompoundTag::from_bytes(&c_bytes).unwrap();
         // Store all the errors
@@ -754,7 +747,7 @@ pub fn find_dungeons<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
         }).map_err(|_| {
             // Convert the list of errors into a String because sadly that's our error type
             let mut s = String::new();
-            s.push_str(&"Failed to read dungeons from chunk: unsupported version or corrupted file. Detailed list of errors:\n");
+            s.push_str("Failed to read dungeons from chunk: unsupported version or corrupted file. Detailed list of errors:\n");
             for (version, err) in errs {
                 s.push_str(&format!("* {}: {}\n", version, err));
             }
@@ -856,13 +849,11 @@ pub fn find_spawners<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
     let all_chunks = chunk_provider.list_chunks().expect("Error listing chunks");
     let mut dungeons = vec![];
     let total_chunks = all_chunks.len();
-    let mut processed_chunks_count = 0;
 
-    for (chunk_x, chunk_z) in all_chunks {
+    for (processed_chunks_count, (chunk_x, chunk_z)) in all_chunks.into_iter().enumerate() {
         if processed_chunks_count % 1024 == 0 {
             log::debug!("{}/{} chunks processed, {} dungeons found", processed_chunks_count, total_chunks, dungeons.len());
         }
-        processed_chunks_count += 1;
         let c = chunk_provider.load_chunk(chunk_x, chunk_z).expect("Error loading chunk");
         let c = CompoundTag::from_bytes(&c).unwrap();
 
@@ -878,7 +869,7 @@ pub fn find_spawners<A: AnvilChunkProvider>(chunk_provider: &mut A) -> Result<Ve
         }).map_err(|()| {
             // Convert the list of errors into a String because sadly that's our error type
             let mut s = String::new();
-            s.push_str(&"Failed to read spawners from chunk: unsupported version or corrupted file. Detailed list of errors:\n");
+            s.push_str("Failed to read spawners from chunk: unsupported version or corrupted file. Detailed list of errors:\n");
             for (version, err) in errs {
                 s.push_str(&format!("* {}: {}\n", version, err));
             }
@@ -1144,7 +1135,7 @@ pub fn iterate_blocks_in_region<R: Read + Seek, F: FnMut((i64, i64, i64), &fasta
                 for z in 0..16 {
                     let (x, y, z) = (x as i64, y as i64, z as i64);
                     let block_x = chunk_x as i64 * 16 + x;
-                    let block_y = i64::from(y);
+                    let block_y = y;
                     let block_z = chunk_z as i64 * 16 + z;
                     if let Some(block) = chunk.block(x as usize, y as isize, z as usize) {
                         f((block_x, block_y, block_z), block);
@@ -1327,7 +1318,7 @@ impl<'a, 'b, A: AnvilChunkProvider> WorldSearchInterface for FirstWorldSearchInt
             // Block::encoded_description returns:
             // A string of the format “id|prop1=val1,prop2=val2”. The properties are ordered lexigraphically. This somewhat matches the way Minecraft stores variants in blockstates, but with the block ID/name prepended.
             // Get string after first |
-            let x_kv = x.splitn(2, '|').skip(1).next()?;
+            let (_x_id, x_kv) = x.split_once('|')?;
 
             for kv in x_kv.split_terminator(',') {
                 // TODO: maybe rewrite this as kv.strip_prefix(key + '=')
@@ -1350,16 +1341,14 @@ pub fn search_pattern_in_world<W>(block_pattern: &CompiledBlockPattern, bounds: 
 where W: WorldSearchInterface
 {
     let mut counter = mode.counter();
-    let mut processed_chunks_count = 0;
     let ys = block_pattern.max_y_size();
     let all_chunks = world.list_chunks();
     let total_chunks = all_chunks.len();
 
-    for (chunk_x, chunk_z) in all_chunks {
+    for (processed_chunks_count, (chunk_x, chunk_z)) in all_chunks.into_iter().enumerate() {
         if processed_chunks_count % 1024 == 0 {
             log::debug!("{}/{} chunks processed, {} matches found", processed_chunks_count, total_chunks, counter.num_matches);
         }
-        processed_chunks_count += 1;
         if !bounds.contains_chunk(chunk_x, chunk_z) {
             continue;
         }

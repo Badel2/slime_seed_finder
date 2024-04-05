@@ -142,7 +142,7 @@ fn find_all_region_mca<R: Read + Seek>(
         if mca_name.is_none() {
             continue;
         }
-        if let Some(coords) = parse_region_file_name(&mca_name.unwrap()) {
+        if let Some(coords) = parse_region_file_name(mca_name.unwrap()) {
             r.push(coords);
         }
     }

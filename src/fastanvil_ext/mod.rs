@@ -126,11 +126,7 @@ impl<S: Read + Seek> Dimension<S> {
 
     /// Get the chunk at this coordinates
     // TODO: remove need to use mutable reference to self?
-    pub fn get_chunk<'a>(
-        &'a mut self,
-        chunk_x: i32,
-        chunk_z: i32,
-    ) -> Option<&'a fastanvil::JavaChunk> {
+    pub fn get_chunk(&mut self, chunk_x: i32, chunk_z: i32) -> Option<&fastanvil::JavaChunk> {
         if !self.chunks.contains_key(&(chunk_x, chunk_z)) {
             let (region_x, region_z) = chunk_coords_to_region_coords(chunk_x, chunk_z);
             let (region_chunk_x, region_chunk_z) = chunk_coords_inside_region(chunk_x, chunk_z);
@@ -153,7 +149,7 @@ impl<S: Read + Seek> Dimension<S> {
 
     /// Get the block at this coordinates
     // TODO: remove need to use mutable reference to self?
-    pub fn get_block<'a>(&'a mut self, x: i64, y: i64, z: i64) -> Option<&'a fastanvil::Block> {
+    pub fn get_block(&mut self, x: i64, y: i64, z: i64) -> Option<&fastanvil::Block> {
         let block_x = u8::try_from(x & 0xF).unwrap();
         let block_z = u8::try_from(z & 0xF).unwrap();
 

@@ -32,7 +32,7 @@ pub struct CompiledBlockPattern {
 }
 
 impl CompiledBlockPattern {
-    fn map_dims(map: &Vec<Vec<Vec<char>>>) -> (u32, u32, u32) {
+    fn map_dims(map: &[Vec<Vec<char>>]) -> (u32, u32, u32) {
         let ys = map.len();
         let zs = map[0].len();
         let xs = map[0][0].len();

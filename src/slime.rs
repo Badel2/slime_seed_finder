@@ -137,8 +137,8 @@ mod slime_const {
 // See discussion about optimizations in the test section:
 // constant_z()
 fn calculate_slime_data(c: &Chunk) -> u64 {
-    let x = Wrapping(c.x as i32);
-    let z = Wrapping(c.z as i32);
+    let x = Wrapping(c.x);
+    let z = Wrapping(c.z);
     let a = Wrapping((x * x * slime_const::A).0 as i64);
     let b = Wrapping((x * slime_const::B).0 as i64);
     let c = Wrapping((z * z).0 as i64) * slime_const::C;

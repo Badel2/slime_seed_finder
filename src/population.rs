@@ -552,7 +552,7 @@ where
 
     let chunk_seed = world_seed_to_chunk_population_seed(world_seed, chunk_x, chunk_z);
     //let chunk_seed_new = world_seed_to_chunk_population_seed_1_14(world_seed, chunk_x, chunk_z);
-    let mut r = JavaRng::with_seed(chunk_seed as u64);
+    let mut r = JavaRng::with_seed(chunk_seed);
 
     // Undo the first +1 from next_n_calls(s + 1)
     r.previous();
@@ -588,7 +588,7 @@ pub fn populate_alpha_1_0_4_check_dungeon(
     let z_offset = chunk_z * 16;
 
     let chunk_seed = world_seed_to_chunk_population_seed(world_seed, chunk_x, chunk_z);
-    let mut r = JavaRng::with_seed(chunk_seed as u64);
+    let mut r = JavaRng::with_seed(chunk_seed);
 
     // 8 dungeon tries
     for _ in 0..8 {
@@ -626,7 +626,7 @@ pub fn populate_alpha_1_2_6_check_dungeon(
     let z_offset = chunk_z * 16;
 
     let chunk_seed = world_seed_to_chunk_population_seed(world_seed, chunk_x, chunk_z);
-    let mut r = JavaRng::with_seed(chunk_seed as u64);
+    let mut r = JavaRng::with_seed(chunk_seed);
 
     advance_water_lake(&mut r);
 
@@ -775,8 +775,8 @@ pub fn reverse_round_to_odd_bits_any_version(m: i64, bits: u8) -> Vec<i64> {
 pub fn world_seed_to_chunk_population_seed(world_seed: i64, chunk_x: i32, chunk_z: i32) -> u64 {
     let mut r = JavaRng::with_seed(world_seed as u64);
 
-    let m = round_to_odd(r.next_long() as i64);
-    let n = round_to_odd(r.next_long() as i64);
+    let m = round_to_odd(r.next_long());
+    let n = round_to_odd(r.next_long());
 
     // (x * m + z * n) ^ world_seed
     (((chunk_x as i64)
@@ -984,7 +984,7 @@ pub fn chunk_population_seed_to_world_seed(
             let mut ws = vec![];
             for m in reverse_round_to_odd_bits_any_version(m, 48) {
                 for m in JavaRng::extend_long_48(m as u64) {
-                    let mut r = JavaRng::create_from_long(m as u64).unwrap();
+                    let mut r = JavaRng::create_from_long(m).unwrap();
                     let world_seed = r.get_seed() as i64;
                     let _m = r.next_long();
                     let cand_n = r.next_long();
