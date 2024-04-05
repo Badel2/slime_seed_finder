@@ -11,15 +11,15 @@ crate-type = ["cdylib"]
 
 [dependencies]
 slime_seed_finder = { "path" = ".." }
-image = { version = "0.24.1", default-features = false }
-log = { version = "0.4.14", features = ["std"] }
-minecraft_screenshot_parser = "0.4"
+image = { version = "0.25.1", default-features = false, features = ["png"] }
+log = { version = "0.4.21", features = ["std"] }
+minecraft_screenshot_parser = "0.5.0"
 colorgrad = "0.6.2"
-serde = { version = "1.0.126", features = ["derive"] }
-serde_json = "1.0.64"
-zip = { version = "0.6.2", default-features = false }
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.115"
+zip = { version = "0.6.6", default-features = false }
 node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382ddfa4bf0d82a8103aaa4659aec79c825010", features = ["serde-json"] }
-log4rs = "1"
+log4rs = "1.3.0"
 
 [build-dependencies]
 node-bindgen = { git = "https://github.com/infinyon/node-bindgen", rev = "cf382ddfa4bf0d82a8103aaa4659aec79c825010", default-features = false, features = ["build"] }
