@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>genLayerVoronoiZoom playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+        </style>
+    </head>
+    <body>
+        GRID SIZE:
+        <span id="gridSizeXValue">?</span>
+        <input
+            type="range"
+            min="3"
+            max="13"
+            value="3"
+            class="slider"
+            id="gridSizeX"
+        />
+        NUM COLORS:
+        <span id="numColorsValue">?</span>
+        <input
+            type="range"
+            min="2"
+            max="13"
+            value="2"
+            class="slider"
+            id="numColors"
+        />
+        POINTS
+        <button id="genRandom">RANDOM</button>
+        <button id="genClear">CLEAR</button>
+        CANVAS SIZE:
+        <input id="canvasSizeLol" type="text" size="4" value="720" />
+        <br />
+        <canvas id="voronoi" width="720" height="720"></canvas>
+        <canvas id="voronoi2" width="720" height="720"></canvas>
+        <br />
+        <div id="genInfo"></div>
+        <script src="./map_smooth.js"></script>
+    </body>
+</html>

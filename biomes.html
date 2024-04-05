@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>slime_seed_finder playground</title>
+        <style>
+            body {
+                background-color: #eee;
+            }
+            input {
+                font-family: monospace;
+            }
+            textarea {
+                font-family: monospace;
+            }
+            #demo {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                z-index: -1;
+                image-rendering: pixelated;
+            }
+            .controlPanel {
+                background-color: #ffffff80;
+            }
+        </style>
+        <script src="json-stringify-pretty-compact.js"></script>
+    </head>
+    <body>
+        <div class="controlPanel">
+            <a href="https://github.com/Badel2/slime_seed_finder"
+                >SLIME SEED FINDER</a
+            >
+            <strong>Under construction.</strong>
+            <button id="randomSeedButton" onClick="setSeed(randomSeed())">
+                RANDOM
+            </button>
+            <button id="buttonSimilarBiomeSeed" onClick="similarBiomeSeed()">
+                Similar Biome Seed
+            </button>
+            ENTER SEED:
+            <input type="text" id="worldSeed" placeholder="Enter world seed" />
+            <button id="buttonSub2ToThe" onClick="seedPlus2ToThe48(false)">
+                -2^48
+            </button>
+            <button id="buttonAdd2ToThe" onClick="seedPlus2ToThe48(true)">
+                +2^48
+            </button>
+            <input type="text" id="add2ToTheN" size="2" value="48" />
+            <input type="text" id="lastLayer" size="3" value="9" />
+            <button id="layerPrev" onClick="updateWithLayerPlus(-1)">-</button>
+            <button id="layerNext" onClick="updateWithLayerPlus(+1)">+</button>
+            &lt;- Layer controls
+        </div>
+        <div>
+            <canvas id="demo"></canvas>
+            <div class="controlPanel">
+                <button onClick="Game.zoomBy(0.8)">ZOOM -</button>
+                <button onClick="Game.zoomBy(1.25)">ZOOM +</button>
+                <input id="center_x" size="6" value="0" />
+                <input id="center_z" size="6" value="0" />
+                <button id="center_button">CENTER</button>
+                <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    value="10"
+                    class="slider"
+                    id="gridSize"
+                />
+                <button
+                    onClick="Game.showGrid = !Game.showGrid; Game.dirty = true"
+                >
+                    TOGGLE GRID
+                </button>
+                <select id="minecraftVersion">
+                    <option value="1.3">Java 1.3 - 1.6</option>
+                    <option value="1.7">Java 1.7 - 1.12</option>
+                    <option value="1.13">Java 1.13</option>
+                    <option value="1.14">Java 1.14</option>
+                    <option value="1.15">Java 1.15 - Java 1.16.1</option>
+                    <option value="1.16">Java 1.16.2 - Java 1.17</option>
+                    <option value="1.18" selected>Java 1.18</option>
+                    <option value="TreasureMap13"
+                        >Java 1.13-1.14 Treasure Map</option
+                    >
+                    <option value="TreasureMap15"
+                        >Java 1.15-1.17 Treasure Map</option
+                    >
+                    <option value="TreasureMap18"
+                        >Java 1.18 Treasure Map</option
+                    >
+                </select>
+                <span>Select y-level (0 for caves, 63 for surface)</span>
+                <input type="text" id="y_offset" size="3" value="63" />
+                <a id="download" download="biome_map.png">
+                    <button
+                        id="download_button"
+                        type="button"
+                        onClick="download()"
+                    >
+                        DOWNLOAD MAP
+                    </button></a
+                >
+                Cache size:
+                <input type="text" id="lruCacheSize" size="2" value="3" />
+                <button onClick="Game.clearLruCache()">Clear cache</button>
+            </div>
+            <div id="position_info" class="controlPanel"></div>
+        </div>
+
+        <div style="clear: both;"></div>
+        <script src="impetus.js"></script>
+        <script src="common.js"></script>
+        <script src="fragment_map.js"></script>
+        <script type="text/javascript" src="slime_seed_finder_web.js"></script>
+        <script>
+            // https://codeburst.io/throttling-and-debouncing-in-javascript-646d076d0a44
+            function debounced(delay, fn) {
+                let timerId;
+                return function(...args) {
+                    if (timerId) {
+                        clearTimeout(timerId);
+                    }
+                    timerId = setTimeout(() => {
+                        fn(...args);
+                        timerId = null;
+                    }, delay);
+                };
+            }
+
+            // Download canvas as named image
+            // https://stackoverflow.com/a/42546234
+            function download() {
+                var download = document.getElementById("download");
+                // Try using a canvas to create the PNG
+                var image = Game.render_to_image()
+                    .toDataURL("image/png")
+                    .replace("image/png", "image/octet-stream");
+                if (image === "data:,") {
+                    // If it didn't work because the canvas size is too big, use Rust code to create a bigger PNG
+                    download.setAttribute("href", "");
+                    var { fragments, tsize } = Game.get_fragments();
+                    Rust.slime_seed_finder_web.then(
+                        function(slime_seed_finder_web) {
+                            let png_base64 = slime_seed_finder_web.map_fragments_to_png_base64(
+                                fragments,
+                                tsize
+                            );
+                            let image = "data:image/png;base64," + png_base64;
+                            download.setAttribute("href", image);
+                            download.setAttribute(
+                                "download",
+                                "seed_" +
+                                    document.getElementById("worldSeed").value +
+                                    ".png"
+                            );
+                        },
+                        function(err) {
+                            console.error(err);
+                        }
+                    );
+                } else {
+                    download.setAttribute("href", image);
+                    download.setAttribute(
+                        "download",
+                        "seed_" +
+                            document.getElementById("worldSeed").value +
+                            ".png"
+                    );
+                }
+            }
+
+            let scales13 = [
+                4096,
+                2048,
+                2048,
+                1024,
+                1024,
+                1024,
+                512,
+                512,
+                256,
+                256,
+                256,
+                256,
+                128,
+                64,
+                64,
+                32,
+                32,
+                16,
+                16,
+                16,
+                8,
+                4,
+                4,
+                256,
+                128,
+                64,
+                32,
+                16,
+                8,
+                4,
+                4,
+                4,
+                4,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+                1,
+            ];
+            let scales17 = [
+                4096,
+                2048,
+                2048,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                512,
+                256,
+                256,
+                256,
+                256,
+                256,
+                128,
+                64,
+                64,
+                256,
+                128,
+                64,
+                64,
+                64,
+                32,
+                32,
+                16,
+                16,
+                8,
+                4,
+                4,
+                128,
+                64,
+                32,
+                16,
+                8,
+                4,
+                4,
+                4,
+                4,
+                1,
+            ];
+            let scales113 = [
+                4096,
+                2048,
+                2048,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                1024,
+                512,
+                256,
+                256,
+                256,
+                256,
+                256,
+                128,
+                64,
+                64,
+                256,
+                128,
+                64,
+                64,
+                64,
+                32,
+                32,
+                16,
+                16,
+                8,
+                4,
+                4,
+                128,
+                64,
+                32,
+                16,
+                8,
+                4,
+                4,
+                4,
+                4,
+                256,
+                128,
+                64,
+                32,
+                16,
+                8,
+                4,
+                4,
+                1,
+            ];
+            let scales118 = [4, 4, 4, 4, 4, 4, 4, 4, 4, 1];
+            let layerScale = 1;
+            let minecraft_version = document.getElementById("minecraftVersion")
+                .value;
+            {
+                let scales;
+                let i;
+                if (minecraft_version == "1.3") {
+                    scales = scales13;
+                    i = 33;
+                } else if (minecraft_version == "1.7") {
+                    scales = scales17;
+                    i = 43;
+                } else if (
+                    minecraft_version == "1.13" ||
+                    minecraft_version == "1.14" ||
+                    minecraft_version == "1.15" ||
+                    minecraft_version == "1.16" ||
+                    minecraft_version == "TreasureMap13" ||
+                    minecraft_version == "TreasureMap15"
+                ) {
+                    scales = scales113;
+                    i = 51;
+                } else if (
+                    minecraft_version == "1.18" ||
+                    minecraft_version == "TreasureMap18"
+                ) {
+                    scales = scales118;
+                    i = 8;
+                } else {
+                    console.error(
+                        "Unknown Minecraft version: " + minecraft_version
+                    );
+                    i = 0;
+                }
+                document.getElementById("lastLayer").value = i;
+                if (i >= 0 && i <= 43) {
+                    layerScale = scales[i];
+                }
+                if (i >= 100 && i <= 143) {
+                    layerScale = scales[i - 100];
+                }
+                if (i == 170) {
+                    layerScale = 4;
+                }
+                if (i >= 200 && i <= 243) {
+                    layerScale = scales[i - 200];
+                }
+                if (
+                    minecraft_version == "TreasureMap13" ||
+                    minecraft_version == "TreasureMap15" ||
+                    minecraft_version == "TreasureMap18"
+                ) {
+                    layerScale = 2;
+                }
+
+                map.currentScale = layerScale;
+                let ws = document.getElementById("worldSeed");
+                let y_offset = get_y_offset();
+                Game.clear(
+                    "mc=" +
+                        minecraft_version +
+                        ";y=" +
+                        y_offset +
+                        ";seed=" +
+                        ws.value
+                );
+                Game.setActiveLayer(i);
+            }
+            function randomSeed() {
+                // Generate random 64-bit integer
+                // 64 bits = 8 bytes = 16 hex characters
+                // https://stackoverflow.com/a/66993210
+                const hexString = Array(16)
+                    .fill()
+                    .map(() => Math.round(Math.random() * 0xf).toString(16))
+                    .join("");
+
+                let randomBigInt = BigInt(`0x${hexString}`);
+                // Make it signed by subtracting 2^63
+                randomBigInt -= BigInt(2) ** BigInt(63);
+                return randomBigInt.toString();
+            }
+            let oldSeed;
+            {
+                let seed = document.getElementById("worldSeed").value;
+                if (seed == "") {
+                    setSeed(randomSeed());
+                }
+            }
+            document
+                .getElementById("add2ToTheN")
+                .addEventListener("input", function(event) {
+                    let value = document.getElementById("add2ToTheN").value | 0;
+                    if (value >= 0 && value <= 64) {
+                    } else {
+                        value = 0;
+                    }
+                    document.getElementById("buttonSub2ToThe").innerHTML =
+                        "-2^" + value;
+                    document.getElementById("buttonAdd2ToThe").innerHTML =
+                        "+2^" + value;
+                });
+            document
+                .getElementById("lastLayer")
+                .addEventListener("input", function(event) {
+                    updateWithLayerPlus(0);
+                });
+            document
+                .getElementById("lruCacheSize")
+                .addEventListener("input", function(event) {
+                    let new_cache_size =
+                        document.getElementById("lruCacheSize").value | 0;
+                    Game.setLruCacheSize(new_cache_size);
+                });
+            document
+                .getElementById("minecraftVersion")
+                .addEventListener("input", function(event) {
+                    let new_v = document.getElementById("minecraftVersion")
+                        .value;
+                    changeMinecraftVersion(new_v);
+                });
+            function changeMinecraftVersion(new_v) {
+                // Try to be clever about changing the layer
+                // Make 1.16 the "central" version, so if neither of old_v or new_v is 1.16, first change to 1.16
+                // This way we only need to implement conversions from/to 1.16.
+                // This will probably break on the next biome update after 1.18 because the transition from 1.18 to 1.16 loses some information
+                let old_v = minecraft_version;
+                if (old_v != "1.16" && new_v != "1.16") {
+                    // TODO: add optional argument to avoid the redundant Game.clear in the first call?
+                    changeMinecraftVersion("1.16");
+                    changeMinecraftVersion(new_v);
+                    return;
+                }
+
+                minecraft_version = new_v;
+                let lastLayer = document.getElementById("lastLayer").value | 0;
+
+                if (old_v == "1.16") {
+                    if (new_v == "1.3") {
+                        // Set layer to 33
+                        updateWithLayerPlus(33 - lastLayer);
+                    }
+                    if (new_v == "1.7") {
+                        if (lastLayer == 51) {
+                            updateWithLayerPlus(43 - 51);
+                        }
+                        if (lastLayer == 50) {
+                            updateWithLayerPlus(42 - 50);
+                        }
+                        if (lastLayer >= 43 && lastLayer <= 49) {
+                            updateWithLayerPlus(42 - lastLayer);
+                        }
+                        // Keep other layers
+                    }
+                    if (
+                        new_v == "1.13" ||
+                        new_v == "1.14" ||
+                        new_v == "1.15" ||
+                        new_v == "TreasureMap13" ||
+                        new_v == "TreasureMap15"
+                    ) {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                    if (new_v == "1.18" || new_v == "TreasureMap18") {
+                        // Set layer to 8
+                        // TODO: set to 9 because that one is high resolution
+                        updateWithLayerPlus(8 - lastLayer);
+                    }
+                }
+
+                if (new_v == "1.16") {
+                    if (old_v == "1.3") {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                    if (old_v == "1.7") {
+                        if (lastLayer == 43) {
+                            updateWithLayerPlus(51 - 43);
+                        } else {
+                            //if (lastLayer == 42)
+                            updateWithLayerPlus(50 - lastLayer);
+                        }
+                    }
+                    if (old_v == "1.13" || old_v == "1.14" || old_v == "1.15") {
+                        // Keep same layer
+                    }
+                    if (
+                        old_v == "TreasureMap13" ||
+                        old_v == "TreasureMap15" ||
+                        old_v == "TreasureMap18"
+                    ) {
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                    if (old_v == "1.18") {
+                        // TODO: if layer == 8, set to 50, if 9, set to 51
+                        // Set layer to 51
+                        updateWithLayerPlus(51 - lastLayer);
+                    }
+                }
+
+                let ws = document.getElementById("worldSeed");
+                let y_offset = get_y_offset();
+                // Cancel all pending worker tasks
+                work1.cancelAllPending();
+
+                Game.clear(
+                    "mc=" +
+                        minecraft_version +
+                        ";y=" +
+                        y_offset +
+                        ";seed=" +
+                        ws.value
+                );
+            }
+            function updateWithLayerPlus(x) {
+                // Change layer and adjust scale accordingly
+                // This sometimes doesn't work: if the new scale is greater than the maximum scale allowed by the Game,
+                // it will be zoomed in a bit, so going back to the previous layer will not leave the camera with the same zoom
+                let i = document.getElementById("lastLayer").value | 0;
+                i += x;
+                let minecraft_version = document.getElementById(
+                    "minecraftVersion"
+                ).value;
+                let scales;
+                let num_layers;
+                if (minecraft_version == "1.3") {
+                    scales = scales13;
+                    num_layers = 33;
+                } else if (minecraft_version == "1.7") {
+                    scales = scales17;
+                    num_layers = 43;
+                } else if (
+                    minecraft_version == "1.13" ||
+                    minecraft_version == "1.14" ||
+                    minecraft_version == "1.15" ||
+                    minecraft_version == "1.16" ||
+                    minecraft_version == "TreasureMap13" ||
+                    minecraft_version == "TreasureMap15"
+                ) {
+                    scales = scales113;
+                    num_layers = 51;
+                } else if (
+                    minecraft_version == "1.18" ||
+                    minecraft_version == "TreasureMap18"
+                ) {
+                    scales = scales118;
+                    num_layers = 9;
+                } else {
+                    console.error(
+                        "Unknown Minecraft version: " + minecraft_version
+                    );
+                }
+                if (
+                    minecraft_version == "TreasureMap13" ||
+                    minecraft_version == "TreasureMap15"
+                ) {
+                    let newScale = 2;
+                    if (Game.camera) {
+                        Game.camera.resolutionChange(newScale / layerScale);
+                    }
+                    layerScale = newScale;
+                    //Game.clear();
+                    Game.setActiveLayer(51);
+                    document.getElementById("lastLayer").value = 51;
+                } else if (minecraft_version == "TreasureMap18") {
+                    let newScale = 2;
+                    if (Game.camera) {
+                        Game.camera.resolutionChange(newScale / layerScale);
+                    }
+                    layerScale = newScale;
+                    //Game.clear();
+                    // TODO: set to 9 because that one is high resolution
+                    Game.setActiveLayer(8);
+                    document.getElementById("lastLayer").value = 8;
+                } else if (minecraft_version == "1.18") {
+                    if (i >= 0 && i <= num_layers) {
+                        let newScale = scales[i];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                    if (i >= 50 && i <= 51) {
+                        let newScale = 4;
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                } else {
+                    if (i >= 0 && i <= num_layers) {
+                        let newScale = scales[i];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                    if (i >= 100 && i <= 143) {
+                        let newScale = scales[i - 100];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                    if (i == 170) {
+                        let newScale = 4;
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                    if (i >= 200 && i <= 243) {
+                        let newScale = scales[i - 200];
+                        if (Game.camera) {
+                            Game.camera.resolutionChange(newScale / layerScale);
+                        }
+                        layerScale = newScale;
+                        //Game.clear();
+                        Game.setActiveLayer(i);
+                        document.getElementById("lastLayer").value = i;
+                    }
+                }
+                map.currentScale = layerScale;
+            }
+            function seedPlus2ToThe48(add_not_sub) {
+                let ws = document.getElementById("worldSeed");
+                let n = document.getElementById("add2ToTheN");
+                if (ws && n) {
+                    /*
+                    let seed = ctypes.Int64(ws.value);
+                    seed += ctypes.Int64("0x100000000");
+                    ws.value = seed.toString();
+                    */
+                    // Ok, I'll just implement it in Rust
+                    return Rust.slime_seed_finder_web.then(
+                        function(slime_seed_finder_web) {
+                            let new_value;
+                            if (add_not_sub) {
+                                new_value = slime_seed_finder_web.add_2_n(
+                                    ws.value,
+                                    n.value | 0
+                                );
+                            } else {
+                                new_value = slime_seed_finder_web.sub_2_n(
+                                    ws.value,
+                                    n.value | 0
+                                );
+                            }
+                            setSeed(new_value);
+                        },
+                        function(err) {
+                            console.error(err);
+                        }
+                    );
+                }
+            }
+            function similarBiomeSeed() {
+                let ws = document.getElementById("worldSeed");
+                if (ws) {
+                    // Ok, I'll just implement it in Rust
+                    return Rust.slime_seed_finder_web.then(
+                        function(slime_seed_finder_web) {
+                            let new_value = slime_seed_finder_web.similar_biome_seed(
+                                ws.value
+                            );
+                            setSeed(new_value);
+                        },
+                        function(err) {
+                            console.error(err);
+                        }
+                    );
+                }
+            }
+            function get_y_offset() {
+                // TODO: make this depend on the version and on the layer
+                // Before 1.18, always return 0
+                // In 1.18, return [0, 95] if layer scale 4, return [0, 383] if layer scale 1
+                // y-offset; y_level
+                // 0; -64
+                // 16; 0
+                // 32; 64
+                // 95; 316
+                let y_level = document.getElementById("y_offset").value || 64;
+                y_level = y_level | 0;
+                let y_offset = Math.floor((y_level + 64) / 4);
+                let out_of_bounds = false;
+                if (y_offset < 0) {
+                    y_offset = 0;
+                    out_of_bounds = true;
+                }
+                if (y_offset > 95) {
+                    y_offset = 95;
+                    out_of_bounds = true;
+                }
+                if (out_of_bounds) {
+                    let actual_y_level = y_offset * 4 - 64;
+                    document.getElementById("y_offset").value = actual_y_level;
+                }
+
+                return y_offset;
+            }
+            function pregenerateLayers() {
+                let i = document.getElementById("lastLayer").value | 0;
+                if (i != 43) {
+                    alert("Please go to layer 43 first");
+                    return;
+                }
+                // Only works well when current layer == 43
+                for (let j = 0; j <= 43; j++) {
+                    Game._drawLayer(j);
+                }
+            }
+
+            // Hacks to make workers return promises
+            // https://codeburst.io/promises-for-the-web-worker-9311b7831733
+            const resolves = {};
+            const rejects = {};
+            let globalMsgId = 0;
+
+            // Activate calculation in the worker, returning a promise
+            function sendMsg(payload, worker) {
+                //console.log("main script, sendMsg to ", worker, ": ", payload);
+                const msgId = globalMsgId++;
+                const msg = {
+                    id: msgId,
+                    payload,
+                };
+
+                return new Promise(function(resolve, reject) {
+                    // save callbacks for later
+                    resolves[msgId] = resolve;
+                    rejects[msgId] = reject;
+
+                    worker.postMessage(msg);
+                });
+            }
+
+            // Handle incoming calculation result
+            function handleMsg(msg) {
+                const { id, err, payload } = msg.data;
+
+                if (payload) {
+                    const resolve = resolves[id];
+                    if (resolve) {
+                        resolve(payload);
+                    }
+                } else {
+                    // error condition
+                    const reject = rejects[id];
+                    if (reject) {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            reject("Got nothing");
+                        }
+                    }
+                }
+
+                // purge used callbacks
+                delete resolves[id];
+                delete rejects[id];
+            }
+
+            // Wrapper class
+            function Wrapper() {
+                this.maxWorkers = navigator.hardwareConcurrency || 4;
+                console.log("Creating " + this.maxWorkers + " workers");
+                this.workers = Array(this.maxWorkers);
+                for (let i = 0; i < this.maxWorkers; i++) {
+                    this.workers[i] = new Worker("./worker_b.js");
+                    this.workers[i].onmessage = handleMsg;
+                    this.workers[i].numHandlingMsg = 0;
+                }
+                // Each worker will have 2 pending messages: one that they are currently processing, and another one in
+                // the queue so that when they send the result of the first one to the main thread, they can
+                // immediately start working on the second one without waiting for a reply from the main thread.
+                // Using a value of 1 would make cancelling tasks a bit faster, but that shouldn't be a big deal.
+                this.maxPendingMessagesPerWorker = 2;
+                // Queue to hold messages while workers are busy
+                this.messageQueue = [];
+            }
+            Wrapper.prototype.getAvailableWorkerId = function() {
+                // Return the worker with the lowest number of pending tasks, assuming it will be the first one to
+                // become available. If all workers are at the limit, return -1
+                let lowestLoadWorkerIndex = -1;
+                let lowestLoad = this.maxPendingMessagesPerWorker;
+
+                for (let i = 0; i < this.workers.length; i++) {
+                    const currentLoad = this.workers[i].numHandlingMsg;
+
+                    if (currentLoad === 0) {
+                        // A worker with no pending messages found, use it immediately
+                        return i;
+                    }
+
+                    if (currentLoad < lowestLoad) {
+                        lowestLoad = currentLoad;
+                        lowestLoadWorkerIndex = i;
+                    }
+                }
+
+                return lowestLoadWorkerIndex;
+            };
+            Wrapper.prototype.sendMsg = function(payload) {
+                // Send the message to an available worker, or enqueue the message until a worker is available.
+                // Enqueued messages are useful because they can be cancelled.
+                const availableWorkerIndex = this.getAvailableWorkerId();
+
+                if (availableWorkerIndex !== -1) {
+                    // An available worker was found, send the message to it
+                    payload.threadId = availableWorkerIndex;
+                    this.workers[availableWorkerIndex].numHandlingMsg++;
+
+                    return sendMsg(
+                        payload,
+                        this.workers[availableWorkerIndex]
+                    ).finally(() => {
+                        this.workers[availableWorkerIndex].numHandlingMsg--;
+                        // If there are some messages in the queue, this worker can handle one of them
+                        this.dequeueAndSendMsg();
+                    });
+                } else {
+                    // All workers are at max capacity, queue the message
+                    return new Promise((resolve, reject) => {
+                        this.messageQueue.push({ payload, resolve, reject });
+                    });
+                }
+            };
+            Wrapper.prototype.dequeueAndSendMsg = function() {
+                if (this.messageQueue.length > 0) {
+                    const messageInfo = this.messageQueue.shift();
+                    const { payload, resolve, reject } = messageInfo;
+                    this.sendMsg(payload)
+                        .then(resolve)
+                        .catch(reject);
+                }
+            };
+            Wrapper.prototype.cancelAllPending = function() {
+                while (this.messageQueue.length > 0) {
+                    const messageInfo = this.messageQueue.shift();
+                    const { reject } = messageInfo;
+                    reject("Cancelled");
+                }
+            };
+            const work1 = new Wrapper();
+
+            let FRAG_SIZE = 256;
+            // Generate fragment
+            // This function should return a promise, which is interpreted as
+            // a HTML canvas
+            function generateFragmentB(layer, fx, fy) {
+                if (window.Worker) {
+                    let ws = document.getElementById("worldSeed");
+                    // Since js doesnt support 64 bit ints, we just pass
+                    // the string to the Rust code, it will be parsed there
+                    let seed = ws.value;
+                    let actualLastLayer =
+                        document.getElementById("lastLayer").value | 0;
+                    let lastLayer = layer;
+                    if (lastLayer != actualLastLayer) {
+                        return Promise.reject(
+                            new Error(
+                                "Asked to generate layer " +
+                                    lastLayer +
+                                    " when last layer is " +
+                                    actualLastLayer
+                            )
+                        );
+                    }
+                    let minecraft_version = document.getElementById(
+                        "minecraftVersion"
+                    ).value;
+                    let y_offset = get_y_offset();
+
+                    return work1
+                        .sendMsg({
+                            version: minecraft_version,
+                            fx: fx,
+                            fy: fy,
+                            seed: seed,
+                            FRAG_SIZE: FRAG_SIZE,
+                            lastLayer: lastLayer,
+                            y_offset: y_offset,
+                        })
+                        .then(function(e) {
+                            /*
+                        console.log("Copying to canvas: " + fx + ", " + fy);
+                        */
+                            // Create off-screen canvas
+                            let c = document.createElement("canvas");
+                            c.width = FRAG_SIZE;
+                            c.height = FRAG_SIZE;
+                            let ctx = c.getContext("2d");
+                            // Generate fragment
+                            let imageData = ctx.createImageData(
+                                FRAG_SIZE,
+                                FRAG_SIZE
+                            );
+                            //imageData.data = rvec; // please
+                            for (
+                                let i = 0;
+                                i < FRAG_SIZE * FRAG_SIZE * 4;
+                                i++
+                            ) {
+                                imageData.data[i] = e.rvec[i];
+                            }
+                            ctx.putImageData(imageData, 0, 0);
+                            return c;
+                        });
+                } else {
+                    return Rust.slime_seed_finder_web.then(
+                        function(slime_seed_finder_web) {
+                            let ws = document.getElementById("worldSeed");
+                            // Since js doesnt support 64 bit ints, we just pass
+                            // the string to the Rust code, it will be parsed there
+                            let seed = ws.value;
+                            console.log("Seed: " + seed);
+                            console.log(
+                                "Generating fragment: " + fx + ", " + fy
+                            );
+                            let rvec = slime_seed_finder_web.generate_fragment(
+                                fx,
+                                fy,
+                                seed,
+                                FRAG_SIZE
+                            );
+                            console.log("Copying to canvas: " + fx + ", " + fy);
+                            // Create off-screen canvas
+                            let c = document.createElement("canvas");
+                            c.width = FRAG_SIZE;
+                            c.height = FRAG_SIZE;
+                            let ctx = c.getContext("2d");
+                            // Generate fragment
+                            let imageData = ctx.createImageData(
+                                FRAG_SIZE,
+                                FRAG_SIZE
+                            );
+                            //imageData.data = rvec; // please
+                            for (
+                                let i = 0;
+                                i < FRAG_SIZE * FRAG_SIZE * 4;
+                                i++
+                            ) {
+                                imageData.data[i] = rvec[i];
+                            }
+                            ctx.putImageData(imageData, 0, 0);
+                            return c;
+                        },
+                        function(err) {
+                            console.error(err);
+                        }
+                    );
+                }
+            }
+
+            // Used for testing
+            function numGeneratingFragments() {
+                return map.generating[Game.activeLayer].size;
+            }
+
+            let color_to_biome_id_map = null;
+            let biome_id_to_biome_name_map = null;
+            function initializeColorToBiomeIdMap() {
+                return Rust.slime_seed_finder_web.then(
+                    function(slime_seed_finder_web) {
+                        color_to_biome_id_map = slime_seed_finder_web.get_color_to_biome_map();
+                        biome_id_to_biome_name_map = slime_seed_finder_web.get_biome_id_to_biome_name_map();
+                    },
+                    function(err) {
+                        console.error(err);
+                    }
+                );
+            }
+
+            function showBiomeAtCursor(color) {
+                if (!color) {
+                    return;
+                }
+                if (!color_to_biome_id_map || !biome_id_to_biome_name_map) {
+                    return;
+                }
+                let position_div = document.getElementById("position_info");
+                let biome_id = color_to_biome_id_map.get(color);
+                let biome_name = biome_id_to_biome_name_map.get(biome_id + "");
+                position_div.innerHTML +=
+                    " --- Biome: [" + biome_id + "] " + biome_name;
+            }
+
+            map.generateFragment = generateFragmentB;
+
+            let ws = document.getElementById("worldSeed");
+            oldSeed = ws.value;
+            // Only regenerate map if the input has been static for 500ms
+            ws.oninput = debounced(500, function() {
+                if (ws.value != oldSeed) {
+                    // Regenerate map when seed changes
+                    let y_offset = get_y_offset();
+                    Game.clear(
+                        "mc=" +
+                            minecraft_version +
+                            ";y=" +
+                            y_offset +
+                            ";seed=" +
+                            ws.value
+                    );
+                    oldSeed = ws.value;
+                }
+            });
+
+            let y_offset_elem = document.getElementById("y_offset");
+            let old_y_offset = get_y_offset();
+            // Only regenerate map if the input has been static for 500ms
+            y_offset_elem.oninput = debounced(500, function() {
+                let y_offset = get_y_offset();
+                if (y_offset != old_y_offset) {
+                    // Regenerate map when seed changes
+                    Game.clear(
+                        "mc=" +
+                            minecraft_version +
+                            ";y=" +
+                            y_offset +
+                            ";seed=" +
+                            ws.value
+                    );
+                    old_y_offset = y_offset;
+                }
+            });
+
+            function setSeed(seed) {
+                let ws = document.getElementById("worldSeed");
+                if (ws.value != seed) {
+                    // Instantly change the seed
+                    ws.value = seed;
+                    // Regenerate map when seed changes
+                    let y_offset = get_y_offset();
+                    Game.clear(
+                        "mc=" +
+                            minecraft_version +
+                            ";y=" +
+                            y_offset +
+                            ";seed=" +
+                            ws.value
+                    );
+                    oldSeed = ws.value;
+                }
+            }
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                Game.dirty = true;
+            }
+
+            window.addEventListener("resize", resize, false);
+            resize();
+            let lastLayer = document.getElementById("lastLayer").value | 0;
+            startGame(lastLayer, showBiomeAtCursor);
+            Game.afterInit = function() {
+                Game.showGrid = false;
+                document.getElementById("center_button").click();
+            };
+            initializeColorToBiomeIdMap();
+        </script>
+    </body>
+</html>
